@@ -265,9 +265,6 @@ set_option linter.unusedSectionVars false
 
 variable {E : Type} [Field E] [NumberField E] [StarRing E] {K : Type} [Field K] {a b : ℕ}
 
-theorem intAt_natCast (P : HeightOneSpectrum (𝓞 E)) (k : ℕ) : IntAt P (k : E) := by
-  simpa using IntAt.coe P (k : 𝓞 E)
-
 end FrProd
 
 section OffAdmCh
