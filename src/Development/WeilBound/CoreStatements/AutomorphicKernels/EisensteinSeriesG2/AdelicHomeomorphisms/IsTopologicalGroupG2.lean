@@ -14,7 +14,7 @@ open GlobalTheory.WeilM GlobalTheory.IndefiniteRowSideFullHecke.WeilTensorModels
 
 variable {F E : Type} [Field F] [NumberField F] [Field E] [NumberField E] [Algebra F E]
 
-instance fdAE : FiniteDimensional F E := Module.Finite.of_restrictScalars_finite ℚ F E
+local instance fdAE : FiniteDimensional F E := Module.Finite.of_restrictScalars_finite ℚ F E
 
 instance modTopAE : IsModuleTopology (AF F) (AE F E) := ⟨rfl⟩
 

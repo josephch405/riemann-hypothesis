@@ -44,7 +44,7 @@ theorem star'_star' (h : IsCMExt F E σ) (P : PPol σ r) (x : Fld P) : star' P (
   change g (AdjoinRoot.mk P.1 p) = AdjoinRoot.mk P.1 p
   rw [key, Polynomial.hom_eval₂, hg, hgα]
 
-instance finiteFE : Module.Finite F E := Module.Finite.of_restrictScalars_finite ℚ F E
+local instance finiteFE : Module.Finite F E := Module.Finite.of_restrictScalars_finite ℚ F E
 
 instance finiteFL (P : PPol σ r) : Module.Finite F (Fld P) := Module.Finite.trans E (Fld P)
 
