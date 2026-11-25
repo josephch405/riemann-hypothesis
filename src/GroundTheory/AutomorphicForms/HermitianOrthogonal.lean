@@ -15,7 +15,7 @@ section Conj
 
 variable {F E : Type*} [Field F] [Field E] [Algebra F E] [Algebra.IsQuadraticExtension F E]
 
-instance finiteDimensional_of_isQuadraticExtension : FiniteDimensional F E :=
+local instance finiteDimensional_of_isQuadraticExtension : FiniteDimensional F E :=
   Module.finite_of_finrank_eq_succ (Algebra.IsQuadraticExtension.finrank_eq_two F E)
 
 theorem conjHom_apply (x : E) : conjHom F E x = conj F E x :=
