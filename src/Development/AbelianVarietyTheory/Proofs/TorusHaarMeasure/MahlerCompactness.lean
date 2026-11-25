@@ -47,15 +47,6 @@ theorem hermC_stab {γ : Matrix (Fin r) (Fin r) E}
   rw [hermC_expand, hermC_expand]
   simp only [hγ, one_mulVec]
 
-theorem gram_stab {γ : Matrix (Fin r) (Fin r) E}
-    (hγ : ∀ x y, herm X.Gm (γ *ᵥ x) (γ *ᵥ y) = herm X.Gm x y) (τ : E →+* ℂ)
-    (Y : Matrix (Fin r) (Fin r) ℂ) : gram τ X.Gm (γ.map τ * Y) = gram τ X.Gm Y := by
-  ext a b
-  simp only [gram, of_apply]
-  have hc : ∀ c, col (γ.map τ * Y) c = (γ.map τ) *ᵥ col Y c := by
-    intro c; funext i; simp [col, Matrix.mul_apply, mulVec, dotProduct]
-  rw [hc, hc, hermC_stab X hγ]
-
 open NumberField Module in
 open Matrix in
 open scoped ComplexConjugate in
@@ -74,41 +65,6 @@ theorem _root_.GlobalTheory.FlagMahler.inv_lact (γ : GL (Fin r) E) (τ : E →+
   congr 1
   ext i
   exact (RingHom.map_mulVec τ _ v i).symm
-
-theorem entry_bound {τ : E →+* ℂ} {Y : Matrix (Fin r) (Fin r) ℂ} (hY : Y.det ≠ 0)
-    (hg : gram τ X.Gm Y = diagonal fun a : Fin r => ((sgn X.p0 (a : ℕ) : ℝ) : ℂ)) (l b : Fin r) :
-    ‖Y l b‖ ≤ ∑ k, ‖(X.Gm.map τ)⁻¹ k l‖ * ‖Y⁻¹ b k‖ := by
-  set Gt := X.Gm.map τ with hGtdef
-  have hGt : Gt.det ≠ 0 := by
-    have e : (X.Gm.map τ).det = τ X.Gm.det := by rw [RingHom.map_det]; rfl
-    rw [hGtdef, e]; exact (map_ne_zero τ).mpr X.Gm_det
-  have hGG : Gt * Gt⁻¹ = 1 := mul_nonsing_inv _ (isUnit_iff_ne_zero.mpr hGt)
-  set q : Fin r → ℂ := fun k => conj (Gt⁻¹ k l) with hq
-  have h1 : hermC τ X.Gm (col Y b) q = Y l b := by
-    have e : ∀ a, ∑ c, Y a b * τ (X.Gm a c) * conj (q c) = Y a b * (Gt * Gt⁻¹) a l := by
-      intro a
-      rw [Matrix.mul_apply, Finset.mul_sum]
-      refine Finset.sum_congr rfl fun c _ => ?_
-      simp only [hq, Complex.conj_conj, hGtdef, Matrix.map_apply]
-      ring
-    simp only [hermC, col]
-    simp_rw [e, hGG, Matrix.one_apply, mul_ite, mul_one, mul_zero, Finset.sum_ite_eq',
-      Finset.mem_univ, if_true]
-  have h2 := IntegralBasisReduction.hermC_normal X hY _ hg (col Y b) q
-  have h3 : Y⁻¹ *ᵥ col Y b = Pi.single b 1 := by
-    have : col Y b = Y *ᵥ Pi.single b 1 := by funext i; simp [col]
-    rw [this, mulVec_mulVec, nonsing_inv_mul _ (isUnit_iff_ne_zero.mpr hY), one_mulVec]
-  rw [h3] at h2
-  simp only [Pi.single_apply, mul_ite, mul_one, mul_zero, ite_mul, zero_mul, Finset.sum_ite_eq',
-    Finset.mem_univ, if_true] at h2
-  rw [← h1, h2, norm_mul, Complex.norm_conj]
-  have hs : ‖(((sgn X.p0 (b : ℕ) : ℝ) : ℂ))‖ = 1 := by
-    unfold sgn; split_ifs <;> simp
-  rw [hs, one_mul]
-  simp only [mulVec, dotProduct]
-  refine (norm_sum_le _ _).trans (le_of_eq ?_)
-  refine Finset.sum_congr rfl fun k _ => ?_
-  rw [norm_mul, hq, Complex.norm_conj, mul_comm]
 
 open NumberField Module in
 open Matrix in

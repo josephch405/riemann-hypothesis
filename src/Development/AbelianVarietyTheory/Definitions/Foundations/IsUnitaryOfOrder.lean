@@ -178,8 +178,6 @@ structure IsEtaT (χ : HChar H.E) : Prop where
   res : χ.ResEta H.F
   inf : χ.HasInf (embPsi H) (fun _ => 1)
 
-def etaAlg (χ : HChar H.E) (v : HeightOneSpectrum (𝓞 H.E)) : ℂ := χ.valTw (1 / 2) v
-
 def EtaTExists : Prop := ∃ χ : HChar H.E, IsEtaT H χ
 
 structure IsChiPsi (χ : HChar H.E) : Prop where
@@ -209,8 +207,6 @@ structure IsMu0 (P : PiBar H) (W : Omg H) (e : R.Psi → ℚ) (j : ℕ) (χ : HC
   tame : ∀ v, χ.TameAt v
   atg : ∀ (k : Fin 2) (w : HeightOneSpectrum (𝓞 H.E)), P.Div k w → ∀ (a : ℕ) (ha : a.Coprime (H.g k)) (x : H.Eˣ),
     (x : H.E) = (a : H.E) → χ.locK w x = (W.om k (ZMod.unitOfCoprime a ha) ^ (2 * (j + 1)))⁻¹
-
-def Mu0Exists (P : PiBar H) (W : Omg H) (e : R.Psi → ℚ) (j : ℕ) : Prop := ∃ χ : HChar H.E, IsMu0 P W e j χ
 
 structure IsDelta (p : ℕ) (χ : HChar H.E) : Prop where
   fin : ∃ n : ℕ, 0 < n ∧ χ.OrderDvd n
@@ -247,14 +243,6 @@ variable {L : Type} [Field L] [NumberField L] {F : Type} [Field F] [NumberField 
 
 namespace HChar
 
-theorem resFin_apply (χ : HChar L) (v : HeightOneSpectrum (𝓞 F)) (k : Fˣ) :
-    χ.resFin v k = ∏ P ∈ aboveF (L := L) F v, χ.locK P (upF F k) := by
-  simp [HChar.resFin]
-
-theorem resInf_apply (χ : HChar L) (w : InfinitePlace F) (k : Fˣ) :
-    χ.resInf w k = ∏ w' ∈ aboveInf (L := L) F w, χ.locInf w' (atInf w' (upF F k)) := by
-  simp [HChar.resInf]
-
 theorem LevelLe.mul {χ χ' : HChar L} {v : HeightOneSpectrum (𝓞 L)} {n : ℕ} (h : χ.LevelLe v n) (h' : χ'.LevelLe v n) :
     (χ * χ').LevelLe v n := fun x hx hx' => by
   change χ.1 (localIdele L v x) * χ'.1 (localIdele L v x) = 1
@@ -272,24 +260,6 @@ end HChar
 end General
 
 variable {R : Ranks} {H : Formalism.BasicNotions.Host R}
-
-theorem isUnitAt_nat {p a : ℕ} {w : HeightOneSpectrum (𝓞 H.E)} (hw : OverP H p w) (ha : a.Coprime p) {x : H.Eˣ}
-    (hx : (x : H.E) = (a : H.E)) : IsUnitAt w (atFin w x) := by
-  have hna : ((a : ℕ) : 𝓞 H.E) ∉ w.asIdeal := by
-    intro hmem
-    obtain ⟨u, v, huv⟩ := (Nat.isCoprime_iff_coprime.mpr ha)
-    have h1 : (1 : 𝓞 H.E) ∈ w.asIdeal := by
-      have e : (1 : 𝓞 H.E) = (u : 𝓞 H.E) * ((a : ℕ) : 𝓞 H.E) + (v : 𝓞 H.E) * ((p : ℕ) : 𝓞 H.E) := by
-        have := congrArg (fun z : ℤ => (z : 𝓞 H.E)) huv
-        push_cast at this
-        exact this.symm
-      rw [e]
-      exact w.asIdeal.add_mem (w.asIdeal.mul_mem_left _ hmem) (w.asIdeal.mul_mem_left _ hw)
-    exact w.isPrime.ne_top ((Ideal.eq_top_iff_one _).mpr h1)
-  have h := valued_algebraMap_eq_one H.E w _ hna
-  show Valued.v (algebraMap H.E (w.adicCompletion H.E) (x : H.E)) = 1
-  rw [hx]
-  simpa using h
 
 theorem HChar.isUnitary_of_order {L : Type} [Field L] [NumberField L] {χ : HChar L} {n : ℕ} (hn : 0 < n) (h : χ.OrderDvd n) :
     χ.IsUnitary := fun x => by
