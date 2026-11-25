@@ -183,7 +183,6 @@ def AutomorphicGaloisAdmissible : Prop :=
 
 variable {N A}
 
-theorem weakA' (h : AutomorphicGaloisAdmissible N A) : AutomorphicGaloisAdmissible N A := h
 theorem weak' {D : D7} (h : AutomorphicGaloisAdmissible D.nd D.naut) : AutomorphicGaloisAdmissible D.nd D.naut := h
 
 end UpperTheory.GalN
