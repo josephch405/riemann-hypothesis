@@ -7,6 +7,7 @@ public import Development.WeilBound.CoreStatements.AmpleLineBundles.ExistsPoints
 
 @[expose] public section
 
+attribute [-instance] Formalism.L2.Pj.rulModule
 set_option maxSynthPendingDepth 1
 
 noncomputable section

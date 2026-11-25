@@ -18,6 +18,7 @@ set_option linter.unusedSectionVars false
 -- `Rules pts`), which the original module never saw. They divert instance searches on function types
 -- such as the degree sums `K → ℕ` below and make `exists_rel` time out at `whnf`.
 attribute [-instance] Formalism.L2.Pj.rulesCommRing Formalism.L2.Pj.rulesAlgebra Formalism.L2.Pj.rulesModule Formalism.L2.Pj.rulesSMul Formalism.L2.Pj.rulesAlgebraInt Formalism.L2.Pj.rulesModuleInt Formalism.L2.Pj.rulesTower
+attribute [-instance] Formalism.L2.Pj.rulModule
 
 namespace PositivityTheory.Xgp.W
 

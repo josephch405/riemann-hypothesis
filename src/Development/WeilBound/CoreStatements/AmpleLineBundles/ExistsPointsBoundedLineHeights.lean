@@ -5,6 +5,7 @@ public import GroundTheory.HeightsAndTheta.Heights.HeightsOfSets.Bundle0005
 
 @[expose] public section
 
+attribute [-instance] Formalism.L2.Pj.rulModule
 noncomputable section
 
 open MvPolynomial ReciprocityTheory.ChartRestriction.G.Geo NumberField GlobalTheory.CompanionTheory.Ar GlobalTheory.CompanionTheory.Ar.Top GlobalTheory.CompanionTheory.Ar.Small GlobalTheory.CompanionTheory.Ar.Cmp GlobalTheory.CompanionTheory.Ar.Ht
