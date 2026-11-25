@@ -1659,9 +1659,6 @@ variable {k r : ℕ} {z z' : Fin (2 * r + k + 1) → ℂ} {Wp Wq : Type} [Normed
 theorem inv_mul_uh {g : Mx k r} (hg : g ∈ UH (Hpk k r)) : g⁻¹ * g = 1 :=
   Matrix.nonsing_inv_mul _ (WeylGroupFacts.isUnit_of_uh hg)
 
-theorem mul_inv_uh {g : Mx k r} (hg : g ∈ UH (Hpk k r)) : g * g⁻¹ = 1 :=
-  Matrix.mul_nonsing_inv _ (WeylGroupFacts.isUnit_of_uh hg)
-
 theorem glev_inv {i : Fin (r + 1)} {g : Mx k r} (hg : g ∈ Glev k r i) : g⁻¹ ∈ Glev k r i := by
   refine ⟨WeylGroupFacts.uh_inv hg.1, fun a ha => ⟨?_, ?_⟩⟩
   · conv_lhs => rw [← (hg.2 a ha).1]
