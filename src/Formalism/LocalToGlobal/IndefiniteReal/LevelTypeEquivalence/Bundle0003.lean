@@ -110,10 +110,6 @@ theorem mt_GQ (V : HSp D) {γ : GA D V} (hγ : γ ∈ GQ V) :
   obtain ⟨u, -, hu⟩ := hγ
   exact ⟨u.1, (congrArg Units.val hu).symm⟩
 
-theorem continuous_actO (S T : HSp D) (g : GA D S) (h : GA D T) : Continuous (actO S T g h) := by
-  unfold actO
-  exact (continuous_const.matrix_mul continuous_id).matrix_mul continuous_const
-
 end Formalism.IndefR.Eqv
 
 end
