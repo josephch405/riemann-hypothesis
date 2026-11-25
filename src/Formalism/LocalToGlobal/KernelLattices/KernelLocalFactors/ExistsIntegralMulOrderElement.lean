@@ -112,12 +112,6 @@ theorem primeTo_mono {I J : Ideal (𝓞 D.host.E)} (h : I ≤ J) {P : HeightOneS
   obtain ⟨t, ht, hn⟩ := hI
   exact ⟨t, h ht, hn⟩
 
-theorem primeTo_half {P : HeightOneSpectrum (𝓞 X.E)} (h : s.PrimeTo (differentIdeal (𝓞 D.host.K) (𝓞 D.host.E)) P) : s.PrimeTo D.host.𝔟 P := by
-  refine primeTo_mono s ?_ h
-  have h1 : differentIdeal (𝓞 D.host.K) (𝓞 D.host.E) = D.host.𝔟 * (D.host.conj • D.host.𝔟) := D.host.𝔟_spec.1
-  rw [h1]
-  exact (Ideal.mul_le_left : D.host.𝔟 * (D.host.conj • D.host.𝔟) ≤ D.host.𝔟)
-
 theorem half_ne_bot (D : D7) : D.host.𝔟 ≠ ⊥ := by
   intro h
   have := D.host.𝔟_spec.2
