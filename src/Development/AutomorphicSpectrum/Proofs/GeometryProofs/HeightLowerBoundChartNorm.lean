@@ -6,6 +6,7 @@ public import Development.AutomorphicSpectrum.Proofs.GeometryProofs.ExistsFormNo
 
 @[expose] public section
 
+attribute [-instance] Formalism.L2.Pj.rulModule
 noncomputable section
 
 namespace GlobalTheory.CompanionTheory.Ar.Ht.SecLow

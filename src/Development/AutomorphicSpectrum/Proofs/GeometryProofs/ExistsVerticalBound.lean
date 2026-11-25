@@ -5,6 +5,7 @@ public import Development.AutomorphicSpectrum.Definitions.GlobalGeometry.Bundle0
 
 @[expose] public section
 
+attribute [-instance] Formalism.L2.Pj.rulModule
 open MvPolynomial ReciprocityTheory.ChartRestriction.G.Geo NumberField GlobalTheory.CompanionTheory.Ar GlobalTheory.CompanionTheory.Ar.Top GlobalTheory.CompanionTheory.Ar.Small GlobalTheory.CompanionTheory.Ar.Cmp GlobalTheory.CompanionTheory.Ar.Ht
 
 noncomputable section

@@ -341,6 +341,7 @@ end
 
 -- bundled from Development.AutomorphicSpectrum.Proofs.GeometryProofs.ModelOverRamifiedExtension
 section
+attribute [-instance] Formalism.L2.Pj.rulModule
 open AlgebraicGeometry CategoryTheory NumberField MvPolynomial ReciprocityTheory.ChartRestriction.G ReciprocityTheory.ChartRestriction.G.Geo ReciprocityTheory.ChartRestriction.G.Geo.Tor ReciprocityTheory.ChartRestriction.G.Semi GlobalTheory.CompanionTheory.Ar GlobalTheory.CompanionTheory.Ar.Num GlobalTheory.CompanionTheory.Ar.Top
 open GroundTheory.Heights₂.Heights.NumbersDVR (pointIdeal segreVec IsFlagFrame IsFlagPair SameGenericFibre IsModelOver divCycle)
 open GroundTheory.Heights₂.Heights.IndefiniteRowSideFullHecke.NumbersDVR.Bundles (mseg fnField)
@@ -355,6 +356,7 @@ end
 
 -- bundled from Development.AutomorphicSpectrum.Proofs.GeometryProofs.MultihomogCoveringForms
 section
+attribute [-instance] Formalism.L2.Pj.rulModule
 open MvPolynomial
 
 namespace GlobalTheory.CompanionTheory.TwistLine
@@ -367,6 +369,7 @@ end
 
 -- bundled from Development.AutomorphicSpectrum.Proofs.GeometryProofs.MultihomogRatioInduction
 section
+attribute [-instance] Formalism.L2.Pj.rulModule
 open MvPolynomial
 
 namespace GlobalTheory.CompanionTheory.Ar.TwistLine
@@ -393,6 +396,7 @@ end
 
 -- bundled from Development.AutomorphicSpectrum.Proofs.GeometryProofs.OneMemChartLatNm
 section
+attribute [-instance] Formalism.L2.Pj.rulModule
 noncomputable section
 
 namespace GlobalTheory.CompanionTheory.Ar.Ht.Diag

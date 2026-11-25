@@ -187,6 +187,7 @@ end
 
 -- bundled from Development.AutomorphicSpectrum.Proofs.GeometryProofs.StandardSmoothChartOfNonzero
 section
+attribute [-instance] Formalism.L2.Pj.rulModule
 noncomputable section
 
 namespace GlobalTheory.CompanionTheory.Ar.SncRes.SegreForm
