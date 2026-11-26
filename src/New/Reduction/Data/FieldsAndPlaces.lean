@@ -223,16 +223,17 @@ lemma irreducible_cyclotomic : Irreducible (cyclotomic (P.q₁ s) P.K) := by
   let M : IntermediateField ℚ Ω := cycloField P.d
   let L : Type := CyclotomicField (P.q₁ s) M
   have hζ : IsPrimitiveRoot (zeta (P.q₁ s) M L) (P.q₁ s) := zeta_spec (P.q₁ s) M L
+  have hM := IsCyclotomicExtension.Rat.finrank P.d M
   have h_deg : P.d.totient * (P.q₁ s).totient ≤ P.d.totient * Module.finrank M L := by
-    rw [← IsCyclotomicExtension.Rat.finrank P.d M, Module.finrank_mul_finrank,
-      IsCyclotomicExtension.Rat.finrank P.d M]
+    rw [← hM, Module.finrank_mul_finrank, hM]
     exact totient_mul_totient_le_finrank _ _ (P.coprime_q₁_d s) hζ
       ((zeta_spec P.d ℚ M).map_of_injective (algebraMap M L).injective)
   -- Irreducibility descends along the embedding of `K` in `M` given by the Gauss sum.
   refine (monic (P.q₁ s) P.K).irreducible_of_irreducible_map
     (QuadField.embOfPrimitiveRoot P.d (zeta_spec P.d ℚ M)).toRingHom (cyclotomic (P.q₁ s) P.K) ?_
-  simpa using IsCyclotomicExtension.irreducible_cyclotomic_of_totient_le_finrank M L
-    (Nat.le_of_mul_le_mul_left h_deg (Nat.totient_pos.2 (NeZero.pos P.d)))
+  simpa only [map_cyclotomic] using
+    IsCyclotomicExtension.irreducible_cyclotomic_of_totient_le_finrank M L
+      (Nat.le_of_mul_le_mul_left h_deg (Nat.totient_pos.2 (NeZero.pos P.d)))
 
 /-- A chosen ℚ-algebra embedding of E = K(ζ), ζ of order q₁, into the cyclotomic field
 ℚ(ζ_{q₁d}). -/
@@ -267,6 +268,8 @@ the bijection that sends g to the place of a fixed embedding of E over K compose
 instance : CommGroup (P.Φ s) :=
   (Equiv.ofBijective (fun g : Gal(P.E s/P.K) ↦ InfinitePlace.mk (lift.comp g.toAlgHom).toRingHom)
     (by
+      let : Module.IsTorsionFree P.K (P.E s) := DivisionSemiring.to_moduleIsTorsionFree
+      let : Module.IsTorsionFree P.K ℂ := DivisionSemiring.to_moduleIsTorsionFree
       refine ⟨fun g g' h ↦ AlgEquiv.ext fun x ↦ ?_, fun w ↦ ?_⟩
       · exact lift.injective (AlgHom.congr_fun (P.algHom_eq_of_mk_eq s h) x)
       · -- All infinite places of `E` lie above the one infinite place of `K`, so they are
@@ -302,7 +305,10 @@ def ζ : P.E s := zeta (P.q₁ s) P.K (P.E s)
 the automorphism `New.Parameters.galOfPlace` s v. -/
 instance : CMType (P.E s) where
   Φ v := (lift.comp (P.galOfPlace s v).toAlgHom).toRingHom
-  mk_Φ := (P.galOfPlace s).left_inv
+  mk_Φ := by
+    let : Module.IsTorsionFree P.K (P.E s) := DivisionSemiring.to_moduleIsTorsionFree
+    let : Module.IsTorsionFree P.K ℂ := DivisionSemiring.to_moduleIsTorsionFree
+    exact (P.galOfPlace s).left_inv
 
 /-- For each infinite place `v` of `E`, the embedding `Φ v` of `E` into `ℂ` chosen at `v` restricts
 on `K` to the inclusion of `K` in `ℂ`: `Φ v (algebraMap K E x) = x`. -/
@@ -440,7 +446,7 @@ lemma d_pow_ne_neg_one (n : ℕ) : (P.d : ZMod P.q₀) ^ n ≠ -1 := by
   -- In `ZMod q₀` we have `2 (d + 1) = 0` and `d + 1 ≠ 0`, with `d = 2 w + 1` odd. So `d ^ 2 = 1`,
   -- and the powers of `d` are `1` and `d`, both different from `-1`.
   obtain ⟨w, hw⟩ : Odd P.d := P.d_prime.odd_of_ne_two (P.sixty_four_lt_d.trans' (by norm_num)).ne'
-  have hd : (P.d : ZMod P.q₀) = 2 * w + 1 := by simp [hw]
+  have hd : (P.d : ZMod P.q₀) = 2 * w + 1 := by rw [hw]; push_cast; rfl
   have h_zero : 2 * (P.d + 1 : ZMod P.q₀) = 0 :=
     mod_cast (natCast_eq_zero_iff _ _).2 P.q₀_dvd_and_not_dvd.1
   have h_ne : (P.d + 1 : ZMod P.q₀) ≠ 0 :=
@@ -451,7 +457,7 @@ lemma d_pow_ne_neg_one (n : ℕ) : (P.d : ZMod P.q₀) ^ n ≠ -1 := by
     -- If `1 = -1` then `2 = 0`, so `d + 1 = 2 (w + 1) = 0`.
     exact fun h_one ↦ h_ne (by linear_combination hd + (w + 1) * h_one)
   | one => exact fun h_one ↦ h_ne (by linear_combination h_one)
-  | more n ih _ => simpa [pow_add, h_sq] using ih
+  | more n ih _ => rwa [pow_add, h_sq, mul_one]
 
 /-- Let `ν` be an integer and suppose `q₀ ∣ q₁`. The place `P.placeOfInt s ν` of `E` is the one that
 corresponds to `ν mod q₁` under the isomorphism of the group of places with `(ℤ/q₁)ˣ` if `ν` is a
@@ -518,11 +524,13 @@ lemma prod_phi_eq_norm {y : P.E s} :
     ∏ v : NumberField.InfinitePlace (P.E s), Φ v y = Algebra.norm P.K y := by
   -- The norm is the product of the Galois conjugates `galOfPlace v y`; apply the embedding `Φ 1`,
   -- which fixes `K` and carries `galOfPlace v y` to `Φ v y`.
-  have h_conj (v : P.Φ s) : Φ v y = Φ 1 (P.galOfPlace s v y) := by simpa using phi_mul 1 v y
+  have h_conj (v : P.Φ s) : Φ v y = Φ 1 (P.galOfPlace s v y) := by
+    simpa only [one_mul] using phi_mul 1 v y
   have h_norm : algebraMap P.K (P.E s) (Algebra.norm P.K y) = ∏ v, P.galOfPlace s v y := by
     rw [Algebra.norm_eq_prod_automorphisms]
     exact ((P.galOfPlace s).toEquiv.prod_comp (· y)).symm
-  simp [← phi_algebraMap P s 1 (Algebra.norm P.K y), h_norm, h_conj]
+  rw [← phi_algebraMap P s 1 (Algebra.norm P.K y), h_norm, map_prod]
+  exact Finset.prod_congr rfl fun v _ ↦ h_conj v
 
 end New.Parameters
 
