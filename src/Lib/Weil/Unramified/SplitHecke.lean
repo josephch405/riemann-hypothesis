@@ -96,7 +96,13 @@ variable {π} {σ : A →+* A}
 lemma FinPlace.IsSplit.star (hw : w.IsSplit) : (Star.star w).IsSplit := star_injective.ne hw
 
 /-- The elements supported at `w, w̄` do not depend on which of the two places is named. -/
-lemma Gf.supportedOn_star : supportedOn n {star w} = supportedOn n {w} := by aesop
+lemma Gf.supportedOn_star : supportedOn n {star w} = supportedOn n {w} := by
+  ext g
+  simp only [mem_supportedOn, Set.mem_singleton_iff]
+  exact forall_congr' fun u ↦
+    ⟨fun h h1 h2 ↦ h (fun hu ↦ h2 (hu ▸ star_star w)) (fun hu ↦ h1 (star_injective hu)),
+     fun h h1 h2 ↦ h (fun hu ↦ h2 (congrArg star hu))
+       (fun hu ↦ h1 (star_injective (hu.trans (star_star w).symm)))⟩
 
 /-- For a finite set S of places containing neither w nor w̄, every vector of π fixed by the
 elements of K₀ with component 1 at all places of S is spherical at w. -/
@@ -157,7 +163,7 @@ lemma heckeSplit_star (hw : w.IsSplit) (j : ℕ) (hv : v ∈ sphericalAt π w) :
     intro g
     obtain ⟨a, ha⟩ := (range_ofSplitPlace hw.star).ge
       (supportedOn_star.ge (ofSplitPlace_mem_supportedOn (n := n) hw g))
-    exact ⟨a, by simp [φ, ha]⟩
+    exact ⟨a, by rw [MonoidHom.comp_apply, ha, atPlace_ofSplitPlace]⟩
   -- `φ` matches the maximal compact subgroups.
   have h_level (g : GL n (LocField (star w))) :
     φ g ∈ localIntGL n w ↔ g ∈ localIntGL n (star w) := by
@@ -176,9 +182,13 @@ lemma heckeSplit_star (hw : w.IsSplit) (j : ℕ) (hv : v ∈ sphericalAt π w) :
     -- `(φ g)⁻¹` is the conjugate transpose of `g`, which keeps the three conditions.
     -- (`-coe_units_inv`: the inverse must stay on the unit for `map_inv` to move it inside.)
     have h_mem : (φ g)⁻¹ ∈ basicDoubleCoset n w j ↔ g ∈ basicDoubleCoset n (star w) j := by
-      simp [φ, basicDoubleCoset, ← map_inv, atPlace_star (star_star _), -coe_units_inv,
-        ← mapMatrix_apply, ← map_det]
-      aesop
+      simp [φ, basicDoubleCoset, ← map_inv, atPlace_star (star_star _), -coe_units_inv]
+      have h_d : Valued.v ((g.val).map (conjLoc (star_star w))).det = Valued.v g.val.det := by
+        change Valued.v ((conjLoc (star_star w)).mapMatrix g.val).det = _
+        rw [← RingHom.map_det, v_conjLoc]
+      rw [h_d]
+      exact ⟨fun ⟨h1, h2, h3⟩ ↦ ⟨fun a b ↦ h1 b a, fun a b ↦ h2 b a, h3⟩,
+        fun ⟨h1, h2, h3⟩ ↦ ⟨fun a b ↦ h1 b a, fun a b ↦ h2 b a, h3⟩⟩
     exact Set.indicator_eq_indicator h_mem.symm rfl
   rw [heckeSplit_eq_heckeFun]
   exact heckeFun_comp φ h_right_inv ((mem_sphericalAt_iff hw).mp hv) h_finite h_surj h_level h_act
@@ -282,7 +292,9 @@ lemma heckeSplit_comm (hw : w.IsSplit) (hu : u.IsSplit) (i j : ℕ) (hv : v ∈ 
   · -- different pairs of places: elements supported at `u, ū` are trivial at `w`, so commute with
     -- `T_{w,i}` (`heckeSplit_comm_of_trivialOn`)
     refine map_heckeSplit hu j (heckeSplit π hw i) fun g hg ↦ ?_
-    have h_triv : g ∈ trivialOn n {w} := by simp_all [trivialOn]
+    have h_triv : g ∈ trivialOn n {w} := mem_trivialOn.2 fun v hv ↦ by
+      rw [Set.mem_singleton_iff.1 hv]
+      exact mem_supportedOn.1 hg w (fun h ↦ h_ne (.inl h)) (fun h ↦ h_ne (.inr h))
     exact (heckeSplit_comm_of_trivialOn hw i h_triv).symm
 
 /-! ### Joint eigenvectors in a unitary representation -/
@@ -295,18 +307,29 @@ lemma eigenvector_of_pow_adjoint {V : Type*} [AddCommGroup V] [Module ℂ V] {B 
     (x : V) (hx : ((T' - c • 1) ^ k) x = 0) :
     T x = star c • x := by
   induction k generalizing x with
-  | zero => simp_all
+  | zero =>
+    rw [pow_zero, one_apply_eq_self] at hx
+    rw [hx, map_zero, smul_zero]
   | succ k ih =>
     -- `y = (T - c̄) x` is killed by `T' - c`, as `T - c̄` kills `(T' - c) x` by induction.
     -- Moving `T - c̄` across `B` turns it into `T' - c`, so `B y y = 0`.
     set y : V := T x - star c • x with hy
-    have h_ih : T (T' x - c • x) = star c • (T' x - c • x) := ih _ (by simpa [pow_succ] using hx)
+    have h_ih : T (T' x - c • x) = star c • (T' x - c • x) := by
+      refine ih _ ?_
+      rwa [pow_succ, mul_apply_eq_comp, LinearMap.sub_apply, LinearMap.smul_apply,
+        one_apply_eq_self] at hx
     have h_kill : T' y - c • y = 0 := by
-      simpa [hy, h_comm, smul_sub, smul_comm c, sub_sub_sub_comm] using sub_eq_zero.mpr h_ih
+      simp only [hy, map_sub, LinearMap.map_smul, ← h_comm, smul_sub, smul_comm c,
+        sub_sub_sub_comm]
+      simpa only [map_sub, LinearMap.map_smul, smul_sub] using sub_eq_zero.mpr h_ih
     refine sub_eq_zero.mp (hB y ?_)
-    calc B y y = B (T x) y - c * B x y := by simp [hy]
-      _ = B x (T' y - c • y) := by simp [h_adj]
-      _ = 0 := by simp [h_kill]
+    calc B y y = B (T x) y - c * B x y := by
+          simp only [hy, map_sub, LinearMap.map_smulₛₗ, LinearMap.sub_apply, LinearMap.smul_apply,
+            RingHom.id_apply, Complex.star_def, Complex.conj_conj, smul_eq_mul]
+          ring
+      _ = B x (T' y - c • y) := by
+          simp only [h_adj, map_sub, LinearMap.map_smul, smul_eq_mul]
+      _ = 0 := by rw [h_kill, map_zero]
 
 open ComplexOrder in
 /-- Spectral theorem for spherical Hecke operators. Let `π` be a unitary representation of the
@@ -406,11 +429,22 @@ lemma exists_inf_trivialOn_le {H : Subgroup (Gf E n)} (hH : H.IsOpen) :
     obtain ⟨a, ha, b, hb, rfl, hab⟩ := exists_supportedOn_mul_trivialOn {w} g
     obtain ⟨ha_int, hb_int⟩ : a ∈ stdLevel E n ∧ b ∈ stdLevel E n := hab hg
     refine mul_mem (hw ⟨ha_int, ha⟩) (hS ⟨hb_int, mem_trivialOn.2 fun u hu ↦ ?_⟩)
-    have hoff_u : u ∈ (↑(S \ {w, star w}) : Set (FinPlace E)) → (a * b).atPlace u = 1 :=
-      mem_trivialOn.1 hoff u
-    grind [mem_trivialOn, mem_supportedOn, atPlace_star_eq_one_iff, star_star]
+    by_cases huw : u = w
+    · subst huw; exact mem_trivialOn.1 hb u (Set.mem_singleton u)
+    · by_cases hus : u = star w
+      · rw [hus, atPlace_star_eq_one_iff]; exact mem_trivialOn.1 hb w (Set.mem_singleton w)
+      · have hoff_u : (a * b).atPlace u = 1 := mem_trivialOn.1 hoff u (by
+          simp only [Finset.mem_coe, Finset.mem_sdiff, Finset.mem_insert, Finset.mem_singleton,
+            not_or]
+          exact ⟨hu, huw, hus⟩)
+        have ha_u : a.atPlace u = 1 :=
+          mem_supportedOn.1 ha u huw fun h ↦ hus ((star_star u).symm.trans (congrArg star h))
+        rw [map_mul, ha_u, one_mul] at hoff_u
+        exact hoff_u
   have hsub : S ⊆ S \ {w, star w} := hmin hdrop Finset.sdiff_subset
-  grind
+  exact ⟨fun hw ↦ (Finset.mem_sdiff.1 (hsub hw)).2 (Finset.mem_insert_self _ _),
+    fun hw ↦ (Finset.mem_sdiff.1 (hsub hw)).2 (Finset.mem_insert_of_mem
+      (Finset.mem_singleton_self _))⟩
 
 /-- An open subgroup `K` of the finite adelic group contains `maxCompactAt n v`, the integral
 elements supported at `v` and its conjugate, for almost all places `v`. -/
@@ -490,7 +524,8 @@ theorem map_heckePolyOp (T : ℂ)
     (hL : ∀ g ∈ Gf.supportedOn n {w}, L (π g y) = π' g (L y)) :
     L (heckePolyOp π hw T y) = heckePolyOp π' hw (σ T) (L y) := by
   -- termwise: `L` commutes with each `T_{w,i}` (`map_heckeSplit`)
-  simp [heckePolyOp, heckePolyEval, fun i : ℕ ↦ map_heckeSplit hw i L hL]
+  simp only [heckePolyOp, heckePolyEval, LinearMap.sum_apply, LinearMap.smul_apply, map_sum,
+    map_smulₛₗ, map_mul, map_pow, map_neg, map_natCast, map_heckeSplit hw _ L hL]
 
 /-- Let w be split and B a G_f-invariant pairing of π and π', σ-semilinear in the first
 variable. On vectors spherical at w, the adjoint of the Hecke polynomial H_w(X) is
@@ -500,7 +535,9 @@ theorem heckePolyOp_adjoint (hw : w.IsSplit) {Z : Type*} [AddCommGroup Z] [Modul
     (hB : ∀ (g : Gf E n) (x : W) (y' : W'), B (π g x) (π' g y') = B x y') (X : ℂ) :
     B (heckePolyOp π hw X y) z = B y (heckePolyOp π' hw.star (σ X) z) := by
   -- termwise: the adjoint of `T_{w,i}` is `T_{w̄,i}` (`heckeSplit_adjoint`)
-  simp [heckePolyOp, heckePolyEval, ← heckeSplit_adjoint hw _ B hy hz hB]
+  simp only [heckePolyOp, heckePolyEval, LinearMap.sum_apply, LinearMap.smul_apply, map_sum,
+    LinearMap.map_smulₛₗ, map_mul, map_pow, map_neg, map_natCast, RingHom.id_apply, q_star,
+    ← heckeSplit_adjoint hw _ B hy hz hB]
 
 /-- If `∑_{i ∈ t} U ^ i • b i = Q(U) • ∑_{i ∈ s} U ^ i • a i` for all complex `U`, with `Q(0) = 1`,
 then for each `r ∈ s`, `a r` is the coefficient of `X ^ r` in the power series
@@ -514,7 +551,10 @@ lemma sum_coeff_invOfUnit_smul_eq {R V : Type*} [CommRing R] [Algebra R ℂ] [Ad
   refine Module.eval_apply_injective ℂ (LinearMap.ext fun f ↦ ?_)
   have h_poly : (∑ i ∈ t, f (b i) • .X ^ i : Polynomial ℂ) =
       Q.map (algebraMap R ℂ) * ∑ i ∈ s, f (a i) • .X ^ i := Polynomial.funext fun U ↦ by
-    simpa [Polynomial.eval_finsetSum, mul_comm] using congrArg f (h_rel U)
+    have hU := congrArg f (h_rel U)
+    simp only [map_sum, map_smul, smul_eq_mul] at hU
+    simp only [eval_finsetSum, eval_mul, eval_smul, eval_pow, eval_X, smul_eq_mul, eval_map,
+      ← aeval_def, mul_comm, hU]
   -- Multiply by the inverse of `Q` as a power series and read the coefficient of `X ^ r`.
   have h_inv : map (algebraMap R ℂ) (invOfUnit Q 1) * map (algebraMap R ℂ) (Q : R⟦X⟧) = 1 := by
     rw [← map_mul, invOfUnit_mul (Q : R⟦X⟧) 1 (hQ), map_one]
@@ -551,11 +591,17 @@ theorem heckeSplit_mem_of_heckePolyOp (N : Submodule ℂ (Module.End ℂ W))
       refine (Module.forall_dual_apply_eq_zero_iff ℂ (a i)).mp fun f ↦ ?_
       have h_poly : (∑ j ∈ range (Fintype.card n + 1), f (a j) • .X ^ j : ℂ[X]) = 0 :=
         Polynomial.funext fun U ↦ by
-          simpa [Polynomial.eval_finsetSum, mul_comm] using congrArg f (h_eval U)
-      simpa [Polynomial.coeff_X_pow, hi] using congrArg (·.coeff i) h_poly
+          have hU := congrArg f (h_eval U)
+          simp only [map_sum, map_smul, smul_eq_mul, map_zero] at hU
+          simp only [eval_finsetSum, eval_smul, eval_pow, eval_X, smul_eq_mul, mul_comm, eval_zero,
+            hU]
+      simpa only [Polynomial.coeff_zero, Polynomial.finsetSum_coeff,
+        AddMonoidAlgebra.coeff_smul_apply, Polynomial.coeff_X_pow, smul_eq_mul, mul_ite, mul_one,
+        mul_zero, Finset.sum_ite_eq, hi, ↓reduceIte] using congrArg (·.coeff i) h_poly
     -- the factor, a power of `q`, is nonzero
     have h_mkQ : N.mkQ (heckeSplit π hw i) = 0 :=
-      (smul_eq_zero.mp h_a_zero).resolve_left (by simp [w.q_bounds])
+      (smul_eq_zero.mp h_a_zero).resolve_left
+        (pow_ne_zero _ (Nat.cast_ne_zero.mpr w.q_ne_zero))
     rwa [Submodule.mkQ_apply, Submodule.Quotient.mk_eq_zero] at h_mkQ
   · -- for `i > card n` the double coset `basicDoubleCoset` is empty and the operator is zero
     have h_gt : Fintype.card n < i := by simpa [Nat.add_one_le_iff] using hi
