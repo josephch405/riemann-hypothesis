@@ -297,7 +297,7 @@ lemma GL.exists_star_matrix (e e' : ∀ τ : Φ, n τ ≃ Fin (rankAt n τ))
       have h_min : min 1 h = 1 := by omega
       simp [h_min, fillingComplement_apply hκ T hh hj]
     · rintro ⟨_, h_lt⟩ j rfl
-      simp only [col, minor, det_fin_zero, map_one]
+      simp [col, minor]
   -- An empty minor is `1`, so the exponent `min 1 h` does not change a minor of size `h`.
   have h_empty (τ : Φ) (h : Fin (rankAt n τ)) (I : IncreasingMap (rankAt n τ) h) :
       col z τ I ^ min 1 (h : ℕ) = col z τ I := by
@@ -309,19 +309,15 @@ lemma GL.exists_star_matrix (e e' : ∀ τ : Φ, n τ ≃ Fin (rankAt n τ))
     rfl
   calc (P.map (Int.cast : ℤ → R) *ᵥ fillingMatrixOver R n κ' *ᵥ weylEval n κ' y) T
     _ = (sign T : R) * eval y (fillingPoly R (fillingComplement hκ T)) := by
-      simp only [P, mulVec, dotProduct, ← fillingMatrixOver_mulVec_weylEval, Matrix.map_apply,
-        of_apply, apply_ite (Int.cast : ℤ → R), Int.cast_zero, ite_mul, zero_mul]
-      rw [Finset.sum_eq_single (fillingComplement hκ T) (fun i _ hi ↦ ite_eq_right hi.symm)
-        (fun h ↦ absurd (mem_univ _) h), ite_eq_left rfl]
+      simp [P, mulVec, dotProduct, ← fillingMatrixOver_mulVec_weylEval, apply_ite]
     _ = ∏ τ : Φ, ∏ h : Fin (rankAt n τ), ∏ j : Fin (κ τ h),
         ((squarePart e y τ).det * col z τ (T τ h j)) ^ min 1 (h : ℕ) := by
       simp only [sign, Units.coe_prod, Units.val_pow_eq_pow_val, Int.cast_prod, Int.cast_pow,
         h_filling, ← h_reindex, ← prod_mul_distrib, ← _root_.mul_pow, h_column]
     _ = ((∏ τ : Φ, (squarePart e y τ).det ^ diagramWeight (rankAt n) κ (τ, 0)) •
           fillingMatrixOver R n κ *ᵥ weylEval n κ z) T := by
-      simp only [fillingMatrixOver_mulVec_weylEval, _root_.mul_pow, h_empty, prod_mul_distrib,
-        prod_pow_eq_pow_sum, sum_const, card_univ, Fintype.card_fin, smul_eq_mul, mul_comm,
-        diagramWeight_zero_eq_sum_min_mul, h_filling, Pi.smul_apply]
+      simp [fillingMatrixOver_mulVec_weylEval, _root_.mul_pow, h_empty, prod_mul_distrib, ← pow_mul,
+        prod_pow_eq_pow_sum, diagramWeight_zero_eq_sum_min_mul, h_filling]
 
 /-- The star maps one Weyl module to the other. Let `κ`, `κ'` be complementary diagrams and `e'`
 the enumeration `e` of the rows reversed. There are an integer matrix `P` between the basis tensors,
@@ -416,44 +412,40 @@ lemma exists_isDualIsometry (e : ∀ τ : Φ, n τ ≃ Fin (rankAt n τ))
   -- Identities of integer matrices are checked over `ℂ`.
   have h_det_ne {R : Type} [Field R] (g : ∀ τ, GL (n τ) R) (τ : Φ) : (g τ).val.det ≠ 0 :=
     GeneralLinearGroup.det_ne_zero (g τ)
+  have h_inv_t (g : ∀ τ, GL (n τ) ℂ) (τ : Φ) :
+      IsUnit ((g τ).val⁻¹ᵀ).det ∧ ((g τ).val⁻¹ᵀ)⁻¹ᵀ = (g τ).val := by
+    refine ⟨?_, ?_⟩
+    · rw [det_transpose, det_nonsing_inv, Ring.inverse_eq_inv]
+      exact (inv_ne_zero (h_det_ne g τ)).isUnit
+    · rw [transpose_nonsing_inv, transpose_transpose,
+        nonsing_inv_nonsing_inv _ (h_det_ne g τ).isUnit]
+  have h_det_prod (g : ∀ τ, GL (n τ) ℂ) :
+      (∏ τ, (g τ).val.det ^ ∑ h ∈ Ico 1 (rankAt n τ), κ τ h) *
+        (∏ τ, ((g τ).val⁻¹ᵀ).det ^ ∑ h ∈ Ico 1 (rankAt n τ), κ τ h) = 1 := by
+    rw [← prod_mul_distrib]
+    refine prod_eq_one fun τ _ ↦ ?_
+    rw [← mul_pow, det_transpose, det_nonsing_inv, Ring.inverse_eq_inv,
+      mul_inv_cancel₀ (h_det_ne g τ), one_pow]
   have hJK : J * K = 1 := by
     refine map_injective (Int.cast_injective (α := ℂ))
       (toLin'.injective (ext_schur_weylEval e' fun g ↦ ?_))
-    have hg (τ : Φ) : IsUnit (g τ).val.det := (h_det_ne g τ).isUnit
-    have hg' (τ : Φ) : IsUnit ((g τ).val⁻¹ᵀ).det := by
-      rw [det_transpose, det_nonsing_inv, Ring.inverse_eq_inv]
-      exact (inv_ne_zero (h_det_ne g τ)).isUnit
-    have h_inv_t (τ : Φ) : ((g τ).val⁻¹ᵀ)⁻¹ᵀ = (g τ).val := by
-      rw [transpose_nonsing_inv, transpose_transpose, nonsing_inv_nonsing_inv _ (hg τ)]
-    simp only [map_mul_intCast, Matrix.map_one Int.cast Int.cast_zero Int.cast_one, toLin'_apply,
-      one_mulVec, ← mulVec_mulVec, hK ℂ _ hg, mulVec_smul, hJ ℂ _ hg', smul_smul, h_inv_t,
-      h_exp, h_exp']
-    have h_det : (∏ τ, (g τ).val.det ^ ∑ h ∈ Ico 1 (rankAt n τ), κ τ h) *
-        (∏ τ, ((g τ).val⁻¹ᵀ).det ^ ∑ h ∈ Ico 1 (rankAt n τ), κ τ h) = 1 := by
-      rw [← prod_mul_distrib]
-      refine prod_eq_one fun τ _ ↦ ?_
-      rw [← mul_pow, det_transpose, det_nonsing_inv, Ring.inverse_eq_inv,
-        mul_inv_cancel₀ (h_det_ne g τ), one_pow]
-    rw [h_det, one_smul]
+    have h_it : (fun τ ↦ ((g τ).val⁻¹ᵀ)⁻¹ᵀ) = fun τ ↦ (g τ).val :=
+      funext fun τ ↦ (h_inv_t g τ).2
+    dsimp only
+    rw [map_mul_intCast, Matrix.map_one Int.cast Int.cast_zero Int.cast_one, toLin'_apply,
+      toLin'_apply, one_mulVec, ← mulVec_mulVec, hK ℂ _ fun τ ↦ (h_det_ne g τ).isUnit,
+      mulVec_smul, hJ ℂ _ fun τ ↦ (h_inv_t g τ).1, smul_smul, h_it]
+    simp only [h_exp, h_exp', h_det_prod g, one_smul]
   have hKJ : K * J = 1 := by
     refine map_injective (Int.cast_injective (α := ℂ))
       (toLin'.injective (ext_schur_weylEval e fun g ↦ ?_))
-    have hg (τ : Φ) : IsUnit (g τ).val.det := (h_det_ne g τ).isUnit
-    have hg' (τ : Φ) : IsUnit ((g τ).val⁻¹ᵀ).det := by
-      rw [det_transpose, det_nonsing_inv, Ring.inverse_eq_inv]
-      exact (inv_ne_zero (h_det_ne g τ)).isUnit
-    have h_inv_t (τ : Φ) : ((g τ).val⁻¹ᵀ)⁻¹ᵀ = (g τ).val := by
-      rw [transpose_nonsing_inv, transpose_transpose, nonsing_inv_nonsing_inv _ (hg τ)]
-    simp only [map_mul_intCast, Matrix.map_one Int.cast Int.cast_zero Int.cast_one, toLin'_apply,
-      one_mulVec, ← mulVec_mulVec, hJ ℂ _ hg, mulVec_smul, hK ℂ _ hg', smul_smul, h_inv_t,
-      h_exp, h_exp']
-    have h_det : (∏ τ, (g τ).val.det ^ ∑ h ∈ Ico 1 (rankAt n τ), κ τ h) *
-        (∏ τ, ((g τ).val⁻¹ᵀ).det ^ ∑ h ∈ Ico 1 (rankAt n τ), κ τ h) = 1 := by
-      rw [← prod_mul_distrib]
-      refine prod_eq_one fun τ _ ↦ ?_
-      rw [← mul_pow, det_transpose, det_nonsing_inv, Ring.inverse_eq_inv,
-        mul_inv_cancel₀ (h_det_ne g τ), one_pow]
-    rw [h_det, one_smul]
+    have h_it : (fun τ ↦ ((g τ).val⁻¹ᵀ)⁻¹ᵀ) = fun τ ↦ (g τ).val :=
+      funext fun τ ↦ (h_inv_t g τ).2
+    dsimp only
+    rw [map_mul_intCast, Matrix.map_one Int.cast Int.cast_zero Int.cast_one, toLin'_apply,
+      toLin'_apply, one_mulVec, ← mulVec_mulVec, hJ ℂ _ fun τ ↦ (h_det_ne g τ).isUnit,
+      mulVec_smul, hK ℂ _ fun τ ↦ (h_inv_t g τ).1, smul_smul, h_it]
+    simp only [h_exp, h_exp', h_det_prod g, one_smul]
   have h_ev (R : Type) [Field R] :
       J.map (Int.cast : ℤ → R) *ᵥ weylEval n κ' (permArray e) = weylEval n κ (permArray e') := by
     simpa using hJ R 1
@@ -464,36 +456,21 @@ lemma exists_isDualIsometry (e : ∀ τ : Φ, n τ ≃ Fin (rankAt n τ))
     refine toLin'.injective (ext_schur_weylEval e fun h ↦ ?_)
     have hh (τ : Φ) : IsUnit (h τ).val.det := (h_det_ne h τ).isUnit
     have hgh (τ : Φ) : IsUnit ((g τ).val * (h τ).val).det := by
-      rw [det_mul]
-      exact (h_det_ne g τ).isUnit.mul (hh τ)
-    have h_inv_t (τ : Φ) : ((g τ).val * (h τ).val)⁻¹ᵀ = (g τ)⁻¹.valᵀ * (h τ).val⁻¹ᵀ := by
-      rw [Matrix.mul_inv_rev, transpose_mul, Matrix.coe_units_inv]
-    have h_left : (schur κ fun τ ↦ (g τ)⁻¹.valᵀ) *ᵥ J.map (↑) *ᵥ
-        schur κ' (fun τ ↦ (h τ).val) *ᵥ weylEval n κ' (permArray e) =
-        (∏ τ, (h τ).val.det ^ ∑ x ∈ Ico 1 (rankAt n τ), κ τ x) •
-          schur κ (fun τ ↦ ((g τ).val * (h τ).val)⁻¹ᵀ) *ᵥ weylEval n κ (permArray e') := by
-      rw [hJ R _ hh, mulVec_smul, mulVec_mulVec, ← schur_mul_left .refl]
-      simp only [h_inv_t, h_exp]
-    have h_right : J.map (↑) *ᵥ
-        weylRep κ' (fun τ ↦ -(∑ x ∈ Ico 1 (rankAt n τ), κ τ x : ℕ)) g *ᵥ
-        schur κ' (fun τ ↦ (h τ).val) *ᵥ weylEval n κ' (permArray e) =
-        (∏ τ, (h τ).val.det ^ ∑ x ∈ Ico 1 (rankAt n τ), κ τ x) •
-          schur κ (fun τ ↦ ((g τ).val * (h τ).val)⁻¹ᵀ) *ᵥ weylEval n κ (permArray e') := by
-      dsimp only [weylRep, MonoidHom.coe_mk, OneHom.coe_mk]
-      rw [Units.smul_def, smul_mulVec, mulVec_smul,
-        mulVec_mulVec (weylEval n κ' (permArray e)) (schur κ' fun τ ↦ (g τ).val),
-        ← schur_mul_left .refl, hJ R _ hgh, smul_smul]
-      simp only [h_exp]
-      congr 2
-      simp only [Units.coe_prod, _root_.zpow_neg, zpow_natCast, Units.val_inv_eq_inv_val,
-        Units.val_pow_eq_pow_val, det_mul, mul_pow, prod_mul_distrib]
-      have h_cancel : (∏ τ,
-          ((GeneralLinearGroup.det (g τ) : R) ^ ∑ x ∈ Ico 1 (rankAt n τ), κ τ x)⁻¹ *
-          (g τ).val.det ^ ∑ x ∈ Ico 1 (rankAt n τ), κ τ x) = 1 :=
-        prod_eq_one fun τ _ ↦ inv_mul_cancel₀ (pow_ne_zero _ (h_det_ne g τ))
-      rw [← mul_assoc, ← prod_mul_distrib, h_cancel, one_mul]
-    simp only [toLin'_apply, ← mulVec_mulVec]
-    exact h_left.trans h_right.symm
+      rw [det_mul]; exact (h_det_ne g τ).isUnit.mul (hh τ)
+    have h_it : (fun τ ↦ ((g τ).val * (h τ).val)⁻¹ᵀ) = fun τ ↦ (g τ)⁻¹.valᵀ * (h τ).val⁻¹ᵀ :=
+      funext fun τ ↦ by rw [Matrix.mul_inv_rev, transpose_mul, Matrix.coe_units_inv]
+    rw [toLin'_apply, toLin'_apply, ← mulVec_mulVec, ← mulVec_mulVec, hJ R _ hh, mulVec_smul,
+      mulVec_mulVec, ← schur_mul_left .refl, ← h_it]
+    dsimp only [weylRep, MonoidHom.coe_mk, OneHom.coe_mk]
+    rw [Units.smul_def, smul_mulVec, mulVec_smul,
+      mulVec_mulVec (weylEval n κ' (permArray e)), ← schur_mul_left .refl, hJ R _ hgh, smul_smul]
+    simp only [h_exp]; congr 2
+    simp only [Units.coe_prod, _root_.zpow_neg, zpow_natCast, Units.val_inv_eq_inv_val,
+      Units.val_pow_eq_pow_val, det_mul, mul_pow, prod_mul_distrib, ← mul_assoc]
+    have h_c : (∏ τ, ((GeneralLinearGroup.det (g τ) : R) ^ ∑ x ∈ Ico 1 (rankAt n τ), κ τ x)⁻¹ *
+        (g τ).val.det ^ ∑ x ∈ Ico 1 (rankAt n τ), κ τ x) = 1 :=
+      prod_eq_one fun τ _ ↦ inv_mul_cancel₀ (pow_ne_zero _ (h_det_ne g τ))
+    rw [← prod_mul_distrib, h_c, one_mul]
   refine ⟨J, ⟨K, hJK, hKJ⟩, ?_, fun R _ _ ↦ by simpa only [h_rev] using h_ev R, h_rule _⟩
   -- Isometry: the Gram matrices are restricted from tensors, and `J` is the restriction of `P`,
   -- which has `Pᵀ P = 1`.
@@ -656,13 +633,11 @@ lemma nonempty_mixedCartanEmbedding :
     mulLinearMap R (kronecker (diagonal 1) (J.map (↑))) (comulMatrix R (fun _ : Φ ↦ n) kp kc)
   -- The entries of `comulMatrix R` and of `J.map` are casts of integers, so `K R` is the cast of
   -- `K ℤ`.
-  have h_diag (S : Type) [CommRing S] : (diagonal (1 : WeylIndex n kp → S)) = 1 := by
-    ext i j
-    simp only [diagonal_apply, Pi.one_apply, Matrix.one_apply]
   have hK_map (R : Type) [CommRing R] : (K ℤ).map ((↑) : ℤ → R) = K R := by
+    have h_diag {S : Type} [CommRing S] : (diagonal (1 : WeylIndex n kp → S)) = 1 :=
+      Matrix.diagonal_one
     dsimp only [K, mulLinearMap, mulLeftLinearMap, LinearMap.coe_mk, AddHom.coe_mk, kronecker]
-    rw [map_mul_intCast, h_diag ℤ, h_diag R]
-    congr 1
+    rw [map_mul_intCast, h_diag, h_diag]; congr 1
     ext ⟨i₁, j₁⟩ ⟨i₂, j₂⟩
     simp only [Matrix.map_apply, kroneckerMap_apply, Matrix.one_apply, ite_mul, one_mul,
       zero_mul, apply_ite (Int.cast : ℤ → R), Int.cast_zero, Int.cast_id]
@@ -672,73 +647,30 @@ lemma nonempty_mixedCartanEmbedding :
     { matrix := K ℤ
       -- `J' * J = 1` and `P * comulMatrix = 1`.
       hasLeftInv := ⟨mulLinearMap ℤ P (1 ⊗ₖ J'), by
-        dsimp only [K, mulLinearMap, mulLeftLinearMap, LinearMap.coe_mk, AddHom.coe_mk,
-          kronecker]
-        rw [h_cast, Matrix.map_id', h_diag ℤ]
-        rw [Matrix.mul_assoc, ← Matrix.mul_assoc (1 ⊗ₖ J'), ← mul_kronecker_mul, Matrix.one_mul,
-          h_J'_mul_J, one_kronecker_one, Matrix.one_mul, h_P_mul_C]⟩
+        simp [K, ← (_ ⊗ₖ _).mul_assoc, ← mul_kronecker_mul, h_cast, h_J'_mul_J, h_P_mul_C,
+          Matrix.mul_assoc]⟩
       gram_eq := by
         -- `J` is an isometry, and so is `comulMatrix`.
         refine .trans ?_ comulMatrix_isometry
-        dsimp only [K, mulLinearMap, mulLeftLinearMap, LinearMap.coe_mk, AddHom.coe_mk,
-          kronecker]
-        rw [h_cast, Matrix.map_id', h_diag ℤ, transpose_mul, ← kroneckerMap_transpose,
-          transpose_one]
-        rw [Matrix.mul_assoc (comulMatrix ℤ (fun _ : Φ ↦ n) kp kc)ᵀ, ← mul_kronecker_mul,
-          Matrix.one_mul, Matrix.mul_assoc _ _ ((1 ⊗ₖ J) * _), ← Matrix.mul_assoc _ (1 ⊗ₖ J),
-          ← mul_kronecker_mul, Matrix.mul_one, hJ.gram_eq, ← Matrix.mul_assoc]
-        simp only [Matrix.map_id']
-        rw [Matrix.mul_assoc]
+        simp [K, ← (_ ⊗ₖ _).mul_assoc, ← mul_kronecker_mul, ← kroneckerMap_transpose, h_cast,
+          ← hJ.gram_eq, Matrix.mul_assoc]
       top R _ _ := by
         -- `comulMatrix` splits the evaluation vector, and `J` reverses the second factor.
         rw [hK_map R]
-        dsimp only [K, mulLinearMap, mulLeftLinearMap, LinearMap.coe_mk, AddHom.coe_mk,
-          kronecker]
-        simp only [weylEvalAt, ← mulVec_mulVec (weylEval _ _ _), comulMatrix_mulVec_weylEval,
-          h_diag R, kronecker_mulVec_vec, transpose_one, Matrix.mul_one, mul_vecMulVec]
-        convert congrArg (fun x ↦ (vecMulVec x (weylEvalAt n R kp Fin.val)).vec)
-          (hJ.mulVec_weylEval R)
+        simp [K, weylEvalAt, comulMatrix_mulVec_weylEval, ← mulVec_mulVec (weylEval _ _ _),
+          hJ.mulVec_weylEval R, kronecker_mulVec_vec, mul_vecMulVec]
       intertwines {R} _ _ g v := by
         -- The equivariance of `J` up to the power of the determinant, then that of `comulMatrix`.
-        have hJ_law : J.map (Int.cast : ℤ → R) * schur kc (fun τ : Φ ↦ (g τ).val) =
-            (∏ τ : Φ, (g τ).det ^ ∑ i ∈ Ico 1 (card n), (km τ i : ℤ)) •
-              (schur km (fun τ : Φ ↦ (g τ).val⁻¹ᵀ) * J.map (Int.cast : ℤ → R)) := by
-          have h := hJ.equivariant g
-          simp only [Matrix.coe_units_inv] at h
-          rw [h]
-          dsimp only [weylRep, MonoidHom.coe_mk, OneHom.coe_mk]
-          rw [Matrix.mul_smul, smul_smul]
-          have h1 : (∏ τ, (g τ).det ^ ∑ i ∈ Ico 1 (card n), (km τ i : ℤ)) *
-              (∏ τ, (g τ).det ^ (-(∑ i ∈ Ico 1 (card n), km τ i : ℕ) : ℤ)) = 1 := by
-            simp only [← Nat.cast_sum, ← prod_mul_distrib, _root_.zpow_neg, mul_inv_cancel]
-            exact prod_const_one
-          rw [h1, one_smul]
+        have hJ_law : schur km (fun τ : Φ ↦ (g τ).val⁻¹ᵀ) * J.map (Int.cast : ℤ → R) =
+            (∏ τ : Φ, (g τ).det ^ ∑ i ∈ Ico 1 (card n), (km τ i : ℤ))⁻¹ •
+              (J.map (Int.cast : ℤ → R) * schur kc fun τ : Φ ↦ (g τ).val) := by
+          simpa only [weylRep, MonoidHom.coe_mk, OneHom.coe_mk, Matrix.coe_units_inv,
+            ← Nat.cast_sum, _root_.zpow_neg, prod_inv_distrib, Units.smul_def,
+            Units.val_inv_eq_inv_val, Units.coe_prod, Units.val_zpow_eq_zpow_val,
+            Matrix.mul_smul, rankAt] using hJ.equivariant g
         rw [hK_map R]
-        dsimp only [K, mulLinearMap, mulLeftLinearMap, LinearMap.coe_mk, AddHom.coe_mk, kronecker,
-          weylRep, MonoidHom.coe_mk, OneHom.coe_mk]
-        rw [Units.smul_def, smul_mulVec, mulVec_smul, h_diag R,
-          mulVec_mulVec v
-            (kroneckerMap (· * ·) 1 (J.map (Int.cast : ℤ → R)) * comulMatrix R _ kp kc),
-          Matrix.mul_assoc (kroneckerMap (· * ·) 1 (J.map (Int.cast : ℤ → R))),
-          ← comulMatrix_equivariant,
-          ← Matrix.mul_assoc (kroneckerMap (· * ·) 1 (J.map (Int.cast : ℤ → R))),
-          ← mul_kronecker_mul, Matrix.one_mul, hJ_law, kronecker_smul, Matrix.smul_mul,
-          smul_mulVec, Units.smul_def, smul_smul]
-        have h_c : (((∏ τ, (g τ).det ^ (-((∑ i ∈ Ico 1 (card n), km τ i : ℕ) : ℤ)) : Rˣ) : R) *
-            ((∏ τ, (g τ).det ^ (∑ i ∈ Ico 1 (card n), (km τ i : ℤ)) : Rˣ) : R)) = 1 := by
-          have h_u : (∏ τ, (g τ).det ^ (-((∑ i ∈ Ico 1 (card n), km τ i : ℕ) : ℤ))) *
-              (∏ τ, (g τ).det ^ (∑ i ∈ Ico 1 (card n), (km τ i : ℤ))) = 1 := by
-            simp only [← Nat.cast_sum, ← prod_mul_distrib, _root_.zpow_neg, inv_mul_cancel,
-              prod_const_one]
-          rw [← Units.val_mul, h_u, Units.val_one]
-        have h_kron : kroneckerMap (· * ·) (schur kp fun τ : Φ ↦ (g τ : Matrix n n R))
-              (schur km (fun τ : Φ ↦ (g τ).val⁻¹ᵀ) * J.map (Int.cast : ℤ → R)) =
-            kroneckerMap (· * ·) (schur kp fun τ : Φ ↦ (g τ : Matrix n n R))
-              (schur km fun τ : Φ ↦ (g τ)⁻¹.valᵀ) *
-              kroneckerMap (· * ·) 1 (J.map (Int.cast : ℤ → R)) := by
-          rw [← mul_kronecker_mul, Matrix.mul_one]
-          simp only [Matrix.coe_units_inv]
-        rw [h_c, one_smul, h_kron, Matrix.mul_assoc, ← mulVec_mulVec] }
+        simp [hJ_law, K, weylRep, ← (_ ⊗ₖ _).mul_assoc, ← mul_kronecker_mul,
+          ← comulMatrix_equivariant, kronecker_smul, Matrix.mul_assoc] }
 
 /-- A chosen embedding with the properties `New.GL.MixedCartanEmbedding`, from the lattice of the
 weight `New.mixedWeight n kp km`, with `kp τ i + km τ (card n - i)` columns of height `i`, into the
@@ -884,26 +816,18 @@ lemma map_cartanProduct (hkp : HasColumnsBelow n N kp) (hkm : HasColumnsBelow n 
     (ε : N ⊕ m ≃ n) {K : Type} [Field K] [CharZero K] (y : WeylIndex N kp → ℂ)
     (η : WeylIndex m km → ℂ) (f : ℂ →+* K) :
     f ∘ cartanProduct ε 1 y η = cartanProduct ε 1 (f ∘ y) (f ∘ η) := by
-  rw [cartanProduct_apply, cartanProduct_apply]
-  have h_f_mulVec {ι₁ ι₂ : Type} [Fintype ι₁] [Fintype ι₂] (M : Matrix ι₁ ι₂ ℂ) (v : ι₂ → ℂ)
-      (i : ι₁) : f ((M *ᵥ v) i) = (M.map f *ᵥ (f ∘ v)) i := by
-    simp only [mulVec, dotProduct, map_sum, map_mul, Matrix.map_apply, Function.comp_apply]
-  ext p
-  simp only [Function.comp_apply]
-  rw [h_f_mulVec, Matrix.map_map]
-  congr 1
-  · ext i j
-    simp only [Matrix.map_apply, Function.comp_apply, map_intCast f]
+  rw [cartanProduct_apply, cartanProduct_apply]; ext p
+  rw [Function.comp_apply, RingHom.map_mulVec, Matrix.map_map]; congr 1
+  · ext i j; simp only [Matrix.map_apply, Function.comp_apply, map_intCast f]
   · ext ⟨i, j⟩
-    simp only [Function.comp_apply, vec, transpose_apply, vecMulVec_apply, map_mul]
-    rw [h_f_mulVec _ y i, h_f_mulVec _ η j]
+    simp only [Function.comp_apply, vec, transpose_apply, vecMulVec_apply, map_mul,
+      RingHom.map_mulVec]
     have h_inl (S : Type) [CommRing S] :
-        (fun _ : Φ ↦ (1 : Matrix n n S).submatrix id (ε ∘ inl)) =
-          fun _ ↦ inclMatrix S (ε ∘ inl) := rfl
+        (fun _ : Φ ↦ (1 : Matrix n n S).submatrix id (ε ∘ inl)) = fun _ ↦ inclMatrix S (ε ∘ inl) :=
+      rfl
     have h_inr (S : Type) [CommRing S] :
-        (fun _ : Φ ↦ (1 : Matrix n n S)ᵀ.submatrix id (ε ∘ inr)) =
-          fun _ ↦ inclMatrix S (ε ∘ inr) := by
-      simp only [transpose_one]; rfl
+        (fun _ : Φ ↦ (1 : Matrix n n S)ᵀ.submatrix id (ε ∘ inr)) = fun _ ↦ inclMatrix S (ε ∘ inr) :=
+      by simp only [transpose_one]; rfl
     simp only [Pi.one_apply, Units.val_one, inv_one, h_inl, h_inr,
       ← schur_map hkp.fitsRanks, ← schur_map hkm.fitsRanks, map_inclMatrix f]
 
@@ -961,130 +885,83 @@ lemma mixedCartan_mulVec_cartanProduct {Φ n N m : Type} [Fintype Φ] [Decidable
         weylEval (fun _ : Φ ↦ n) (mixedWeight n kp km)
           (permArray fun (_ : Φ) (a : n) ↦ (equivFin n a).val) := by
     rw [MixedCartanEmbedding.intertwines, MixedCartanEmbedding.top, ← transpose_vecMulVec,
-      kronecker_mulVec_vec_transpose_vecMulVec, h_T]
-    have h_weylEval_congr {k : Type} [Fintype k] {κ : Φ → ℕ → ℕ} (hκ : HasColumnsBelow n k κ)
-        {y₁ y₂ : (Σ _ : Φ, n) × ℕ → K}
-        (h_eq : ∀ τ (a : n) (j : ℕ), j < card k → y₁ (⟨τ, a⟩, j) = y₂ (⟨τ, a⟩, j)) :
-        weylEval (fun _ : Φ ↦ n) κ y₁ = weylEval (fun _ : Φ ↦ n) κ y₂ := by
+      kronecker_mulVec_vec_transpose_vecMulVec, h_T, hy, hη]
+    have h_block {k : Type} [Fintype k] [DecidableEq k] {κ : Φ → ℕ → ℕ}
+        (hκ : HasColumnsBelow n k κ) (M : Φ → Matrix n n K) (B : Φ → Matrix k k K)
+        (ι : k → n) (f : Fin (card n) → ℕ) (b_n : k → n)
+        (hf : ∀ (b₀ : k) (c : n), f (equivFin n c) = (equivFin k b₀ : ℕ) ↔ c = b_n b₀)
+        (hMB : ∀ τ a b₀, M τ a (b_n b₀) = (inclMatrix K ι * B τ) a b₀) :
+        schur κ M *ᵥ weylEvalAt n K κ (fun i ↦ f i) =
+          schur κ (fun _ ↦ inclMatrix K ι) *ᵥ schur κ B *ᵥ
+            weylEval (fun _ : Φ ↦ k) κ
+              (permArray fun τ i ↦ (rowEquivFin (fun _ : Φ ↦ k) τ i : ℕ)) := by
+      have h_det0 : schurDetExp (fun _ : Φ ↦ n) (fun _ : Φ ↦ n) κ = 0 := by simp
+      rw [mulVec_mulVec, hκ.schur_mul_schur,
+        schur_mulVec_weylEval_of_schurDetExp_eq_zero .refl h_det0,
+        schur_mulVec_weylEval_of_schurDetExp_eq_zero hκ.fitsRanks hκ.schurDetExp_eq_zero]
       funext idx
       simp only [weylEval, nablaBasis, tableauPoly, minor, map_prod, RingHom.map_det,
         RingHom.mapMatrix_apply, Function.comp_apply]
       refine prod_congr rfl fun τ _ ↦ prod_congr rfl fun h _ ↦ prod_congr rfl fun j _ ↦ ?_
-      have hh : (h : ℕ) ≤ card k := by
-        have h_lt := h.isLt
-        by_contra! h_gt
-        have h_zero := (hκ.fitsRanks τ).2 h (mem_Ioo.2 ⟨h_gt, h_lt⟩)
-        exact absurd j.isLt (by omega)
-      have h_ne : (h : ℕ) ≠ card k := fun h_eq' ↦ by
-        have h_lt : card k < card n := h_eq' ▸ h.isLt
-        have h0 := congrFun hκ.schurDetExp_eq_zero τ
-        simp only [schurDetExp, rankAt, h_lt, ↓reduceIte, Pi.zero_apply] at h0
-        rw [h_eq'] at j
-        exact absurd j.isLt (by omega)
-      congr 1
-      ext a b
-      simp only [Matrix.map_apply, of_apply, MvPolynomial.eval_X]
-      exact h_eq τ _ b (lt_trans b.isLt (lt_of_le_of_ne hh h_ne))
-    have h_kp : schur kp (fun τ ↦ (g τ).val) *ᵥ weylEvalAt n K kp Fin.val =
-        schur kp (fun _ ↦ inclMatrix K (ε ∘ inl)) *ᵥ y := by
-      have h_det0 : schurDetExp (fun _ : Φ ↦ n) (fun _ : Φ ↦ n) kp = 0 := by simp
-      rw [hy, mulVec_mulVec, hkp.schur_mul_schur,
-        schur_mulVec_weylEval_of_schurDetExp_eq_zero .refl h_det0,
-        schur_mulVec_weylEval_of_schurDetExp_eq_zero hkp.fitsRanks hkp.schurDetExp_eq_zero]
-      refine h_weylEval_congr hkp fun τ a j hj ↦ ?_
-      let b₀ : N := (equivFin N).symm ⟨j, hj⟩
-      have hb₀ : (equivFin N b₀ : ℕ) = j := by simp [b₀]
-      have h_perm_n : permArray (R := K) (fun _ c ↦ (equivFin n c).val) (⟨τ, δ (inl b₀)⟩, j) =
-          1 := by
-        simp [permArray, δ, b₀]
-      have h_lhs : (∑ b : n, (g τ).val a b *
-          permArray (fun _ c ↦ (equivFin n c).val) (⟨τ, b⟩, j)) = (g τ).val a (δ (inl b₀)) := by
-        rw [← mul_one ((g τ).val a (δ (inl b₀))), ← h_perm_n]
-        refine sum_eq_single (δ (inl b₀)) (fun b _ hb ↦ ?_) (fun h ↦ absurd (mem_univ _) h)
-        have h_ne : (equivFin n b).val ≠ j := fun h_eq ↦ hb (by
-          apply (equivFin n).injective
-          ext; simp [δ, b₀, h_eq])
-        simp only [permArray, h_ne, ↓reduceIte, mul_zero]
-      have h_perm_N : permArray (R := K) (fun τ c ↦ (rowEquivFin (fun _ ↦ N) τ c : ℕ))
-          (⟨τ, b₀⟩, j) = 1 := by
-        simp [permArray, hb₀]
-      have h_rhs : (∑ b : N, (inclMatrix K (ε ∘ inl) * (u τ).val) a b *
-          permArray (fun τ c ↦ (rowEquivFin (fun _ ↦ N) τ c : ℕ)) (⟨τ, b⟩, j)) =
-          (inclMatrix K (ε ∘ inl) * (u τ).val) a b₀ := by
-        rw [← mul_one ((inclMatrix K (ε ∘ inl) * (u τ).val) a b₀), ← h_perm_N]
-        refine sum_eq_single b₀ (fun b _ hb ↦ ?_) (fun h ↦ absurd (mem_univ _) h)
-        have h_ne : (rowEquivFin (fun _ : Φ ↦ N) τ b : ℕ) ≠ j := fun h_eq ↦ hb (by
-          apply (equivFin N).injective
-          exact Fin.ext (h_eq.trans hb₀.symm))
-        simp only [permArray, h_ne, ↓reduceIte, mul_zero]
-      rw [h_lhs, h_rhs]
-      have h_g_eq : (g τ).val a (δ (inl b₀)) =
-          fromBlocks (u τ).val 0 0 (w τ).valᵀ⁻¹ (ε.symm a) (inl b₀) := by
-        have ha : a = ε (ε.symm a) := (ε.apply_symm_apply a).symm
-        conv_lhs => rw [ha]
-        simp [g, reindex_apply]
-      rw [h_g_eq, ← ε.apply_symm_apply a]
-      rcases ε.symm a with i | i
-      · simp [fromBlocks_apply₁₁, inclMatrix, Matrix.mul_apply, Matrix.one_apply]
-      · simp [fromBlocks_apply₂₁, inclMatrix, Matrix.mul_apply]
-    have h_km : schur km (fun τ ↦ (g τ)⁻¹.valᵀ) *ᵥ weylEvalAt n K km (fun i ↦ (i.rev : ℕ)) =
-        schur km (fun _ ↦ inclMatrix K (ε ∘ inr)) *ᵥ η := by
-      have h_det0 : schurDetExp (fun _ : Φ ↦ n) (fun _ : Φ ↦ n) km = 0 := by simp
-      rw [hη, mulVec_mulVec, hkm.schur_mul_schur,
-        schur_mulVec_weylEval_of_schurDetExp_eq_zero .refl h_det0,
-        schur_mulVec_weylEval_of_schurDetExp_eq_zero hkm.fitsRanks hkm.schurDetExp_eq_zero]
-      refine h_weylEval_congr hkm fun τ a j hj ↦ ?_
-      let b₀ : m := (equivFin m).symm ⟨j, hj⟩
-      have hb₀ : (equivFin m b₀ : ℕ) = j := by simp [b₀]
-      have h_rev_val : ((equivFin n (δ (inr b₀))).rev : ℕ) = j := by
-        have h_δ : δ (inr b₀) = (equivFin n).symm
-            (finCongr h_card (finSumFinEquiv (inr (equivFin m b₀).rev))) := rfl
-        rw [Fin.val_rev, h_δ, Equiv.apply_symm_apply]
-        simp only [finCongr_apply, Fin.val_cast, finSumFinEquiv_apply_right, Fin.val_natAdd,
-          Fin.val_rev, hb₀]
-        omega
-      have h_perm_n : permArray (R := K) (fun _ c ↦ ((equivFin n c).rev : ℕ))
-          (⟨τ, δ (inr b₀)⟩, j) = 1 := by
-        simp only [permArray, h_rev_val, ↓reduceIte]
-      have h_lhs : (∑ b : n, (g τ)⁻¹.valᵀ a b *
-          permArray (fun _ c ↦ ((equivFin n c).rev : ℕ)) (⟨τ, b⟩, j)) =
-          (g τ)⁻¹.valᵀ a (δ (inr b₀)) := by
-        rw [← mul_one ((g τ)⁻¹.valᵀ a (δ (inr b₀))), ← h_perm_n]
-        refine sum_eq_single (δ (inr b₀)) (fun b _ hb ↦ ?_) (fun h ↦ absurd (mem_univ _) h)
-        have h_ne : ((equivFin n b).rev : ℕ) ≠ j := fun h_eq ↦ hb (by
-          apply (equivFin n).injective
-          apply Fin.rev_injective
-          ext; exact h_eq.trans h_rev_val.symm)
-        simp only [permArray, h_ne, ↓reduceIte, mul_zero]
-      have h_perm_m : permArray (R := K) (fun τ c ↦ (rowEquivFin (fun _ ↦ m) τ c : ℕ))
-          (⟨τ, b₀⟩, j) = 1 := by
-        simp [permArray, hb₀]
-      have h_rhs : (∑ b : m, (inclMatrix K (ε ∘ inr) * (w τ).val) a b *
-          permArray (fun τ c ↦ (rowEquivFin (fun _ ↦ m) τ c : ℕ)) (⟨τ, b⟩, j)) =
-          (inclMatrix K (ε ∘ inr) * (w τ).val) a b₀ := by
-        rw [← mul_one ((inclMatrix K (ε ∘ inr) * (w τ).val) a b₀), ← h_perm_m]
-        refine sum_eq_single b₀ (fun b _ hb ↦ ?_) (fun h ↦ absurd (mem_univ _) h)
-        have h_ne : (rowEquivFin (fun _ : Φ ↦ m) τ b : ℕ) ≠ j := fun h_eq ↦ hb (by
-          apply (equivFin m).injective
-          exact Fin.ext (h_eq.trans hb₀.symm))
-        simp only [permArray, h_ne, ↓reduceIte, mul_zero]
-      rw [h_lhs, h_rhs]
-      have h_gt : (g τ)⁻¹.valᵀ a (δ (inr b₀)) =
-          ((fromBlocks (u τ).val 0 0 (w τ).valᵀ⁻¹)⁻¹)ᵀ (ε.symm a) (inr b₀) := by
-        have h_inv_re : (g τ)⁻¹.val =
-            reindex δ ε (fromBlocks (u τ).val 0 0 (w τ).valᵀ⁻¹)⁻¹ := by
-          simp [g]
-        rw [transpose_apply, h_inv_re, reindex_apply]
-        simp
-      have h_block_inv : (fromBlocks (u τ).val 0 0 (w τ).valᵀ⁻¹)⁻¹ =
-          fromBlocks (u τ).val⁻¹ 0 0 (w τ).valᵀ := by
-        rw [inv_fromBlocks_zero₂₁_of_isUnit_iff _ _ _ (by simp)]
-        simp
-      rw [h_gt, h_block_inv, fromBlocks_transpose, ← ε.apply_symm_apply a]
-      rcases ε.symm a with i | i
-      · simp [fromBlocks_apply₁₂, inclMatrix, Matrix.mul_apply]
-      · simp [fromBlocks_apply₂₂, inclMatrix, Matrix.mul_apply, Matrix.one_apply]
-    rw [h_kp, h_km]
+      have hj : (h : ℕ) < card k := by
+        rcases lt_trichotomy (h : ℕ) (card k) with hlt | heq | hgt
+        · exact hlt
+        · have h0 := congrFun hκ.schurDetExp_eq_zero τ
+          simp only [schurDetExp, rankAt, heq ▸ h.isLt, ↓reduceIte, Pi.zero_apply] at h0
+          rw [heq] at j; exact absurd j.isLt (by omega)
+        · have h0 := (hκ.fitsRanks τ).2 h (mem_Ioo.2 ⟨hgt, h.isLt⟩)
+          exact absurd j.isLt (by omega)
+      congr 1; ext a b
+      let b₀ : k := (equivFin k).symm ⟨b, lt_trans b.isLt hj⟩
+      have hb₀ : (equivFin k b₀ : ℕ) = b := by simp [b₀]
+      have h_eqk : ∀ c : k, ((equivFin k c : ℕ) = (equivFin k b₀ : ℕ)) ↔ c = b₀ := fun c ↦
+        Fin.val_inj.trans (equivFin k).injective.eq_iff
+      simp only [Matrix.map_apply, of_apply, MvPolynomial.eval_X, ← hb₀, permArray, rowEquivFin,
+        hf b₀, h_eqk, mul_ite, mul_one, mul_zero, Fintype.sum_ite_eq']
+      exact hMB τ _ b₀
+    have h_inl : schur kp (fun τ ↦ (g τ).val) *ᵥ weylEvalAt n K kp Fin.val =
+        schur kp (fun _ ↦ inclMatrix K (ε ∘ inl)) *ᵥ schur kp (fun τ ↦ (u τ).val) *ᵥ
+          weylEval (fun _ : Φ ↦ N) kp
+            (permArray fun τ i ↦ (rowEquivFin (fun _ : Φ ↦ N) τ i : ℕ)) := by
+      refine h_block hkp (fun τ ↦ (g τ).val) (fun τ ↦ (u τ).val) (ε ∘ inl) Fin.val
+        (fun b₀ ↦ δ (inl b₀)) (fun b₀ c ↦ ?_) fun τ a b₀ ↦ ?_
+      · rw [← (equivFin n).injective.eq_iff, ← Fin.val_inj]; simp [δ]
+      · have h_g : (g τ).val a (δ (inl b₀)) =
+            fromBlocks (u τ).val 0 0 (w τ).valᵀ⁻¹ (ε.symm a) (inl b₀) := by
+          conv_lhs => rw [← ε.apply_symm_apply a]
+          simp [g, reindex_apply]
+        rw [h_g, ← ε.apply_symm_apply a]
+        rcases ε.symm a with i | i <;>
+          simp [fromBlocks_apply₁₁, fromBlocks_apply₂₁, inclMatrix, Matrix.mul_apply,
+            Matrix.one_apply]
+    have h_inr : schur km (fun τ ↦ (g τ)⁻¹.valᵀ) *ᵥ weylEvalAt n K km (fun i ↦ (i.rev : ℕ)) =
+        schur km (fun _ ↦ inclMatrix K (ε ∘ inr)) *ᵥ schur km (fun τ ↦ (w τ).val) *ᵥ
+          weylEval (fun _ : Φ ↦ m) km
+            (permArray fun τ i ↦ (rowEquivFin (fun _ : Φ ↦ m) τ i : ℕ)) := by
+      refine h_block hkm (fun τ ↦ (g τ)⁻¹.valᵀ) (fun τ ↦ (w τ).val) (ε ∘ inr)
+        (fun i ↦ (i.rev : ℕ)) (fun b₀ ↦ δ (inr b₀)) (fun b₀ c ↦ ?_) fun τ a b₀ ↦ ?_
+      · have h_δ : (equivFin n (δ (inr b₀))).rev.val = (equivFin m b₀ : ℕ) := by
+          have : δ (inr b₀) = (equivFin n).symm
+              (finCongr h_card (finSumFinEquiv (inr (equivFin m b₀).rev))) := rfl
+          rw [this, Equiv.apply_symm_apply]
+          simp only [Fin.val_rev, finCongr_apply, Fin.val_cast, finSumFinEquiv_apply_right,
+            Fin.val_natAdd]; omega
+        rw [← h_δ, Fin.val_inj, Fin.rev_inj, (equivFin n).injective.eq_iff]
+      · have h_bi : (fromBlocks (u τ).val 0 0 (w τ).valᵀ⁻¹)⁻¹ =
+            fromBlocks (u τ).val⁻¹ 0 0 (w τ).valᵀ := by
+          rw [inv_fromBlocks_zero₂₁_of_isUnit_iff _ _ _ (by simp)]; simp
+        have h_gt : (g τ)⁻¹.valᵀ a (δ (inr b₀)) =
+            (fromBlocks (u τ).val⁻¹ 0 0 (w τ).valᵀ)ᵀ (ε.symm a) (inr b₀) := by
+          have h_inv_re : (g τ)⁻¹.val =
+              reindex δ ε (fromBlocks (u τ).val 0 0 (w τ).valᵀ⁻¹)⁻¹ := by simp [g]
+          rw [transpose_apply, h_inv_re, reindex_apply, h_bi, submatrix_apply,
+            δ.symm_apply_apply]
+          rfl
+        rw [h_gt, fromBlocks_transpose, ← ε.apply_symm_apply a]
+        rcases ε.symm a with i | i <;>
+          simp [fromBlocks_apply₁₂, fromBlocks_apply₂₂, inclMatrix, Matrix.mul_apply,
+            Matrix.one_apply]
+    rw [h_inl, h_inr]
   -- At `g = 1` the Schur matrices in `cartanProduct` are those of the inclusions of the letters.
   have h_one : cartanProduct ε 1 y η = (mixedCartanLeftInv n kp km).map (↑) *ᵥ T y η := by
     rw [cartanProduct_apply, h_T]
@@ -1147,24 +1024,17 @@ lemma weylNormSq_cartanProduct (hkp : HasColumnsBelow n N kp) (hkm : HasColumnsB
     rw [← (mixedCartan n kp km).gram_eq, map_mul_intCast, map_mul_intCast]
     congr 1
     · congr 1
-      · ext i j
-        simp [M, conjTranspose_apply]
-      · ext ⟨i₁, j₁⟩ ⟨i₂, j₂⟩
-        simp [G, kroneckerMap_apply]
+      · ext i j; simp [M, conjTranspose_apply]
+      · ext ⟨i₁, j₁⟩ ⟨i₂, j₂⟩; simp [G, kroneckerMap_apply]
   -- An inclusion `ι` of letters has `ιᴴ ι = 1`, so `S(ι)ᴴ G S(ι) = G S(ιᴴ ι) = G`.
   have h_norm {k : Type} [Fintype k] [DecidableEq k] {κ : Φ → ℕ → ℕ} (hκ : HasColumnsBelow n k κ)
       {f : k → n} (hf : f.Injective) (v : WeylIndex k κ → ℂ) :
       weylNormSq (schur κ (fun _ : Φ ↦ inclMatrix ℂ f) *ᵥ v) = weylNormSq v := by
     have h_incl : (inclMatrix ℂ f)ᴴ * inclMatrix ℂ f = 1 := by
       ext i j
-      simp only [inclMatrix, conjTranspose_apply, Matrix.mul_apply, submatrix_apply, id_eq,
-        Matrix.one_apply, mul_ite, mul_one, mul_zero, Finset.sum_ite_eq', Finset.mem_univ,
-        ↓reduceIte, hf.eq_iff, eq_comm]
-      split_ifs <;> simp only [star_one, star_zero]
-    simp only [weylNormSq, star_mulVec_dotProduct, mulVec_mulVec]
-    rw [schur_conjTranspose_weylGram_schur hκ.fitsRanks, hκ.schurDetExp_eq_zero]
-    simp only [Pi.zero_apply, _root_.pow_zero, prod_const_one, one_smul, h_incl,
-      schur_one (hg := fun _ ↦ rfl), Matrix.mul_one]
+      simp [inclMatrix, Matrix.mul_apply, Matrix.one_apply, hf.eq_iff, eq_comm]
+    simp [weylNormSq, star_mulVec_dotProduct, schur_conjTranspose_weylGram_schur hκ.fitsRanks,
+      hκ.schurDetExp_eq_zero, h_incl, schur_one]
   calc weylNormSq c
       = (star c ⬝ᵥ (Mᴴ * G * M) *ᵥ c).re := by rw [weylNormSq, h_gram]
     _ = (star (M *ᵥ c) ⬝ᵥ G *ᵥ M *ᵥ c).re := by
@@ -1306,8 +1176,7 @@ lemma exists_isDualPairing_of_isHCParam [Nonempty n] (hl : IsHCParam κ e l)
       weylRep κ' e' g *ᵥ v' ⬝ᵥ A.map (↑) *ᵥ weylRep κ e g *ᵥ v = v' ⬝ᵥ A.map (↑) *ᵥ v := by
     -- The determinant power in the duality is `e' + e`.
     let j : Matrix (WeylIndex n κ') (WeylIndex n κ) R := J.map (↑)
-    have h_dual : schur κ' (fun τ ↦ (g τ)⁻¹.valᵀ) * j =
-        j * weylRep κ (fun τ ↦ e' τ + e τ) g := by
+    have h_dual : schur κ' (fun τ ↦ (g τ)⁻¹.valᵀ) * j = j * weylRep κ (fun τ ↦ e' τ + e τ) g := by
       simpa only [hl.add_eq_neg_sum_of_neg hl_neg, ← Nat.cast_sum] using hJ.equivariant g
     -- Move the determinant powers to the side of the inverse transpose.
     have h_schur : (∏ τ, (g τ).det ^ e τ)⁻¹ • (∏ τ, (g τ).det ^ e' τ)⁻¹ •
@@ -1316,13 +1185,9 @@ lemma exists_isDualPairing_of_isHCParam [Nonempty n] (hl : IsHCParam κ e l)
           ∏ τ, (g τ).det ^ (e' τ + e τ)) = 1 := by
         simp only [← prod_inv_distrib, ← prod_mul_distrib, _root_.zpow_add]
         exact prod_eq_one fun τ _ ↦ by group
-      rw [h_dual]
-      dsimp only [weylRep, MonoidHom.coe_mk, OneHom.coe_mk]
+      rw [h_dual]; dsimp only [weylRep, MonoidHom.coe_mk, OneHom.coe_mk]
       rw [Matrix.mul_smul, smul_smul, smul_smul, h_unit, one_smul]
     -- Move `schur κ' g` across `G` by `weylGramOver_mul_schur`; it cancels the inverse transpose.
-    rw [map_intCast_mul_mulVec, map_intCast_mul_mulVec]
-    change weylRep κ' e' g *ᵥ v' ⬝ᵥ weylGramOver *ᵥ j *ᵥ weylRep κ e g *ᵥ v =
-      v' ⬝ᵥ weylGramOver *ᵥ j *ᵥ v
     have h_S' : (schur κ' fun τ ↦ (g τ).val)ᵀ * weylGramOver *
         schur κ' (fun τ ↦ (g τ)⁻¹.valᵀ) = weylGramOver := by
       have h_tr : (fun τ ↦ (g τ).val) = fun τ ↦ ((g τ).valᵀ)ᵀ :=
@@ -1331,20 +1196,14 @@ lemma exists_isDualPairing_of_isHCParam [Nonempty n] (hl : IsHCParam κ e l)
         rw [← transpose_mul, ← Units.val_mul, inv_mul_cancel, Units.val_one, transpose_one]
       rw [h_tr, ← weylGramOver_mul_schur, Matrix.mul_assoc, ← schur_mul_left .refl,
         schur_one (hg := h_id), Matrix.mul_one]
-    have h_det : ((((∏ τ, (g τ).det ^ e τ : Rˣ) : R) *
-        ((((∏ τ, (g τ).det ^ e τ : Rˣ)⁻¹ : Rˣ) : R) *
-        ((((∏ τ, (g τ).det ^ e' τ : Rˣ)⁻¹ : Rˣ) : R) *
-        ((∏ τ, (g τ).det ^ e' τ : Rˣ) : R))))) = 1 := by
-      rw [Units.val_inv_eq_inv_val, Units.val_inv_eq_inv_val]
-      rw [inv_mul_cancel₀ (Units.ne_zero _), mul_one, mul_inv_cancel₀ (Units.ne_zero _)]
+    rw [map_intCast_mul_mulVec, map_intCast_mul_mulVec]
+    change weylRep κ' e' g *ᵥ v' ⬝ᵥ weylGramOver *ᵥ j *ᵥ weylRep κ e g *ᵥ v =
+      v' ⬝ᵥ weylGramOver *ᵥ j *ᵥ v
     dsimp only [weylRep, MonoidHom.coe_mk, OneHom.coe_mk]
-    simp only [Units.smul_def, smul_mulVec, mulVec_smul, mulVec_mulVec]
-    rw [← h_schur]
-    simp only [Units.smul_def, Matrix.mul_smul, smul_mulVec, smul_vecMul, dotProduct_smul,
-      smul_dotProduct, dotProduct_mulVec, vecMul_mulVec, smul_smul, mul_assoc]
-    rw [h_det, one_smul, ← Matrix.mul_assoc weylGramOver,
-      ← Matrix.mul_assoc (schur κ' fun τ ↦ (g τ).val)ᵀ,
-      ← Matrix.mul_assoc (schur κ' fun τ ↦ (g τ).val)ᵀ weylGramOver, h_S']
+    rw [smul_mulVec, smul_mulVec, mulVec_smul j, mulVec_mulVec v j, ← h_schur,
+      smul_mulVec, smul_mulVec, mulVec_smul, mulVec_smul, smul_inv_smul, mulVec_smul,
+      dotProduct_smul, smul_dotProduct, inv_smul_smul, dotProduct_mulVec, vecMul_mulVec,
+      ← mulVec_mulVec, ← dotProduct_mulVec, mulVec_mulVec, h_S']
   -- Pairing with `A *ᵥ v` is the Hermitian product with `star (J *ᵥ v)`, as `G` is symmetric.
   have h_pair (v : WeylIndex n κ → ℂ) (u : WeylIndex n κ' → ℂ) :
       u ⬝ᵥ A.map (↑) *ᵥ v = gramForm (star (J.map (↑) *ᵥ v)) u := by
@@ -1366,10 +1225,7 @@ lemma exists_isDualPairing_of_isHCParam [Nonempty n] (hl : IsHCParam κ e l)
     let F : Matrix (WeylIndex n κ') (WeylIndex n κ') ℤ := of fun i j ↦
       fockPairing ℤ (nablaBasis ℤ (fun _ ↦ n) κ' i) (nablaBasis ℤ (fun _ ↦ n) κ' j)
     have h_fock : Fᵀ * G = hookNumber κ' (rankAt fun _ ↦ n) • 1 :=
-      transpose_injective (by
-        simp only [F, G, transpose_mul, transpose_transpose, transpose_smul, transpose_one,
-          weylGram_isSymm.eq]
-        exact weylGram_mul_fockPairing)
+      transpose_injective (by simp [F, G, weylGram_isSymm.eq, weylGram_mul_fockPairing])
     have h_left : J' * Fᵀ * A = hookNumber κ' (rankAt fun _ ↦ n) • 1 := by
       rw [Matrix.mul_assoc, ← Fᵀ.mul_assoc, h_fock, smul_mul, Matrix.one_mul, J'.mul_smul,
         h_left_inv]
