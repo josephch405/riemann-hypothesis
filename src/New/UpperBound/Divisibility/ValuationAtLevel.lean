@@ -344,7 +344,7 @@ lemma liftLaw_liftAtN (j : ℕ) (v : (D.homX j).finitePart) :
         D.liftCharAtN ϑ (j + 1) r (inclGL g) = 1 := by
       rw [liftCharAtN, ← D.spaceChar_rankTwist ϑ 0]
       exact detCharAt_inclGL _ (fun w hw ↦
-        D.charUnramifiedAt_rankTwist_of_N_mem _ _ _ w (natCast_level_mem _ hw)) ..
+        D.charUnramifiedAt_rankTwist_of_N_mem _ _ _ w (natCast_level_mem _ hw)) _ r g
     rw [liftAtN_apply, liftAtN_apply, liftFn_comp_mul, ← inv_inv (inclGL b),
       D.lift_schrodingerOpAt_comp]
     simp only [conjEmbedGL, MulEquiv.toMonoidHom_eq_coe, inv_inv, MonoidHom.coe_comp,

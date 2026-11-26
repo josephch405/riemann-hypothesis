@@ -717,7 +717,7 @@ lemma IsFillingData.exists_massIntegral_pi_eq (h : S.IsFillingData T F)
     have h_right : MeasurePreserving (· * x) F.groupMeasure F.groupMeasure :=
       measurePreserving_mul_right _ x
     exact ((h_emb.measurable.measurePreserving _).of_semiconj h_right
-      (fun y ↦ map_mul (S.toFibers T blk) y x) (by fun_prop)).map_eq
+      (fun y ↦ (S.toFibers T blk).map_mul y x) (by fun_prop)).map_eq
   obtain ⟨t, ht⟩ : ∃ t : ℝ≥0∞,
       F.groupMeasure.map (S.toFibers T blk) = t • .pi fun i : ι ↦ (F' i).groupMeasure :=
     exists_eq_smul_haar _ h_inv

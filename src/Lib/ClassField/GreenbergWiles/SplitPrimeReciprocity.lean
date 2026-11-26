@@ -727,7 +727,6 @@ private lemma IsLargeLevel.SplitPlaces.exists_mem_trivializedCocycles_of_valuati
   have κ_γ (θ : ι × G ⧸ Q) : (κ (ofBase Q Ω (.ofMul x))).val (γ' θ) =
       cyclotomicCharMod Ω m θ.snd.out⁻¹ * ↑(-((S.v θ).valuation F x.val).log) :=
     kummer_conj_liftToFixedField s hγ hκ θ x
-
   -- The cocycle `z = κ x • a` of `U` vanishes on `I` and on the stabilisers of the places above
   -- `N` and infinity, so it is trivialised by `0` at representatives of the orbits.
   let xFixed : ↥(unitsModule Q).H0 := ofBase Q Ω (.ofMul x)
