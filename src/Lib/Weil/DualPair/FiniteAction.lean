@@ -173,7 +173,10 @@ lemma finMultiplier_onHom_left {g : G E s} :
     (saturatingElem g.2⁻¹.val).prop.map_of_le_comap φ fun x hx i ↦ by
       aesop (add simp Matrix.one_apply)
   have h_transpose : (G.onHom (s' := s') (g, 1)).2.val.val = (φ g.2⁻¹.val.val)ᵀ := by
-    aesop (add simp [onHom_snd, Matrix.one_apply])
+    refine Matrix.ext fun ⟨i₁, j₁⟩ ⟨i₂, j₂⟩ ↦ ?_
+    simp only [onHom_snd, φ, RingHom.coe_mk, MonoidHom.coe_mk, OneHom.coe_mk,
+      kroneckerMap_apply, transpose_apply, Matrix.one_apply, Prod.snd_one, OneMemClass.coe_one,
+      Units.val_one, ite_mul, one_mul, zero_mul, eq_comm]
   have h_det : (Φ u).det = u.det ^ card n' := by simp [Φ, φ, Units.ext_iff, det_kronecker]
   rw [finMultiplier, h_sat.glMultiplier_transpose h_transpose, h_det, map_pow]
   rfl
@@ -219,17 +222,35 @@ lemma pairWeil_schrodingerOp_of_mem_supportedOn (hA : A.IsConjDisjoint) {Ψ : (n
           Ψ (matrixToVec (h⁻¹.val.val * vecToMatrix x * g.val.val))) f := by
   let u : Gf E (n' × n) := (onHom ((1, g), 1, h) : G E (homSigns s s')).2
   -- the matrix of `u` is the Kronecker product `h ⊗ₖ g⁻¹ᵀ`
-  have h_det : detOn A u.val = detOn A h.val ^ card n / detOn A g.val ^ card n' :=
-    eq_div_of_mul_eq' (by aesop (add simp [u, det_kronecker, det_ne_zero]))
+  have h_det : detOn A u.val = detOn A h.val ^ card n / detOn A g.val ^ card n' := by
+    refine eq_div_of_mul_eq' (Units.ext (Prod.ext ?_ (RestrictedProduct.ext _ _ fun w ↦ ?_)))
+    · have h1 (x : (𝔸f E)ˣ) : (finIdeleIncl x).val.1 = 1 := rfl
+      simp only [detOn, MonoidHom.coe_comp, Function.comp_apply, ← map_pow, ← map_mul, h1]
+    · let π : 𝔸 E →+* LocField w := (evalAt w).comp (RingHom.snd _ _)
+      change π (detOn A u.val * detOn A g.val ^ card n').val = π (detOn A h.val ^ card n).val
+      simp only [Units.val_mul, Units.val_pow_eq_pow_val, map_mul, map_pow, π, RingHom.coe_comp,
+        Function.comp_apply, RingHom.coe_snd, evalAt_apply, detOn_apply]
+      by_cases hw : w ∈ A
+      · have hu : (u.atPlace w).val = (h.atPlace w).val ⊗ₖ (g.atPlace w)⁻¹.valᵀ := by
+          simpa only [← map_inv] using G.onHom_atPlace (p := ((1, g), (1, h))) (w := w)
+        simp only [hw, ↓reduceIte, hu, det_kronecker, det_transpose, coe_units_inv,
+          det_nonsing_inv, Ring.inverse_eq_inv, inv_pow, mul_assoc]
+        rw [inv_mul_cancel₀ (pow_ne_zero _ (GeneralLinearGroup.det_ne_zero (g.atPlace w))),
+          mul_one]
+      · simp only [hw, ↓reduceIte, one_pow, mul_one]
   -- `a (det h)` and `b (det g)` are values of the base changes at `detOn A h` and `detOn A g`
   have h_scalar : pairChar (s := s) (s' := s') a b ((1, g), 1, h) *
         (starRingEnd ℂ) (chiAdelic (detOn A u.val)) =
       (a.spaceChar (card n)).val (detOn A h.val) / (b.spaceChar (card n')).val (detOn A g.val) *
         √(ideleAbs (detOn A g.val)) ^ card n' / √(ideleAbs (detOn A h.val)) ^ card n := by
     rw [h_det, map_div, map_pow, map_pow]
-    simp [detFin_of_mem_supportedOn hA, AutChar.spaceChar, AutChar.baseChange_apply_coe_toFun, hg,
-      hh,
-      chiAdelic, mul_pow, field, ← Complex.inv_eq_conj, Circle.norm_coe]
+    simp only [pairChar_apply, detFin_of_mem_supportedOn hA, hg, hh, AutChar.spaceChar,
+      AutChar.baseChange_apply_coe_toFun, chiAdelic, MonoidHom.coe_mk, OneHom.coe_mk,
+      Subgroup.coe_mul, Subgroup.coe_inv, Subgroup.coe_pow, ContinuousMonoidHom.mul_apply,
+      ContinuousMonoidHom.pow_apply, circleChar_inv_apply, Circle.coe_mul, Circle.coe_inv,
+      Circle.coe_pow, map_div₀, map_pow, map_mul, Complex.conj_ofReal, map_inv₀,
+      ← Complex.inv_eq_conj, Circle.norm_coe, mul_pow, inv_pow]
+    field_simp
   -- `ω u` moves `Ψ` to `Ψ (u⁻¹ ·)`, with the factor `conj (chiAdelic (detOn A u))`
   rw [pairWeil_apply, onHom_fin, omega_schrodingerOp_of_mem_supportedOn hA _
     (onHom_mem_supportedOn hg hh), smul_smul, h_scalar]
@@ -264,9 +285,10 @@ lemma pairWeil_schrodingerOp_of_mem (hA : A.IsConjDisjoint) {Ψ : (n' × n → �
           Ψ (matrixToVec ((↑h.2⁻¹ : Matrix n' n' (𝔸f E)) * vecToMatrix x *
             (g.2 : Matrix n n (𝔸f E)))))
         (pairWeil S T a b (g, h) f) := by
-  rw [pairWeil_apply, pairWeil_apply, map_smul,
-    omega_schrodingerOp_of_mem hA fun w _ ↦ onHom_atPlace_mem (mem_stdLevel_iff.1 hg w)
-      (mem_stdLevel_iff.1 hh w)]
+  have h_mem : ∀ w ∈ A, (onHom (g, h)).2.atPlace w ∈ localIntGL (n' × n) w :=
+    fun w _ ↦ onHom_atPlace_mem (p := (g, h)) (mem_stdLevel_iff.1 hg w)
+      (mem_stdLevel_iff.1 hh w)
+  rw [pairWeil_apply, pairWeil_apply, map_smul, omega_schrodingerOp_of_mem hA h_mem]
   simp only [onHom_snd_inv_mulVec]
 
 end PairFinite
@@ -359,8 +381,12 @@ lemma pairWeil_boxProd_source (h : G E s') (f : 𝒮 (V₁.hom T)) (f' : 𝒮 (V
       boxProd homSigns_sum_source ((V₁.hom T).ω (onHom (g₁, h)) f)
         ((V₂.hom T).ω (onHom (g₂, h)) f') :=
     omega_boxProd _ (by simp [adeleMatrix_inv, stdForm, ← ext_iff]) f f'
-  simp [pairWeil_apply, det_eq, h_ω]
-  module
+  rw [pairWeil_apply, pairWeil_apply, pairWeil_apply, h_ω, map_smul, map_smul, _root_.smul_apply,
+    smul_smul]
+  congr 1
+  simp only [pairChar_apply, det_eq, Subgroup.coe_mul, ContinuousMonoidHom.mul_apply,
+    Circle.coe_mul, map_mul, mul_inv]
+  ring
 
 /-- Let e split the coordinates of V compatibly with the signs, and let g be block diagonal along e
 with blocks g₁, g₂. Then on Hom(T,V), ω_{a,bb'}(h,g)(f ⊠ f') = ω_{a,b}(h,g₁)f ⊠ ω_{a,b'}(h,g₂)f' for
@@ -378,8 +404,12 @@ lemma pairWeil_boxProd_target (hs : s ∘ e = s₁ ⊕ᵥ s₂) (T : Space E n' 
       boxProd (homSigns_sum_target hs) ((T.hom V₁).ω (G.onHom (h, g₁)) f)
         ((T.hom V₂).ω (G.onHom (h, g₂)) f') :=
     omega_boxProd _ (by simp_all [← ext_iff]) f f'
-  simp [pairWeil_apply, det_eq, h_omega]
-  module
+  rw [pairWeil_apply, pairWeil_apply, pairWeil_apply, h_omega, map_smul, map_smul,
+    _root_.smul_apply, smul_smul]
+  congr 1
+  simp only [pairChar_apply, det_eq, Subgroup.coe_mul, ContinuousMonoidHom.mul_apply,
+    Circle.coe_mul, map_mul, mul_inv]
+  ring
 
 end Sums
 
@@ -453,7 +483,8 @@ lemma pairWeil_negSource (h : G E s') (f : 𝒮 (S.hom T)) :
   -- the ratio of the multipliers (`CoordChange.map_omega`), which `conj_weilMultiplier_of_eq_neg`
   -- computes.
   have h_signs : homSigns (-s) s' = -homSigns s s' := by simp [funext_iff, pairSign]
-  have h_mat : (onHom (g.neg, h)).adeleMatrix = (onHom (g, h)).adeleMatrix := by simp [← map_inv]
+  have h_mat : (onHom (g.neg, h)).adeleMatrix = (onHom (g, h)).adeleMatrix := by
+    rw [adeleMatrix_onHom, adeleMatrix_onHom, ← map_inv, adeleMatrix_neg]
   have ω_eq : negSource.map ((S.hom T).ω (onHom (g, h)) f) =
       (upsilonU1.val (onHom (g, h)).det : ℂ) •
         (S.neg.hom T).ω (onHom (g.neg, h)) (negSource.map f) :=
@@ -463,7 +494,11 @@ lemma pairWeil_negSource (h : G E s') (f : 𝒮 (S.hom T)) :
   -- characters give the factor in `ω_eq`; conjugation inverts the values of `a` and `b`.
   have h_char : conj (pairChar a b (g, h)) * (upsilonU1.val (onHom (g, h)).det : ℂ) =
       pairChar (a⁻¹ * upsilonU1 ^ card n) (b⁻¹ * upsilonU1 ^ card n') (g.neg, h) := by
-    simp [det_onHom, Circle.norm_coe, ← Complex.inv_eq_conj, field]
+    simp only [pairChar_apply, det_onHom, G.det_neg, Subgroup.coe_mul, Subgroup.coe_inv,
+      Subgroup.coe_pow, ContinuousMonoidHom.mul_apply, circleChar_inv_apply,
+      ContinuousMonoidHom.pow_apply, map_mul, map_inv, map_inv₀, map_pow, Circle.coe_mul,
+      Circle.coe_inv, Circle.coe_pow, ← Complex.inv_eq_conj, Circle.norm_coe, inv_pow]
+    field_simp
   rw [pairWeil_apply, pairWeil_apply, map_smulₛₗ, ω_eq, smul_smul, h_char]
 
 variable (S T)
@@ -484,7 +519,9 @@ lemma exists_theta_negSource :
       Units.val_smul, Matrix.mul_smul] at hx ⊢
     rwa [← smul_mul, ← T.x.val.mul_smul]
   obtain ⟨c, hc, hθ⟩ := negSource.exists_theta_omega_map (S.hom T) (S.neg.hom T) 1 h_rat
-  exact ⟨conj c, by simpa using hc, fun f ↦ by simp [hθ f]⟩
+  refine ⟨conj c, by simpa using hc, fun f ↦ ?_⟩
+  rw [map_smul, smul_eq_mul, hθ f, map_mul, RingHomCompTriple.comp_apply, RingHom.id_apply,
+    map_one, one_apply_eq_self]
 
 /-! ### Change of point -/
 
@@ -507,7 +544,10 @@ lemma Space.pairTheta_move (S : Space E n s) (T : Space E n' s') (a b : AutChar 
       (S.hom T).θ ((S.hom T).ω (G.onHom (γ, γ')) f') :=
     (congrArg (fun V : Space E (n' × n) (homSigns s s') ↦ V.θ f') h_hom).trans (theta_move ..)
   have h_char : pairChar a b (g, h) =
-      b.val γ.det * (a.val γ'.det : ℂ)⁻¹ * pairChar a b (γ * g, γ' * h) := by simp [field]
+      b.val γ.det * (a.val γ'.det : ℂ)⁻¹ * pairChar a b (γ * g, γ' * h) := by
+    rw [← Prod.mk_mul_mk, map_mul]
+    simp only [pairChar_apply]
+    field_simp
   calc pairTheta (S.move γ) (T.move γ') a b f (g, h)
       = (S.hom T).θ ((S.hom T).ω (G.onHom (γ, γ')) (pairWeil S T a b (g, h) f)) := h_theta _
     _ = pairChar a b (g, h) * (S.hom T).θ ((S.hom T).ω (G.onHom (γ * g, γ' * h)) f) := by
