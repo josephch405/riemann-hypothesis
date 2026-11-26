@@ -290,7 +290,10 @@ lemma carrierChar_hasWeight :
       ((fun σ : D.Φ ↦ (-D.liftWeight 0 σ : ℤ)) + fun _ ↦ upsilonExp) (1 * 1) :=
     D.chiZero_hasWeight.mul (hasWeight_upsilonU1_zpow upsilonExp)
   -- the weights agree because `κ_j = κ_0 + j Δ`
-  have liftWeight_eq (σ : D.Φ) : (D.liftWeight j σ : ℤ) = D.liftWeight 0 σ + j * D.gap := by grind
+  have liftWeight_eq (σ : D.Φ) : (D.liftWeight j σ : ℤ) = D.liftWeight 0 σ + j * D.gap := by
+    simp only [liftWeight, shiftedWeight, gap]
+    push_cast
+    ring
   simpa only [liftWeight_eq, upsilonExp, Pi.add_def, one_mul, ← sub_sub, neg_add_eq_sub,
     sub_right_comm] using h_mul
 
@@ -341,20 +344,73 @@ lemma New.Data.card_detIndex_add_firstFactorCharExp {P : Parameters} {D : Data P
   -- For `h < D.posRank j` the number of columns is `targetParameter τ (h - 1) - targetParameter τ h
   -- - 1` if `h ≠ 0` and `0` if `h = 0`; these are the successive differences of `shiftedParam`, so
   -- their sum telescopes.
+  have hk_lt : 100 * D.m + 9 < D.k := D.nat_lt_of_hasLogBound
+  have hj1 : 1 ≤ (j : ℕ) := j.property.1
+  have h_log : 300 * (D.f * (2 * D.t ^ 3)) + D.t ≤ D.halfGap := D.nat_le_of_hasLogBound
+  have ht_le : D.t ≤ D.halfGap := by omega
+  have hr_eq : D.r + 1 = D.k + D.m := D.r_add_one
+  have ht_eq : D.t = 5 * D.r := rfl
   let shiftedParam (l : ℕ) : ℤ := D.targetParameter τ (l - 1) + (l ⊔ 1 : ℕ)
-  have h_first : shiftedParam 0 = D.k / 2 := by grind [targetParameter_eq]
+  have h_first : shiftedParam 0 = D.k / 2 := by
+    simp only [shiftedParam, targetParameter_eq, show (0 : ℕ) - 1 + 1 < D.k by omega, ↓reduceIte]
+    omega
   have h_last : shiftedParam (D.posRank j) = D.k + j - 1 + D.halfGap - D.liftWeight j τ := by
-    grind [targetParameter_eq]
+    simp only [shiftedParam, targetParameter_eq, posRank,
+      show ¬(D.k + ↑j - 1 - 1 + 1 < D.k) by omega, ↓reduceIte]
+    rw [sup_eq_left.2 (by omega), show D.k + ↑j - 1 - 1 + 2 - D.k = ↑j by omega]
+    omega
   have h_diff (h : ℕ) (h_mem : h ∈ Finset.range (D.posRank j)) :
       ((untwistedDescentPair j).colsPlus τ h : ℤ) = shiftedParam h - shiftedParam (h + 1) := by
-    grind [targetParameter_eq, descentPair]
+    rw [Finset.mem_range, posRank] at h_mem
+    simp only [descentPair, shiftedParam, add_tsub_cancel_right]
+    rcases eq_or_ne h 0 with rfl | hne
+    · simp only [Nat.zero_sub, Nat.zero_add, zero_le, sup_of_le_right, Nat.cast_one]
+      have : _ ≤ D.targetParameter τ 0 ⊔ (↑D.t / 2 - ↑(D.liftWeight (↑j) τ)) := le_sup_left
+      rw [Int.toNat_of_nonpos (by omega)]
+      omega
+    · have h_sup : (D.t : ℤ) / 2 - D.liftWeight j τ ≤ D.targetParameter τ h := by
+        simp only [targetParameter_eq, liftWeight, shiftedWeight]
+        split_ifs
+        · have h_w : 3 * D.halfGap ≤ D.weight τ + (2 * ↑j + 1) * D.halfGap :=
+            le_add_of_le_right (Nat.mul_le_mul_right _ (by omega))
+          zify at h_w; push_cast at h_w ⊢
+          omega
+        · have hm : D.weight τ + (2 * (h + 2 - D.k) + 1) * D.halfGap ≤
+              D.weight τ + (2 * ↑j + 1) * D.halfGap :=
+            Nat.add_le_add_left (Nat.mul_le_mul_right _ (by omega)) _
+          zify at hm; push_cast at hm ⊢
+          omega
+      rw [sup_eq_left.2 h_sup]
+      simp only [targetParameter_eq, liftWeight, shiftedWeight]
+      by_cases hlt1 : h + 1 < D.k
+      · simp only [hlt1, show h - 1 + 1 < D.k by omega, ↓reduceIte]
+        rw [Int.toNat_of_nonneg (by omega)]
+        omega
+      · by_cases heq : h + 1 = D.k
+        · simp only [hlt1, show h - 1 + 1 < D.k by omega, ↓reduceIte]
+          have h_w : 3 * D.halfGap ≤ D.weight τ + (2 * (h + 2 - D.k) + 1) * D.halfGap :=
+            le_add_of_le_right (Nat.mul_le_mul_right _ (by omega))
+          zify at h_w; push_cast at h_w ⊢
+          rw [Int.toNat_of_nonneg (by omega)]
+          omega
+        · simp only [hlt1, show ¬(h - 1 + 1 < D.k) by omega, ↓reduceIte]
+          have hm : (2 * (h - 1 + 2 - D.k) + 1) * D.halfGap + 2 * D.halfGap =
+              (2 * (h + 2 - D.k) + 1) * D.halfGap := by
+            rw [← add_mul, show 2 * (h - 1 + 2 - D.k) + 1 + 2 = 2 * (h + 2 - D.k) + 1 by omega]
+          zify at hm; push_cast at hm ⊢
+          rw [Int.toNat_of_nonneg (by omega)]
+          omega
   have h_card : Fintype.card (DetIndex j τ) =
       ∑ h ∈ Finset.range (D.posRank j), (untwistedDescentPair j).colsPlus τ h +
         D.reducedHalfGap := by
     simp [Finset.sum_range]
-  zify [h_card]
+  have h_red : (D.t + 1) / 2 ≤ D.halfGap := by omega
+  obtain ⟨u, hu⟩ := D.t_odd
+  obtain ⟨m, hm⟩ := D.k_even
+  zify [h_card, h_red]
   rw [Finset.sum_congr rfl h_diff, Finset.sum_range_sub', h_first, h_last]
-  grind [reducedHalfGap]
+  simp only [reducedHalfGap]
+  omega
 
 namespace New.Data
 
@@ -486,34 +542,65 @@ lemma conjHolomorphicWeight_eq_add_kernelWeight {P : Parameters} {D : Data P} (j
   ext c
   set O : DescentPair D.E D.RowIndex (D.RowIndex ⊕ Fin D.t) := untwistedDescentPair j with hO
   have card_eq : card (D.RowIndex ⊕ Fin D.t) = 6 * D.r := by
-    grind [card_rowIndex_sum_fin, t_eq_five_mul_r]
+    rw [card_rowIndex_sum_fin, D.t_eq_five_mul_r]; ring
+  have hk_lt : 100 * D.m + 9 < D.k := D.hundred_mul_m_add_nine_lt_k
+  have hr_eq : D.r + 1 = D.k + D.m := D.r_add_one
+  have hj_le : (j : ℕ) ≤ D.m := j.property.2
   have eq_staircaseWeight : conjHolomorphicWeight j τ c =
       staircaseWeight (D.RowIndex ⊕ Fin D.t) (D.signsW j) O.numbering
         (fun η : ℤˣ ↦ if η = 1 then O.colsPlus τ else O.colsMinus τ)
         (-((card (D.RowIndex ⊕ Fin D.t) / 2 : ℕ) + -D.liftWeight j τ)) c :=
     (D.fitsParams_descentPair .one j).lowestKType_eq_staircaseWeight τ c
   rw [eq_staircaseWeight, Pi.add_apply]
+  obtain ⟨m, hm⟩ := D.m_even
+  obtain ⟨u, hu⟩ := D.t_odd
   obtain pos | neg := units_eq_one_or (D.signsW j c)
   · have cols_zero (x : ℕ) (hx : card (FirstFactorIndex j) ≤ x) : O.colsPlus τ x = 0 := by
-      grind [descentPair, card_firstFactorIndex j]
+      have hx_ge : D.k + ↑j ≤ x := by rw [card_firstFactorIndex j] at hx; omega
+      have h_sup_pre : (D.t : ℤ) / 2 - D.liftWeight j τ ≤
+          D.targetParameter τ x ⊔ (↑D.t / 2 - ↑(D.liftWeight (↑j) τ)) := le_sup_right
+      simp only [hO, descentPair, targetParameter_eq, liftWeight, shiftedWeight,
+        show ¬(x - 1 + 1 < D.k) by omega, ↓reduceIte] at h_sup_pre ⊢
+      apply Int.toNat_of_nonpos
+      have hm_le : (2 * (j : ℕ) + 1) * D.halfGap + 2 * D.halfGap ≤
+          (2 * (x - 1 + 2 - D.k) + 1) * D.halfGap := by
+        rw [← add_mul]
+        exact Nat.mul_le_mul_right _ (by omega)
+      zify at hm_le; push_cast at hm_le h_sup_pre ⊢
+      omega
+    have h_card1 : card (FirstFactorIndex j) ≤ 6 * D.r := by
+      rw [card_firstFactorIndex j]; omega
     have h_sum : ∑ x ∈ .Ioo (O.numbering c) (card (FirstFactorIndex j)), (O.colsPlus τ x : ℤ) =
         ∑ x ∈ .Ioo (O.numbering c) (6 * D.r), (O.colsPlus τ x : ℤ) :=
-      Finset.sum_subset (Finset.Ioo_subset_Ioo_right (by grind [card_firstFactorIndex j]))
-        (by grind)
+      Finset.sum_subset (Finset.Ioo_subset_Ioo_right h_card1) fun x hx hnx ↦ by
+        simp only [Finset.mem_Ioo, not_and, not_lt] at hx hnx
+        simp [cols_zero x (hnx hx.1)]
     simp only [staircaseWeight_of_eq_one pos, kernelWeight_of_eq_one j τ pos,
       Pi.single_eq_same, ite_true, h_sum, card_eq]
-    grind
+    simp only [firstFactorCharExp, D.t_eq_five_mul_r]
+    omega
   · have card_small : card D.SecondFactorIndex = D.t - 9 * D.m - 1 := by
-      grind [card_sum, card_fin, card_rowIndex]
+      rw [card_sum, card_rowIndex, card_fin, D.t_eq_five_mul_r]; omega
     have cols_zero (x : ℕ) (hx : card D.SecondFactorIndex ≤ x) : O.colsMinus τ x = 0 := by
-      grind [descentPair]
+      have hx_r : D.r ≤ x := by rw [card_small, D.t_eq_five_mul_r] at hx; omega
+      simp only [hO, descentPair, Nat.sub_eq_zero_of_le hx_r, Nat.zero_sub]
+      apply Int.toNat_of_nonpos
+      have h_inf : D.targetParameter τ 0 ⊓ (-↑(D.liftWeight (↑j) τ) - ↑D.t / 2) ≤
+          D.targetParameter τ 0 := inf_le_left
+      omega
+    have h_card2 : card D.SecondFactorIndex ≤ 6 * D.r := by
+      rw [card_small, D.t_eq_five_mul_r]; omega
     have h_sum : ∑ x ∈ .Ioo (O.numbering c) (card D.SecondFactorIndex), (O.colsMinus τ x : ℤ) =
         ∑ x ∈ .Ioo (O.numbering c) (6 * D.r), (O.colsMinus τ x : ℤ) :=
-      Finset.sum_subset (Finset.Ioo_subset_Ioo_right (by grind)) (by grind)
+      Finset.sum_subset (Finset.Ioo_subset_Ioo_right h_card2) fun x hx hnx ↦ by
+        simp only [Finset.mem_Ioo, not_and, not_lt] at hx hnx
+        simp [cols_zero x (hnx hx.1)]
     simp only [staircaseWeight_of_eq_neg_one neg, kernelWeight_of_eq_neg_one j τ neg, ← hO, h_sum,
       Pi.single_eq_of_ne (units_ne_neg_self 1).symm, ite_eq_right (units_ne_neg_self 1).symm,
-      card_eq, Pi.zero_apply, Finset.sum_const]
-    grind [card_firstFactorIndex j]
+      card_eq, Pi.zero_apply, Nat.cast_zero, Finset.sum_const, smul_zero, add_zero]
+    rw [card_firstFactorIndex j, card_small]
+    simp only [firstFactorCharExp, D.t_eq_five_mul_r]
+    omega
 
 /-- At a basis vector `c` of `W_j` of sign `+1`, the weight `conjHolomorphicWeight j τ` is the
 integer `κ_j - firstFactorCharExp j + j - ⌊m / 2⌋` minus the number of columns of the partition `μ⁺`
@@ -544,10 +631,41 @@ over `x` strictly between `(untwistedDescentPair j).numbering c` and the cardina
 lemma mul_nStar_le_sum_colsMinus {c : D.RowIndex} (hc : D.signsW j c = -1) :
     300 * nStar D ≤ ∑ x ∈ .Ioo ((untwistedDescentPair j).numbering c) (card D.SecondFactorIndex),
       (untwistedDescentPair j).colsMinus τ x := by
+  have hr_eq : D.r + 1 = D.k + D.m := D.r_add_one
+  have hj1 : 1 ≤ (j : ℕ) := j.property.1
+  have hj2 : (j : ℕ) ≤ D.m := j.property.2
+  have hk_lt : 100 * D.m + 9 < D.k := D.hundred_mul_m_add_nine_lt_k
+  have ht_eq : D.t = 5 * D.r := rfl
   calc 300 * nStar D ≤ (untwistedDescentPair j).colsMinus τ (D.m - j) := by
-        grind [descentPair, D.mul_nStar_add_t_le_halfGap]
-    _ ≤ _ := Finset.single_le_sum (fun _ _ ↦ Nat.zero_le _) <| by
-        grind [descentPair, signsW, units_ne_neg_self, card_sum, card_fin]
+        simp only [descentPair, targetParameter_eq, liftWeight, shiftedWeight,
+          show ¬(D.r - (D.m - ↑j) - 1 + 1 < D.k) by omega,
+          show ¬(D.r - (D.m - ↑j) + 1 < D.k) by omega, ↓reduceIte,
+          show D.r - (D.m - ↑j) - 1 + 2 - D.k = ↑j by omega,
+          show D.r - (D.m - ↑j) + 2 - D.k = ↑j + 1 by omega]
+        have h_bd := D.mul_nStar_add_t_le_halfGap
+        have h_mul : D.weight τ + (2 * ((j : ℕ) + 1) + 1) * D.halfGap =
+            D.weight τ + (2 * (j : ℕ) + 1) * D.halfGap + 2 * D.halfGap := by ring
+        zify at h_bd
+        have h_inf : (↑D.halfGap - ↑(D.weight τ + (2 * ↑j + 1) * D.halfGap) : ℤ) ⊓
+            (-↑(D.weight τ + (2 * ↑j + 1) * D.halfGap) - ↑D.t / 2) =
+            -↑(D.weight τ + (2 * ↑j + 1) * D.halfGap) - ↑D.t / 2 :=
+          inf_of_le_right (by omega)
+        have h_ge : (300 * nStar D : ℤ) ≤
+            (↑D.halfGap - ↑(D.weight τ + (2 * ↑j + 1) * D.halfGap) : ℤ) ⊓
+              (-↑(D.weight τ + (2 * ↑j + 1) * D.halfGap) - ↑D.t / 2) -
+            (↑D.halfGap - ↑(D.weight τ + (2 * (↑j + 1) + 1) * D.halfGap)) - 1 := by
+          rw [h_inf, h_mul]
+          push_cast at h_bd ⊢
+          omega
+        rw [← Int.ofNat_le, Int.toNat_of_nonneg (le_trans (Nat.cast_nonneg _) h_ge)]
+        exact h_ge
+    _ ≤ _ := by
+        refine Finset.single_le_sum (fun _ _ ↦ Nat.zero_le _) ?_
+        rw [Finset.mem_Ioo, card_sum, card_rowIndex, card_fin]
+        simp only [descentPair, hc, (units_ne_neg_self (1 : ℤˣ)).symm, ↓reduceIte]
+        simp only [signsW, posRank, ite_eq_left_iff, not_le, units_ne_neg_self, imp_false,
+          not_lt] at hc
+        omega
 
 /-- The entries of the weight `conjHolomorphicWeight j τ` are at most `5 b` in modulus, with
 `b = D.b`. -/
@@ -555,9 +673,31 @@ lemma abs_conjHolomorphicWeight_le (c : D.RowIndex) :
     |(conjHolomorphicWeight j τ c : ℝ)| ≤ 5 * D.b := by
   -- The weight exceeds a bound for the parameter by at most the rank `r`.
   have param_le (a : D.RowIndex) : |(-D.paramW τ) a| ≤ (2 * D.liftWeight (D.m + 1) τ : ℕ) := by
-    grind [Pi.neg_apply, paramW, targetParameter_eq]
+    have hr_eq : D.r + 1 = D.k + D.m := D.r_add_one
+    have ha_lt : (D.basisNumber a : ℕ) < D.r := (D.basisNumber a).isLt
+    have ht_eq : D.t = 5 * D.r := rfl
+    have hbd := D.mul_nStar_add_t_le_halfGap
+    simp only [Pi.neg_apply, paramW, targetParameter_eq, liftWeight, shiftedWeight]
+    split_ifs with hlt
+    · have h_w : 2 * D.halfGap ≤ 2 * (D.weight τ + (2 * (D.m + 1) + 1) * D.halfGap) :=
+        Nat.mul_le_mul_left 2 (le_add_of_le_right (Nat.le_mul_of_pos_left _ (by omega)))
+      have h_tm : 2 * D.r ≤ D.halfGap := by omega
+      zify at h_w h_tm; push_cast at h_w h_tm ⊢
+      rw [abs_le]
+      constructor <;> omega
+    · have hj : (D.basisNumber a : ℕ) + 2 - D.k ≤ D.m + 1 := by omega
+      have hm_le : D.weight τ + (2 * ((D.basisNumber a : ℕ) + 2 - D.k) + 1) * D.halfGap ≤
+          D.weight τ + (2 * (D.m + 1) + 1) * D.halfGap :=
+        Nat.add_le_add_left (Nat.mul_le_mul_right _ (by omega)) _
+      have h_w : 2 * D.halfGap ≤ 2 * (D.weight τ + (2 * (D.m + 1) + 1) * D.halfGap) :=
+        Nat.mul_le_mul_left 2 (le_add_of_le_right (Nat.le_mul_of_pos_left _ (by omega)))
+      have hp0 : (0 : ℤ) ≤ ↑((2 * ((D.basisNumber a : ℕ) + 2 - D.k) + 1) * D.halfGap) :=
+        Nat.cast_nonneg _
+      zify at hm_le h_w; push_cast at hm_le h_w hp0 ⊢
+      rw [abs_le]
+      constructor <;> omega
   have liftWeight_le : D.liftWeight (D.m + 1) τ ≤ 2 * D.b :=
-    D.liftWeight_le_two_mul_b (by grind) τ
+    D.liftWeight_le_two_mul_b (by linarith [D.ten_thousand_le_m]) τ
   grw [← cast_abs, abs_lowestKType_le (D.hasGap_paramW _ τ).neg param_le, card_rowIndex]
   push_cast
   linarith [show 2 * D.r ≤ D.b from D.le_of_hasLogBound]
@@ -629,8 +769,19 @@ variable {j}
 /-- The order `orderW j` on the basis of `W_j` has distinct values and puts every vector of sign
 `+1` before every vector of sign `−1` (`IsPosFirstOrder`). -/
 lemma isPosFirstOrder_orderW : IsPosFirstOrder (D.signsW j) (orderW j) := by
-  grind [IsPosFirstOrder, Function.Injective, D.basisNumber.injective, orderW, descentPair,
-    units_ne_neg_self]
+  refine ⟨fun a b hab ↦ ?_, fun a b ha hb ↦ ?_⟩
+  · have ha_lt : (D.basisNumber a : ℕ) < D.r := (D.basisNumber a).isLt
+    have hb_lt : (D.basisNumber b : ℕ) < D.r := (D.basisNumber b).isLt
+    obtain h1 | h1 := units_eq_one_or (D.signsW j a) <;>
+      obtain h2 | h2 := units_eq_one_or (D.signsW j b) <;>
+      simp only [orderW, descentPair, h1, h2, (units_ne_neg_self (1 : ℤˣ)).symm, ↓reduceIte] at hab
+    · exact D.basisNumber.injective (Fin.ext (by omega))
+    · omega
+    · omega
+    · exact D.basisNumber.injective (Fin.ext (by omega))
+  · have hb_lt : (D.basisNumber b : ℕ) < D.r := (D.basisNumber b).isLt
+    simp only [orderW, descentPair, ha, hb, (units_ne_neg_self (1 : ℤˣ)).symm, ↓reduceIte]
+    omega
 
 /-- If two basis vectors of W_j have the same sign under `New.Data.signsW` and the first comes
 before the second in `New.Data.orderW`, then the doubled row parameter `New.Data.paramW` at τ is
@@ -639,7 +790,14 @@ lemma paramW_lt_of_orderW_lt (a b : D.RowIndex) (h_sign : D.signsW j a = D.signs
     (h_order : orderW j a < orderW j b) : D.paramW τ a < D.paramW τ b := by
   -- The parameter decreases strictly in `D.basisNumber`, and so does `orderW` on vectors of one
   -- sign.
-  have number_lt : D.basisNumber b < D.basisNumber a := by grind [orderW, descentPair]
+  have number_lt : D.basisNumber b < D.basisNumber a := by
+    have ha : (D.basisNumber a : ℕ) < D.r := (D.basisNumber a).isLt
+    have hb : (D.basisNumber b : ℕ) < D.r := (D.basisNumber b).isLt
+    obtain h1 | h1 := units_eq_one_or (D.signsW j a) <;>
+      simp only [orderW, descentPair, h1, h1 ▸ h_sign.symm,
+        (units_ne_neg_self (1 : ℤˣ)).symm, ↓reduceIte] at h_order
+    · exact Fin.lt_def.2 (by omega)
+    · exact Fin.lt_def.2 (by omega)
   rwa [paramW_lt_iff]
 
 end SeparationWeights
@@ -681,10 +839,12 @@ lemma isTameFor_of_hasWeight {c : ℕ} [NeZero c] {ν : AutChar D.E}
   refine ⟨nonempty_modulus_places, ψ * ϑ.tamePart, hν, fun w ↦ ?_, rfl⟩
   -- `ψ` is non-trivial exactly at the chosen places, `ϑ.tamePart` exactly on `ϑ.Q`; these two sets
   -- are disjoint and their union is the support of the modulus.
-  have ne_one_iff : ϑ.tamePart w ≠ 1 ↔ w ∈ ϑ.Q := by grind [Twist, TameChar]
-  have not_chosen (hw : w ∈ ϑ.Q) : ¬D.IsChosen w := by
-    grind [IsChosen, → normQ_mem_and_notMem_of_mem_Q]
-  grind [places_twistModulus, Pi.mul_def]
+  simp only [places_twistModulus, Set.mem_union, Set.mem_ofPred_eq, Pi.mul_apply]
+  by_cases hwQ : w ∈ ϑ.Q
+  · have hnot : ¬D.IsChosen w := (D.normQ_mem_and_notMem_of_mem_Q ϑ (.inl hwQ)).2.1
+    have hψ1 : ψ w = 1 := not_not.mp fun h ↦ hnot ((hψ w).mp h)
+    simp [hwQ, hψ1, ϑ.tamePart_ne_one w hwQ]
+  · simp [hwQ, ϑ.tamePart_eq_one w hwQ, hψ w]
 
 /-- Let `j : D.LiftIndex`, that is `1 ≤ j ≤ m`, let `c ≠ 0` and let `ϑ` be a twist, ramified exactly
 on the set of places `ϑ.Q`. The modulus `D.twistModulus ϑ c` is the `c`-th power of the product of
@@ -699,7 +859,8 @@ lemma isTameFor_twistedChiMPow {c : ℕ} [NeZero c] (j : D.LiftIndex) (ϑ : D.Tw
   have h_weight := twistedChiMPow_hasWeight ϑ j
   unfold liftTamePart at h_weight ⊢
   exact isTameFor_of_hasWeight ϑ h_weight
-    (chiMLocal_zpow_ne_one_iff_isChosen j (by grind) (by grind))
+    (chiMLocal_zpow_ne_one_iff_isChosen j (by have := j.property.1; omega)
+      (by have := j.property.2; omega))
 
 end TwistTameness
 
@@ -737,7 +898,12 @@ lemma New.toPoly_coeff_nablaBasis {Φ : Type} [Fintype Φ] [DecidableEq Φ] {n :
   have pairing : fockPairing ℂ (toPoly n κ ξ) (nablaBasis ℂ n κ i) =
       hookNumber κ (rankAt n) * ξ i := fockPairing_toPoly_nablaBasis ξ i
   rw [hξ, fockPairing_monomial, ← map_nablaBasis (algebraMap ℤ ℂ), coeff_map] at pairing
-  simpa [field, prod_eq_zero_iff, factorial_ne_zero, mul_comm] using pairing
+  have h_prod : (δ.prod fun _ (k : ℕ) ↦ (k ! : ℂ)) ≠ 0 :=
+    Finsupp.prod_ne_zero_iff.2 fun _ _ ↦ Nat.cast_ne_zero.2 (Nat.factorial_ne_zero _)
+  push_cast at pairing
+  simp only [Function.comp_apply, Pi.smul_apply, smul_eq_mul, div_mul_eq_mul_div,
+    one_mul, eq_intCast] at pairing ⊢
+  rw [eq_div_iff h_prod, mul_comm, pairing]
 
 /-- Let `R` be a field of characteristic zero and `g τ` square matrices over `R`, one for each
 `τ`. Suppose the substitution `y ↦ gᵀ y` of the rows of variables (`rowSubst`) fixes the monomial
@@ -757,7 +923,15 @@ lemma New.schur_mulVec_coeff_nablaBasis {Φ : Type} [Fintype Φ] [DecidableEq Φ
       (fockPairing_rowSubst (fun τ : Φ ↦ (g τ)ᵀ) (monomial δ 1) _).symm
   -- expand the substitution by the Schur matrix and cancel the factorials
   rw [fockPairing_monomial, fockPairing_monomial, ← sum_schur_smul_nablaBasis (by simp)] at pairing
-  simpa [coeff_sum, mulVec, dotProduct, factorial_ne_zero] using pairing
+  have h_det : detPow R n (schurDetExp n n κ) = 1 := by simp [detPow, schurDetExp]
+  have h_prod : (δ.prod fun _ (k : ℕ) ↦ (k ! : R)) ≠ 0 :=
+    Finsupp.prod_ne_zero_iff.2 fun _ _ ↦ Nat.cast_ne_zero.2 (Nat.factorial_ne_zero _)
+  rw [h_det] at pairing
+  apply mul_left_cancel₀ h_prod
+  push_cast at pairing
+  simpa only [mul_one, one_mul, coeff_sum, AddMonoidAlgebra.coeff_smul, Finsupp.smul_apply,
+    smul_eq_mul, mulVec, dotProduct, Function.comp_apply, Finset.mul_sum,
+    mul_left_comm] using pairing
 
 /-- Let `X` be lift data from `U(1)` to a definite unitary group with index set `n`. They give a
 natural number `X.rowLength τ` for each infinite place `τ`, and the weight of the lift at `τ` is the
@@ -802,7 +976,9 @@ theorem New.Rows.exists_int_weylRep_invariant_fockPoly_eq_smul_monomial {P : Par
           ← Finsupp.prod_finsetSum_index, prod_prod_type, ← prod_pow_eq_pow_sum, Pi.single_apply,
           ↓ pow_add]
       rw [weight_eq, aeval_monomial, aeval_monomial, prod_δ, prod_δ]
-      simp [borelMul, mul_pow, mul_comm]
+      simp only [borelMul, Nat.zero_add, range_one, sum_singleton, map_one, one_mul, mul_pow,
+        Finsupp.prod_mul]
+      exact mul_comm _ _
     have star_eq (v : WeylIndex n κ → ℤ) : star (Int.cast ∘ v) = (Int.cast ∘ v : _ → ℂ) := by
       ext; simp
     -- `fockPoly` is determined by `toPoly` through the injective renaming `ι`
