@@ -141,7 +141,13 @@ private lemma totient_add_le_pow_twenty {N l y c : ℕ} (hNy : N ≤ y) (hly : l
   have hMy : M ≤ y ^ 5 := by grw [hM, hNy, hly, ← pow_mul, ← _root_.pow_succ']
   calc φ M + c ≤ M + (M ^ 3 + 5 * M ^ 2 + M) := Nat.add_le_add (totient_le M) hc
     -- `M³ + 5 M² + 2 M ≤ M⁴` for `M ≥ 3`
-    _ ≤ M ^ 4 := by nlinarith [(M ^ 3).zero_le, (M ^ 2).zero_le]
+    _ ≤ M ^ 4 := by
+      have h2 : 3 * M ≤ M ^ 2 := by rw [sq]; exact Nat.mul_le_mul_right M hM_gt
+      have h3 : 3 * M ^ 2 ≤ M ^ 3 := by
+        rw [_root_.pow_succ' M 2]; exact Nat.mul_le_mul_right _ hM_gt
+      have h4 : 3 * M ^ 3 ≤ M ^ 4 := by
+        rw [_root_.pow_succ' M 3]; exact Nat.mul_le_mul_right _ hM_gt
+      omega
     _ ≤ (y ^ 5) ^ 4 := Nat.pow_le_pow_left hMy 4
     _ = y ^ 20 := by ring
 
@@ -452,11 +458,15 @@ lemma New.exists_character_components {N : ℕ} [NeZero N] {E : Type} [Field E] 
     · have h_coset {v : Gal(Ω/ℚ)} (w : Gal(Ω/ℚ))
           (hw : w / v ∈ cycloGalGroup N) : T ψ w k = T ψ v k := by
         obtain ⟨u, rfl⟩ : ∃ a : Gal(Ω/E), ι a * v = w := (h_lift _ hw).imp fun _ ↦ mul_eq_of_eq_div
+        have hu : cyclotomicCharMod Ω N (ι u) = 1 := by simpa using hw
         -- With `T` unfolded; `h_add` relates `x (b (ι u * v) k)` to `x (b v k)`.
+        have hb_eq := h_add v k u⁻¹ (u⁻¹ * b (ι u * v) k)
+        rw [h_cocycle, add_sub_cancel_left] at hb_eq
         change (cyclotomicPowDirichlet l e ψ (ι u * v)).val • x (b (ι u * v) k) () =
           (cyclotomicPowDirichlet l e ψ v).val • x (b v k) ()
-        simp_all [cyclotomicPowDirichlet, h_add v k u⁻¹ (u⁻¹ * b (ι u * v) k), mul_assoc, tateTwist,
-          cyclotomicInv, smul_smul, mul_pow, mul_comm, mul_left_comm]
+        rw [hb_eq]
+        simp [cyclotomicPowDirichlet, hu, h_cyc, tateTwist, cyclotomicInv, smul_smul, mul_pow]
+        congr 1; ring
       -- Right multiplication by `g` permutes the cosets of the `σ t`.
       have h_shift : ∑ t, T ψ (σ t * g) k = ∑ t, T ψ (σ t) k := by
         refine sum_equiv (.mulRight (cyclotomicCharMod Ω N g)) _ _ fun t ↦ h_coset (σ t * g) ?_
@@ -481,7 +491,7 @@ lemma New.exists_character_components {N : ℕ} [NeZero N] {E : Type} [Field E] 
     -- `cmConj` is an involution, so the value of the character there is a sign.
     have h_sign : cyclotomicPowDirichlet l e ψ cmConj = 1 ∨
         cyclotomicPowDirichlet l e ψ cmConj = -1 :=
-      (Units.inv_eq_self_iff _).mp (by grind)
+      (Units.inv_eq_self_iff _).mp (by rw [← map_inv, hc_inv])
     rcases h_sign with h_even_sign | h_odd_sign
     · simp [h_conj, h_mul, h_vanish, h_even_sign]
     · simp [h_odd ψ h_odd_sign]
@@ -590,7 +600,7 @@ lemma New.OddPart.length_shaOdd_le_of_sq_lt {N : ℕ} [NeZero N] {E : Type} [Fie
   -- For each odd `ψ`, points `γ ψ i` with `i ≤ v_l(X)` detect the cocycles in
   -- `component l e ψ n`. The values of `z` at the points `b (σ u) (γ ψ i)` then detect `z`.
   have h_tot : φ N ≤ N := N.totient_le
-  have hl_big : N + e + 3 < l := by nlinarith
+  have hl_big : N + e + 3 < l := by nlinarith only [h_le_y, hl_gt]
   obtain ⟨σ, b, h_split⟩ := exists_character_components h_sub l O he n
   have h_detect_pts : ∀ ψ : DirichletCharacter O N, cyclotomicPowDirichlet l e ψ cmConj = -1 →
       ∃ γ : Fin (X.factorization l + 1) → Gal(Ω/ℚ),
@@ -603,7 +613,7 @@ lemma New.OddPart.length_shaOdd_le_of_sq_lt {N : ℕ} [NeZero N] {E : Type} [Fie
   · -- At most `y` values of `u`, `y` characters and `y ^ 6 + 1 ≤ y ^ 18` values of `i`.
     have h_val : X.factorization l ≤ y ^ 6 :=
       factorization_le_of_le_pow (hX_le.trans (Nat.pow_le_pow_left hl_prime.out.two_le _))
-    have h_pow : y ^ 6 < y ^ 18 := Nat.pow_lt_pow_right (by lia) (by norm_num)
+    have h_pow : y ^ 6 < y ^ 18 := Nat.pow_lt_pow_right (by omega) (by norm_num)
     have h_tot_le : φ N ≤ y := by lia
     simp only [Fintype.card_prod, ZMod.card_units_eq_totient, Fintype.card_fin]
     grw [card_eq_nat_card, card_eq_totient_of_hasEnoughRootsOfUnity, h_tot_le, h_val,
@@ -616,7 +626,7 @@ lemma New.OddPart.length_shaOdd_le_of_sq_lt {N : ℕ} [NeZero N] {E : Type} [Fie
     have h_four : (4 * φ N) • z = 0 :=
       h_kill_of_odd fun ψ hψ ↦ hγ ψ hψ _ (hz_comp ψ) fun i ↦ by simp [h_van']
     have h_pow : l ^ n • z = 0 := funext₂ fun g i ↦ nsmul_quot_eq_zero dvd_rfl (z g i)
-    have h_lt : 4 * φ N < l := by nlinarith
+    have h_lt : 4 * φ N < l := by nlinarith only [h_tot, h_le_y, hl_gt, Nat.pos_of_ne_zero he]
     have h_coprime : (l ^ n).Coprime (4 * φ N) :=
       .pow_left n (coprime_of_lt_prime out h_lt hl_prime.out)
     exact (nsmul_eq_zero_iff_of_coprime h_coprime).mp ⟨h_pow, h_four⟩
