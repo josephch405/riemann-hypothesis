@@ -111,9 +111,16 @@ induced by f. The identity is (𝟙, m ↦ (0, m)), and (f, φ) followed by (g, 
     Hom X Y := Σ f : X.test ⟶ Y.test, (Fin X.rank → X.GenericRing)
       →ₛₗ[((genericOver.map f).hom : X.GenericRing →+* Y.GenericRing)] Y.GenericRing ×
       (Fin Y.rank → Y.GenericRing),
-    id _ := ⟨𝟙 _, ⟨(0, ·), by simp⟩, by simp⟩
-    comp f g := ⟨f.1 ≫ g.1, ⟨fun m ↦ (genericOver.map g.1 (f.2 m).1, 0) + g.2 (f.2 m).2, by
-      simp [add_add_add_comm]⟩, by simp⟩} ..
+    id _ := ⟨𝟙 _, ⟨(0, ·), by simp only [Prod.mk_add_mk, add_zero, implies_true]⟩, by
+      simp only [CategoryTheory.Functor.map_id, CommAlgCat.hom_id, AlgHom.id_toRingHom,
+        RingHom.id_apply, Prod.smul_mk, smul_eq_mul, mul_zero, implies_true]⟩
+    comp f g := ⟨f.1 ≫ g.1, ⟨fun m ↦ (genericOver.map g.1 (f.2 m).1, 0) + g.2 (f.2 m).2,
+      fun x y ↦ Prod.ext
+        (by simp only [Prod.fst_add, Prod.snd_add, map_add]; rw [add_add_add_comm])
+        (by simp only [Prod.snd_add, zero_add, map_add])⟩, by
+      simp only [LinearMap.map_smulₛₗ, RingHom.coe_coe, Prod.smul_fst, smul_eq_mul, map_mul,
+        Prod.smul_snd, Functor.map_comp, CommAlgCat.hom_comp, AlgHom.coe_comp,
+        Function.comp_apply, smul_add, Prod.smul_mk, smul_zero, implies_true]⟩} ..
   all_goals
     intros
     exact congr(⟨_, $(by
@@ -226,23 +233,48 @@ def pairAlg : HodgeTatePair ⥤ CommAlg k where
     (AlgHom.prod
       { toFun (x : X.PairRing) :=
           thickeningOver.map f.1 x.val.1 + thickeningOver.mulMu Y.test (f.2 x.val.2.snd).fst
-        map_one' := by simp
+        map_one' := by
+          have h1 : thickeningOver.map f.1 (1 : thickeningOver.obj X.test) = 1 :=
+            (thickeningOver.map f.1).hom.map_one
+          rw [OneMemClass.coe_one, Prod.fst_one, h1, Prod.snd_one, TrivSqZeroExt.snd_one,
+            f.2.map_zero, Prod.fst_zero, (mulMu Y.test).map_zero, add_zero]
         map_mul' := map_base_add_mulMu_mul f
-        map_zero' := by simp
+        map_zero' := by
+          have h0 : thickeningOver.map f.1 (0 : thickeningOver.obj X.test) = 0 :=
+            (thickeningOver.map f.1).hom.map_zero
+          rw [ZeroMemClass.coe_zero, Prod.fst_zero, h0, Prod.snd_zero, TrivSqZeroExt.snd_zero,
+            f.2.map_zero, Prod.fst_zero, (mulMu Y.test).map_zero, add_zero]
         map_add' := map_fst_add_mulMu_add f
-        commutes' r := by simp [algebraMap_eq_inl'] }
+        commutes' r := by
+          rw [SubalgebraClass.coe_algebraMap, Prod.algebraMap_apply, algebraMap_eq_inl',
+            (thickeningOver.map f.1).hom.commutes, TrivSqZeroExt.snd_inl, f.2.map_zero,
+            Prod.fst_zero, (mulMu Y.test).map_zero, add_zero] }
       (((toHodgeTest ⋙ HodgeTest.sqZeroExt).map f).hom'.comp (AlgHom.pullbackSnd ..)))
     Y.PairRing
     fun x ↦ (map_add ..).trans ((add_eq_left.2 (proj_mulMu ..)).trans (proj_map_fst f x))
-  map_id X := by ext : 4 <;> simp <;> rfl
+  map_id X := by
+    apply ConcreteCategory.hom_ext; intro x; apply Subtype.ext; apply Prod.ext
+    · change thickeningOver.map (𝟙 X.test) x.1.1 + thickeningOver.mulMu X.test 0 = x.1.1
+      rw [CategoryTheory.Functor.map_id, ConcreteCategory.id_apply,
+        (mulMu X.test).map_zero, add_zero]
+    · change ((toHodgeTest ⋙ HodgeTest.sqZeroExt).map (𝟙 X)).1 x.1.2 = x.1.2
+      rw [CategoryTheory.Functor.map_id]; rfl
   map_comp f g := by
-    ext : 4
+    apply ConcreteCategory.hom_ext; intro x; apply Subtype.ext; apply Prod.ext
     · -- in the first component, `thickeningOver.mulMu` is additive and natural
-      change _ = thickeningOver.map _ (_ + _) + _
-      simp [← map_mulMu, add_assoc]
-      rfl
-    · simp
-      rfl
+      change thickeningOver.map (f.1 ≫ g.1) x.1.1 +
+          thickeningOver.mulMu _
+            ((genericOver.map g.1) (f.2 x.1.2.snd).1 + (g.2 (f.2 x.1.2.snd).2).1) =
+        thickeningOver.map g.1 (thickeningOver.map f.1 x.1.1 +
+          thickeningOver.mulMu _ (f.2 x.1.2.snd).1) +
+          thickeningOver.mulMu _ (g.2 (f.2 x.1.2.snd).2).1
+      rw [Functor.map_comp, ConcreteCategory.comp_apply, (mulMu _).map_add, ← map_mulMu,
+        ← add_assoc]
+      exact congrArg (· + _) ((thickeningOver.map g.1).hom.map_add _ _).symm
+    · change ((toHodgeTest ⋙ HodgeTest.sqZeroExt).map (f ≫ g)).1 x.1.2 =
+          ((toHodgeTest ⋙ HodgeTest.sqZeroExt).map g).1
+            (((toHodgeTest ⋙ HodgeTest.sqZeroExt).map f).1 x.1.2)
+      rw [Functor.map_comp]; rfl
 
 /-- The natural projection of k-algebras B_S ×_T (T ⊕ M) → T ⊕ M. -/
 def toSqZero : pairAlg ⟶ toHodgeTest ⋙ HodgeTest.sqZeroExt where
@@ -280,8 +312,21 @@ def contractionCocycle : Cocycle formCoeff formCoeff where
         contraction (f ≫ g).2 x =
           exteriorMapSnd g.2 (contraction f.2 x) + contraction g.2 (exteriorMapSnd f.2 x) ∧
         exteriorMapSnd (f ≫ g).2 x = exteriorMapSnd g.2 (exteriorMapSnd f.2 x) := by
-      induction x using left_induction <;> simp_all [Algebra.algebraMap_eq_smul_one,
-        mul_add] <;> module
+      induction x using left_induction with
+      | algebraMap r =>
+        simp only [comp_fst, Algebra.algebraMap_eq_smul_one, LinearMap.map_smulₛₗ,
+          Functor.map_comp, CommAlgCat.hom_comp, RingHom.coe_coe, AlgHom.coe_comp,
+          Function.comp_apply, contraction_one, smul_zero, map_zero, exteriorMap_smul, map_one,
+          add_zero, and_self]
+      | add x y hx hy =>
+        exact ⟨by simp only [map_add, hx.1, hy.1]; exact add_add_add_comm ..,
+          by simp only [map_add, hx.2, hy.2]⟩
+      | ι_mul x v hx =>
+        simp only [comp_fst, contraction_ι_mul, comp_snd_apply, Prod.fst_add, Prod.snd_add,
+          zero_add, mul_add, map_sub, exteriorMap_smul, RingHom.coe_coe, map_mul,
+          exteriorMap_iota, LinearMap.coe_comp, LinearMap.coe_snd, Function.comp_apply, hx.1,
+          hx.2, and_true]
+        module
     exact ext fun x ↦ congrArg ULift.up (h_chain x.down).1
 
 /-- For h : ℕ, the class in total Ext(Λ, F) given by the h-th Yoneda power of the class of
@@ -326,7 +371,8 @@ lemma act_comp_contractionPow (t : k) (h : ℕ) :
     set m : formCoeff ⟶ formCoeff := toHodgeTest.whiskerLeft (CoeffAction.act t).asHom
     have h_smul {c d : HodgeTatePair} (f : c ⟶ d) (z : ExteriorAlgebra c.GenericRing _) :
         contraction f.snd (t • z) = t • contraction f.snd z := by
-      simpa using (contraction f.snd).map_smulₛₗ (t • 1) z
+      rw [← algebraMap_smul c.GenericRing t z, (contraction f.snd).map_smulₛₗ, RingHom.coe_coe,
+        (genericOver.map f.fst).hom.commutes, algebraMap_smul]
     have h_comm : comp contractionCocycle.cohomClass (.homClass m) =
         comp (.homClass m) contractionCocycle.cohomClass :=
       contractionCocycle.cohomClass_naturality contractionCocycle m m
@@ -361,24 +407,36 @@ lemma scaleModule_comp_contractionPow (t : k) (h : ℕ) :
       refine contractionCocycle.cohomClass_naturality contractionCocycle s (s ≫ m)
         fun (c d : HodgeTatePair) (f : c ⟶ d) ↦ ext fun x ↦ ?_
       have h_smul (v : Fin c.rank → c.GenericRing) : f.snd (t • v) = t • f.snd v := by
-        simpa using f.snd.map_smulₛₗ (t • 1) v
+        rw [← algebraMap_smul c.GenericRing t v, f.snd.map_smulₛₗ, RingHom.coe_coe,
+          (genericOver.map f.fst).hom.commutes, algebraMap_smul]
       -- `exteriorMapSnd` keeps the form degree, so it commutes with the scaling. In both inductions
       -- `LinearMap.map_smul_of_tower` is left out: it would pull `t` out of `ι (t • v)`, so that
       -- `h_smul` and the induction hypothesis no longer match.
       have h_snd_scale (y : ExteriorAlgebra c.GenericRing (Fin c.rank → c.GenericRing)) :
           exteriorMapSnd f.snd (exteriorMap (t • LinearMap.id) y) =
             exteriorMap (t • LinearMap.id) (exteriorMapSnd f.snd y) := by
-        induction y using left_induction <;>
-          simp [*, Algebra.algebraMap_eq_smul_one, -LinearMap.map_smul_of_tower]
+        induction y using left_induction with
+        | algebraMap r =>
+          simp only [Algebra.algebraMap_eq_smul_one, exteriorMap_smul, RingHom.id_apply, map_one,
+            RingHom.coe_coe]
+        | add y y' hy hy' =>
+          simp only [map_add, hy, hy']
+        | ι_mul y v hy =>
+          simp only [map_mul, exteriorMap_iota, LinearMap.smul_apply, LinearMap.id_coe, id_eq,
+            LinearMap.coe_comp, LinearMap.coe_snd, Function.comp_apply, Prod.smul_snd, h_smul, hy]
       -- contraction lowers the form degree by one, which costs one factor `t`
       have h_contraction_scale (y : ExteriorAlgebra c.GenericRing (Fin c.rank → c.GenericRing)) :
           contraction f.snd (exteriorMap (t • LinearMap.id) y) =
             t • exteriorMap (t • LinearMap.id) (contraction f.snd y) := by
         induction y using left_induction with
-        | algebraMap r => simp [Algebra.algebraMap_eq_smul_one]
-        | add y y' hy hy' => simp [hy, hy']
+        | algebraMap r =>
+          simp only [Algebra.algebraMap_eq_smul_one, exteriorMap_smul, RingHom.id_apply, map_one,
+            LinearMap.map_smulₛₗ, RingHom.coe_coe, contraction_one, smul_zero, map_zero]
+        | add y y' hy hy' => simp only [map_add, hy, hy', smul_add]
         | ι_mul y v hy =>
-          simp [hy, h_snd_scale, h_smul, -LinearMap.map_smul_of_tower]
+          simp only [map_mul, exteriorMap_iota, LinearMap.smul_apply, LinearMap.id_coe, id_eq,
+            contraction_ι_mul, h_smul, Prod.smul_fst, h_snd_scale, smul_assoc, Prod.smul_snd, hy,
+            Algebra.mul_smul_comm, map_sub, exteriorMap_smul, RingHom.id_apply]
           module
       exact congrArg ULift.up (h_contraction_scale x.down)
     calc pullbackAlong s (comp contractionCocycle.cohomClass (contractionPow h))
@@ -652,18 +710,21 @@ lemma HodgeTatePair.contractionPow_cup {a : ℕ} {M L : AbFunctor HodgeTatePair}
     rw [sum_choose_succ_nsmul fun _ _ ↦ _, contractionPow,
       ← TotalH.comp_assoc_of_sq tensorContractionCocycle_comp_wedgePairing]
     -- Expand the sum, insert the two components, and apply `ih` to both terms.
-    simp [TotalH.homClass, Ext.mk₀_add, homClass_comp, ← comp_assoc,
-      cup_comp_tensorContractionCocycle_π_true, cup_comp_tensorContractionCocycle_π_false,
-      ← cup_comp_homClass_left, contractionPow]
-    simp [comp_of, ih, smul_sum, comp_assoc]
+    simp only [homClass, Preadditive.add_comp, Category.assoc, Ext.mk₀_add, map_add,
+      homClass_comp, ← comp_assoc, AddMonoidHom.add_apply,
+      cup_comp_tensorContractionCocycle_π_false, Int.reduceNeg, map_zsmul, AddMonoidHom.smul_apply,
+      ← cup_comp_homClass_left, cup_comp_tensorContractionCocycle_π_true, Nat.reduceSubDiff,
+      contractionPow]
+    simp only [Int.reduceNeg, add_zero, comp_of, comp_assoc, ih, smul_sum]
     -- Compare term by term; what is left is an identity of signs.
-    congr! 2 with h h_mem
+    refine congrArg₂ (· + ·) (Finset.sum_congr rfl fun h h_mem ↦ ?_) ?_
     · -- terms where the contraction acts on `y`: moving it past `x` gives `(-1) ^ a`, and the
       -- grade involution on `contractionPow h` gives `(-1) ^ h`
       have h_sign : (-1 : k) ^ ((a + h) * (l - h + 1)) =
           (-1) ^ a * (-1) ^ h * (-1) ^ ((a + h) * (l - h)) := by ring
-      simp [Nat.lt_succ_iff.mp (Finset.mem_range.mp h_mem), h_sign, ← comp_of,
-        scaleModule_comp_contractionPow, comp_smul, Nat.succ_sub, comp_assoc, contractionPow]
+      simp only [Int.reduceNeg, ← comp_of, comp_assoc, scaleModule_comp_contractionPow, comp_smul,
+        map_smul, Nat.lt_succ_iff.mp (Finset.mem_range.mp h_mem), Nat.succ_sub,
+        Nat.succ_eq_add_one, h_sign, contractionPow]
       module
     · -- terms where the contraction acts on `x`: the degrees `a + 1 + h` and `a + (h + 1)` agree
       let z : H M formCoeff (a + 1) := x.comp contractionCocycle.shortExact_extension.extClass rfl
@@ -880,11 +941,12 @@ lemma IsChartCovered.pairRestrictBijective {n : ℕ} {X : CommAlg k ⥤ Type 1}
     refine (existsUnique_congr fun g ↦ and_congr_left ?_).1
       (existsUnique_hom ⟨c, n⟩ D f fun i ↦ (t (a.coordinate i), (ψ (a.coordinate i)).val.snd.snd))
     rintro rfl
-    refine (forall_congr' fun i ↦ ?_).trans ⟨a.lift_unique D.isSquareZero_toGeneric hψ, by tauto⟩
+    refine (forall_congr' fun i ↦ ?_).trans
+      ⟨a.lift_unique D.isSquareZero_toGeneric hψ, fun hg i ↦ ConcreteCategory.congr_hom hg _⟩
     -- compare components; `mulMu` is injective, and `g` acts on `b + e` by `f b + mulMu (g e).1`
-    erw [Prod.ext_iff, ← h_mulMu_inj.eq_iff, ht, eq_sub_iff_add_eq', Subtype.ext_iff,
-      Prod.ext_iff, Prod.ext_iff, and_iff_right (ConcreteCategory.congr_hom hψ _),
-      AlgHom.comp_apply, hs]
+    rw [Prod.ext_iff, ← h_mulMu_inj.eq_iff, ht, eq_sub_iff_add_eq']
+    erw [Subtype.ext_iff, Prod.ext_iff, Prod.ext_iff,
+      and_iff_right (ConcreteCategory.congr_hom hψ _), AlgHom.comp_apply, hs]
     rfl
   have h_map_comp_point {A A' : CommAlg k} (φ : a.coordRing ⟶ A) (φ' : A ⟶ A') :
       X.map (φ ≫ φ') a.point = X.map φ' (X.map φ a.point) := X.map_comp_apply ..
@@ -898,7 +960,8 @@ lemma IsChartCovered.pairRestrictBijective {n : ℕ} {X : CommAlg k ⥤ Type 1}
     (h_map_comp_point ..).trans (congrArg Subtype.val hx.symm)
   obtain ⟨⟨ψ : _ ⟶ _⟩, ⟨⟩⟩ := a.isOpenSubfunctor.mem_of_isSquareZero _ D.isSquareZero_toGeneric x
     ⟨_, hx⟩
-  refine (existsUnique_congr fun g ↦ and_congr ?_ (by simp [HodgeTatePair.toTest])).1
+  refine (existsUnique_congr fun g ↦
+    and_congr ?_ (by simp only [HodgeTatePair.toTest, Category.id_comp])).1
     (h_existsUnique_hom_of_lift D f ψ (a.eq_comp_of_map_point_eq _ hx))
   rw [Subtype.ext_iff]
   change s ≫ pairAlg.map g = ψ ↔ X.map (pairAlg.map g) (X.map s a.point) = X.map ψ a.point
