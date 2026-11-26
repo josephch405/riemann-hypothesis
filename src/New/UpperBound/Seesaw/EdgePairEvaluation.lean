@@ -712,7 +712,11 @@ def GradeZeroPart.hom (Z : GradeZeroPart V V'' w) (hs' : Even s') (hw : ∀ i : 
   mem_range_index := by
     -- On the string of `V'` the weights are odd, as `s'` is even, so they differ from those of `V`.
     simp [reindex_equiv Y'.indexEquiv]
-    grind [GradeZeroPart]
+    intro a
+    refine ⟨fun _ ↦ Z.mem_range_index a, fun b ↦ ?_⟩
+    obtain ⟨k, hk⟩ := hw a
+    obtain ⟨m, hm⟩ := hs'
+    omega
   incl := Z.incl ⊗ₖ inclMatrix E (Y'.indexEquiv ∘ Sum.inl)
   incl_eq_zero := by
     simp [reindex_equiv Y'.indexEquiv, inclMatrix, Matrix.one_apply]
@@ -721,8 +725,17 @@ def GradeZeroPart.hom (Z : GradeZeroPart V V'' w) (hs' : Even s') (hw : ∀ i : 
     simp [hom_J, Z.gram_incl, Y'.J_inv_eq_gradedGram, inclMatrix, conjTranspose_kronecker, eq_comm,
       ← mul_kronecker_mul, ← Matrix.ext_iff, Matrix.mul_apply, Matrix.one_apply, gradedGram]
   grade_add_eq_zero := by
-    simp [hom_J, Y'.J_inv_eq_gradedGram, gradedGram, reindex_equiv Y'.indexEquiv]
-    grind [GradeZeroPart]
+    simp only [hom_J, Y'.J_inv_eq_gradedGram, gradedGram, transpose_submatrix, kroneckerMap_apply,
+      submatrix_apply, transpose_apply, ne_eq, mul_eq_zero, not_or, and_imp, Prod.forall,
+      reindex_equiv Y'.indexEquiv, Equiv.symm_apply_apply, Sum.forall, gradeOf_inl, sub_zero,
+      gradeOf_inr, fromBlocks_apply₁₁, fromBlocks_apply₂₁, Matrix.zero_apply, not_true_eq_false,
+      IsEmpty.forall_iff, implies_true, and_true, fromBlocks_apply₁₂, fromBlocks_apply₂₂, of_apply,
+      ite_eq_right_iff, not_imp, forall_eq_apply_imp_iff, Fin.val_rev, Order.add_one_le_iff,
+      Fin.is_lt, Nat.cast_sub, Nat.cast_add, Nat.cast_one, true_and]
+    intro a
+    refine ⟨fun _ a₂ _ hJ _ ↦ Z.grade_add_eq_zero a a₂ hJ, fun b a₁ hJ _ ↦ ?_⟩
+    have h0 := Z.grade_add_eq_zero a a₁ hJ
+    omega
 
 /-! ### Pairs of consecutive edges -/
 
@@ -878,21 +891,82 @@ lemma _root_.New.Seesaw.GradeZeroPart.zeroTerm_hom_omega (Z : GradeZeroPart V V'
   refine zeroTerm_omega_of_inclMatrix (Z.hom Y' hs' hw).splitting rfl (C := C) ?_ ?_ ?_ ?_ f
   -- Split the indices of `V'` along `Y'.indexEquiv` and compare the entries by `h_id`. The second
   -- goal says that `C - 1` vanishes where the row weight is at most `0` and at most the column's.
-  iterate 2
-    · simp [C, ↓reindex_equiv Y'.indexEquiv, ↓@Sum.forall X', ← map_inv, sum_prod_type, HasDegreeGe,
-        blockDiagonal_apply, Matrix.ite_apply, ratCoordMatrix_inclX, Matrix.mul_apply,
-        Matrix.one_apply, sub_eq_zero]
-      grind
+  · simp only [HasDegreeGe, Pi.zero_apply, add_zero, Int.sub_pos, ratCoordMatrix_onHom, ← map_inv,
+      ratCoordMatrix_inclX, transpose_submatrix, Matrix.sub_apply, kroneckerMap_apply,
+      submatrix_apply, transpose_apply, Matrix.mul_apply, blockDiagonal_apply, Matrix.ite_apply,
+      Matrix.one_apply, Prod.snd_swap, Prod.fst_swap, mul_ite, ite_mul, one_mul, zero_mul, mul_one,
+      mul_zero, sum_prod_type, ↓reindex_equiv Y'.indexEquiv, Equiv.symm_apply_apply, sum_ite_irrel,
+      sum_sum_type, sum_const_zero, Finset.sum_ite_eq', mem_univ, ↓reduceIte, sub_eq_zero,
+      Prod.forall, ↓@Sum.forall X', gradeOf_inl, fromBlocks_apply₁₁, fromBlocks_apply₁₂,
+      Matrix.zero_apply, ite_self, EmbeddingLike.apply_eq_iff_eq, Sum.inl.injEq, reduceCtorEq,
+      gradeOf_inr, fromBlocks_apply₂₁, fromBlocks_apply₂₂, zero_add, Sum.inr.injEq,
+      lt_self_iff_false, Finset.sum_ite_eq, implies_true, and_true, sub_neg, Order.sub_one_lt_iff,
+      true_and, C]
+    intro a
+    refine ⟨fun a₁ a₂ a₃ h₂ ↦ ?_, fun b a₁ b₁ hlt ↦ ?_⟩
+    · simp only [h₂, ↓reduceIte, h_id a a₂ (Or.inr (by omega))]
+      split_ifs <;> simp only [one_mul, zero_mul]
+    · by_cases hbb : b₁ = b <;> by_cases h1 : 0 < w a₁
+      · simp only [hbb, h1, ↓reduceIte]
+        by_cases hsb : (s' : ℤ) ≤ 2 * (b : ℤ)
+        · simp only [hsb, ↓reduceIte]
+        · simp only [hsb, ↓reduceIte, h_id a a₁ (Or.inr (by omega))]
+      · simp only [hbb, h1, ↓reduceIte, show (s' : ℤ) ≤ 2 * (b : ℤ) by omega]
+      · simp only [hbb, h1, ↓reduceIte]
+        split_ifs <;> rfl
+      · simp only [hbb, Ne.symm hbb, h1, ↓reduceIte]
+  · simp only [HasDegreeGe, Pi.inf_apply, Pi.zero_apply, Order.lt_add_one_iff, tsub_le_iff_right,
+      ratCoordMatrix_inclX, transpose_submatrix, Matrix.sub_apply, Matrix.mul_apply,
+      blockDiagonal_apply, Matrix.ite_apply, Matrix.one_apply, submatrix_apply, Prod.snd_swap,
+      Prod.fst_swap, transpose_apply, mul_ite, ite_mul, one_mul, zero_mul, mul_one, mul_zero,
+      sum_prod_type, ↓reindex_equiv Y'.indexEquiv, Equiv.symm_apply_apply, sum_ite_irrel,
+      sum_sum_type, sum_const_zero, Finset.sum_ite_eq', mem_univ, ↓reduceIte, sub_eq_zero,
+      Prod.forall, ↓@Sum.forall X', gradeOf_inl, sub_zero, fromBlocks_apply₁₁, fromBlocks_apply₁₂,
+      Matrix.zero_apply, ite_self, add_zero, EmbeddingLike.apply_eq_iff_eq, Sum.inl.injEq,
+      reduceCtorEq, gradeOf_inr, fromBlocks_apply₂₁, fromBlocks_apply₂₂, zero_add, Sum.inr.injEq,
+      le_inf_iff, lt_self_iff_false, Finset.sum_ite_eq, Prod.mk.injEq, and_imp, and_false,
+      implies_true, and_true, sub_neg, Order.sub_one_lt_iff, true_and, C]
+    intro a
+    refine ⟨fun a₁ a₂ a₃ ha hle ↦ ?_, fun b a₁ b₁ hle1 hle2 ↦ ?_⟩
+    · by_cases h2 : 0 < w a₂
+      · have hne : a ≠ a₂ := fun h ↦ by subst h; omega
+        simp only [h2, hne, ↓reduceIte, false_and]
+      · simp only [h2, ↓reduceIte]
+        by_cases ha2 : a = a₂ <;> by_cases h13 : a₁ = a₃ <;>
+          simp only [ha2, h13, and_self, and_false, false_and, ↓reduceIte]
+    · by_cases hbb : b = b₁
+      · subst hbb
+        simp only [↓reduceIte, and_true, ite_self]
+        split_ifs with hsb ha1
+        · rw [h_id a a₁ (Or.inl (by omega))]; simp only [ha1, ↓reduceIte]
+        · rw [h_id a a₁ (Or.inl (by omega))]; simp only [ha1, ↓reduceIte]
+        · rfl
+        · rfl
+      · simp only [hbb, Ne.symm hbb, ↓reduceIte, and_false, ite_self]
   · -- The weight of `Y'` is negative at `j = s' / 2` indices.
     obtain ⟨j, rfl⟩ := hs'
-    simp (disch := omega) [C, det_blockDiagonal _, ↓reindex_equiv Y'.indexEquiv, ↓prod_sum_type,
-      ↓Fin.prod_univ_add, prod_ite, ite_eq_right, ← two_mul, apply_ite Matrix.det,
-      det_ratCoordMatrix, ← Equiv.coe_prodComm, -inv_pow, det_inclX]
+    simp (disch := omega) only [map_inv, ← Equiv.coe_prodComm, det_mul, det_blockDiagonal _,
+      ↓reindex_equiv Y'.indexEquiv, ↓prod_sum_type, gradeOf_inl, lt_self_iff_false, ↓reduceIte,
+      det_one, prod_const_one, ↓Fin.prod_univ_add, gradeOf_inr, ← two_mul, Nat.cast_mul,
+      Nat.cast_ofNat, Fin.val_castAdd, sub_neg, Order.sub_one_lt_iff, Int.mul_le_mul_left,
+      Nat.cast_le, ite_eq_right, Fin.natAdd_eq_addNat, Fin.val_addNat, Nat.cast_add,
+      le_add_iff_nonneg_left, Nat.cast_nonneg, det_ratCoordMatrix, G.coe_det, prod_const, card_univ,
+      Fintype.card_fin, one_mul, det_submatrix_equiv_self, apply_ite Matrix.det, det_transpose,
+      det_inclX, prod_ite, not_lt, mul_one, mul_div_cancel_left₀, Submonoid.coe_mul,
+      SubmonoidClass.coe_pow, C]
   · -- On the rows of weight `≤ 0` the embedding of the zero part intertwines, by `h_comm`.
-    simp [← Matrix.ext_iff, Matrix.mul_apply] at h_comm
-    simp [HasDegreeGe, GradeZeroPart.splitting, GradeZeroPart.hom, ↓reindex_equiv Y'.indexEquiv,
-      ← map_inv, ← sum_mul, sum_prod_type, ← mul_right_comm _ (toAdele _), apply_ite toAdele,
-      ← mul_assoc, h_comm, ratCoordMatrix_inclX, inclMatrix, Matrix.mul_apply, Matrix.one_apply]
+    simp only [← ext_iff, Matrix.mul_apply, map_apply] at h_comm
+    simp only [HasDegreeGe, Pi.zero_apply, zero_add, ratCoordMatrix_onHom, ← map_inv,
+      ratCoordMatrix_inclX, transpose_submatrix, GradeZeroPart.splitting, inclMatrix,
+      GradeZeroPart.hom, ratCoordMatrix_stdSpace, Matrix.sub_apply, Matrix.mul_apply,
+      kroneckerMap_apply, submatrix_apply, transpose_apply, map_apply, Matrix.one_apply, id_eq,
+      Function.comp_apply, mul_ite, mul_one, mul_zero, apply_ite toAdele, map_zero,
+      ← mul_right_comm _ (toAdele _), sum_prod_type, ↓reindex_equiv Y'.indexEquiv,
+      EmbeddingLike.apply_eq_iff_eq, Equiv.symm_apply_apply, Finset.sum_ite_eq', mem_univ,
+      ↓reduceIte, ← sum_mul, h_comm, ← mul_assoc, ite_mul, zero_mul, Prod.forall, Sum.forall,
+      gradeOf_inl, sub_zero, fromBlocks_apply₁₁, Sum.inl.injEq, Finset.sum_ite_eq, sub_self,
+      implies_true, gradeOf_inr, fromBlocks_apply₁₂, Matrix.zero_apply, reduceCtorEq,
+      sum_const_zero, and_self]
 
 open Finset in
 /-- Let `Y`, `Y'`, `Y''` present hermitian spaces `V`, `V'`, `V''` as definite spaces on `X`, `X'`,
@@ -929,8 +1003,14 @@ lemma zeroTerm_splitting_tripleWeil (D : DoubleLiftData X'' q Y Y' Y'') (a b : A
   have h_planes : ∀ f, (P.homTarget (stdSpace E X')).zeroTerm (ω _ (.onHom (g', r')) f) =
       ((WeilData.upsilonU1.val g'.det).val : ℂ) ^ card q •
         ω _ (.onHom (g', r)) ((P.homTarget (stdSpace E X')).zeroTerm f) := by
-    simpa [pairWeil, inv_smul_eq_iff₀, r'] using P.homTarget_zeroTerm_pairWeil (stdSpace E X')
-      1 1 r' r 1 (by simp [ActsOnFrame, h_k]) (by simp [h_i]) g'
+    simpa only [pairWeil, one_mul, pairChar_apply, OneMemClass.coe_one,
+      ContinuousMonoidHom.one_toFun, Circle.coe_one, SubmonoidClass.coe_pow,
+      ContinuousMonoidHom.pow_apply, Circle.coe_pow, MonoidHom.coe_mk, OneHom.coe_mk,
+      _root_.smul_apply, map_smul, map_one, Real.sqrt_one, Complex.ofReal_one, one_pow, mul_one,
+      inv_one, one_smul, ne_eq, pow_eq_zero_iff', Circle.coe_ne_zero, false_and, not_false_eq_true,
+      inv_smul_eq_iff₀] using P.homTarget_zeroTerm_pairWeil (stdSpace E X') 1 1 r' r 1
+      (by simp only [ActsOnFrame, h_k, Units.val_one, Matrix.mul_one])
+      (by simp only [h_i, coord_mul_frame_mul]) g'
   have h_det : (G.sum ((Y.inclX g).neg, Y''.inclX k)).det = (Y.inclX g).det * (Y''.inclX k).det :=
     Subtype.ext (by simp)
   simp only [splitting, homZeroPart, tripleWeil, _root_.smul_apply, map_smul, zeroTerm_comp]
@@ -942,12 +1022,15 @@ lemma zeroTerm_splitting_tripleWeil (D : DoubleLiftData X'' q Y Y' Y'') (a b : A
     have h_rank' : card (X' ⊕ Fin s') = card ι' := card_congr Y'.indexEquiv
     obtain ⟨h_odd, h_middle, h_last, -⟩ := D.toHasConsecutiveStrings
     have h_par : Even (card ι + card ι'') := D.even_card_add
-    simp [smul_smul, D.det_embX, rankTwist, Odd, Even, Fintype.card_subtype,
-      det_inclX] at h_rank h_rank' h_odd h_par ⊢
+    simp only [card_sum, Fintype.card_subtype, Fintype.card_fin, Odd, Even, rankTwist,
+      pairChar_apply, Subgroup.coe_mul, SubmonoidClass.coe_pow, det_inclX,
+      ContinuousMonoidHom.mul_apply, ContinuousMonoidHom.pow_apply, Circle.coe_mul, Circle.coe_pow,
+      _root_.mul_inv_rev, inv_pow, map_mul, map_pow, map_inv, Circle.coe_inv, inv_inv, smul_smul,
+      D.det_embX] at h_rank h_rank' h_odd h_par ⊢
     congr 1
     norm_cast
     refine congrArg _ (Additive.ofMul.injective ?_)
-    simp
+    simp only [ofMul_mul, ofMul_pow, ofMul_inv, smul_add, neg_add_rev]
     match_scalars <;> omega
   · -- The group element is the identity away from weight zero.
     simp [reindex_equiv Y.indexEquiv, reindex_equiv Y''.indexEquiv, ratCoordMatrix_sum,
@@ -981,8 +1064,13 @@ lemma finEval_arrowProduct_equivariant (D : DoubleLiftData X'' q Y Y' Y'') (a b 
   -- These elements have trivial real part, so they do not move a Fock vector `v`.
   have h_comm (v f) : W ((V'.hom (flipSum V V'')).integrated v f) =
       (V'.hom (flipSum V V'')).integrated v (W f) := by
-    simp [W, tripleWeil, omega_integrated, inclX_inr, G.onHom_eq, G.sum, G.neg, ← Pi.one_def,
-      MulEquiv.prodCongr, Prod.mk_one_one]
+    simp only [tripleWeil, inclX_inr, pairChar_apply, SubmonoidClass.coe_pow,
+      ContinuousMonoidHom.pow_apply, Circle.coe_pow, G.sum, G.neg, MulEquiv.prodCongr,
+      MulEquiv.toEquiv_eq_coe, MulEquiv.coe_mk, Equiv.prodCongr_apply, EquivLike.coe_coe,
+      MulEquiv.coe_refl, Prod.map_apply, map_one, id_eq, MonoidHom.prod_apply, MonoidHom.mk'_apply,
+      Pi.one_apply, Prod.mk_one_one, ← Pi.one_def, MonoidHom.coe_comp, MonoidHom.coe_prodMap,
+      MonoidHom.coe_snd, Function.comp_apply, G.onHom_eq, _root_.smul_apply, omega_integrated,
+      one_apply_eq_self, map_smul, W]
   -- Hence the finite constant term, too, carries `W` to the operator of the definite spaces.
   have h_equivariant (f : 𝒮 (V'.hom (flipSum V V''))) :
       tripleWeil a b ((1, g), (1, g'), 1, k') (zeroTermFin D.splitting f) =
@@ -995,9 +1083,9 @@ lemma finEval_arrowProduct_equivariant (D : DoubleLiftData X'' q Y Y' Y'') (a b 
         (((0, 1) : 𝔸 E) • Y'.stringMap Y'')) := by
     ext <;> simp only [finVec, stackedStringMapFin, homAtPoint, matrixToVec, stackedStringMap,
       formAdjoint, AddMonoidHom.mk'_apply, Units.mul_inv_cancel_left, Matrix.mul_apply,
-      sum_sum_type, fromRows_apply_inl, fromRows_apply_inr, conjTranspose_smul, Matrix.smul_apply,
+      sum_sum_type, fromRows_apply_inl, fromRows_apply_inr, conjTranspose_apply, Matrix.smul_apply,
       smul_eq_mul, Prod.fst_sum, Prod.snd_sum, Prod.fst_mul, Prod.snd_mul, Prod.fst_add,
-      Prod.snd_add, Prod.fst_star, Prod.snd_star, Pi.zero_apply, star_zero, star_one, zero_mul,
+      Prod.snd_add, Prod.fst_star, Prod.snd_star, Pi.zero_apply, star_zero, zero_mul,
       mul_zero, one_mul, add_zero, Finset.sum_const_zero]
   rw [← leftInverse_arrowTensor (TensorProduct.map _ _ _), arrowTensor_map_liftWeilFin,
     arrowTensor_finEval, h_equivariant]
@@ -1022,15 +1110,16 @@ def middleDoubleLift (h_string : HasConsecutiveStrings Y Y' Y'') (h_card : Even 
   have h_last : s'' = s' - 1 := h_string.length_last
   have h_const : Y'.genericConst = Y.genericConst := h_string.c_eq
   -- `z` and `z'` are the middle string vectors of `V` and `V''`; `j` lists `X` and `X₀`.
-  let z (_ : Unit) : ι ⊕ ι'' := Sum.inl (Y.indexEquiv (Sum.inr ⟨s / 2, by grind⟩))
-  let z' (_ : Unit) : ι ⊕ ι'' := Sum.inr (Y''.indexEquiv (Sum.inr ⟨s'' / 2, by grind⟩))
+  have hs2 : s % 2 = 1 := Nat.odd_iff.mp h_odd
+  let z (_ : Unit) : ι ⊕ ι'' := Sum.inl (Y.indexEquiv (Sum.inr ⟨s / 2, by omega⟩))
+  let z' (_ : Unit) : ι ⊕ ι'' := Sum.inr (Y''.indexEquiv (Sum.inr ⟨s'' / 2, by omega⟩))
   let j := Sum.map (Y.indexEquiv ∘ Sum.inl) (Y''.indexEquiv ∘ Sum.inl)
   { zeroPart :=
       { index := ⟨z ⊕ᵥ z' ⊕ᵥ j, by simp [j, z, z', Injective]⟩
         mem_range_index := by
           simp [j, z, z', ↓reindex_equiv Y.indexEquiv, ↓reindex_equiv Y''.indexEquiv, Fin.ext_iff,
             ← Embedding.toFun_eq_coe, sub_eq_zero]
-          grind
+          refine ⟨fun b ↦ ?_, fun b ↦ ?_⟩ <;> omega
         -- The hyperbolic plane has the basis `(z - z') / (2 N)`, `z + z'`.
         incl := fromCols (fromCols ((2 * N)⁻¹ • (inclMatrix E z - inclMatrix E z'))
           (inclMatrix E z + inclMatrix E z')) (inclMatrix E j)
@@ -1040,10 +1129,30 @@ def middleDoubleLift (h_string : HasConsecutiveStrings Y Y' Y'') (h_card : Even 
           grind
         -- `z` has norm `N` in `V⁻` and `z'` has norm `-N`.
         gram_incl := by
-          simp [j, z, z', Y.gram_eq, Y''.gram_eq, inclMatrix,
-            conjTranspose_fromCols_eq_fromRows_conjTranspose, flipSpace, gradedGram, hyperbolicSum,
-            ← Matrix.ext_iff, Matrix.mul_apply, Matrix.one_apply]
-          grind [Y.N_ne_zero_and_star_eq]
+          simp only [_root_.mul_inv_rev, inclMatrix,
+            conjTranspose_fromCols_eq_fromRows_conjTranspose, conjTranspose_smul, star_mul',
+            star_inv₀, star_ofNat, conjTranspose_sub, conjTranspose_submatrix, conjTranspose_one,
+            conjTranspose_add, sum_J, flipSpace, Y.gram_eq, gradedGram, Y''.gram_eq, fromRows_mul,
+            smul_mul, mul_fromCols, Matrix.mul_smul, hyperbolicSum, hyperbolicSpace_J, stdSpace_J,
+            stdSpace_x, mul_one, ← ext_iff, Sum.forall, fromCols_apply_inl, Matrix.smul_apply,
+            smul_eq_mul, fromCols_apply_inr, fromRows_apply_inl, fromBlocks_apply₁₁,
+            fromBlocks_apply₁₂, Matrix.zero_apply, Matrix.mul_apply, Matrix.sub_apply,
+            submatrix_apply, Matrix.one_apply, id_eq, sum_sum_type, Sum.inl.injEq, reduceCtorEq,
+            ↓reduceIte, sub_zero, ite_mul, one_mul, zero_mul, Finset.sum_ite_eq, Finset.mem_univ,
+            Sum.inr.injEq, zero_sub, neg_mul, Finset.sum_neg_distrib, Matrix.neg_apply,
+            Equiv.symm_apply_apply, fromBlocks_apply₂₁, neg_zero, add_zero, mul_ite, mul_zero,
+            Finset.sum_ite_eq', fromBlocks_apply₂₂, of_apply, zero_add, mul_neg, neg_neg,
+            mul_eq_zero, inv_eq_zero, OfNat.ofNat_ne_zero, or_false, star_eq_zero, or_self_left,
+            Matrix.add_apply, Sum.map_inl, Function.comp_apply, Finset.sum_const_zero,
+            implies_true, Sum.map_inr, and_self, and_true, fromRows_apply_inr, or_true, z, z', j]
+          have h1 : (⟨s / 2, by omega⟩ : Fin s) = (⟨s / 2, by omega⟩ : Fin s).rev :=
+            Fin.ext (by simp only [Fin.val_rev]; omega)
+          have h2 : (⟨s'' / 2, by omega⟩ : Fin s'') = (⟨s'' / 2, by omega⟩ : Fin s'').rev :=
+            Fin.ext (by simp only [Fin.val_rev]; omega)
+          obtain ⟨hN, hNstar⟩ := Y.N_ne_zero_and_star_eq
+          simp only [← h1, ← h2, hNstar, ↓reduceIte, neg_neg, add_neg_cancel, or_true]
+          exact ⟨fun _ ↦ ⟨fun _ ↦ trivial, fun _ ↦ by field_simp [hN]; ring⟩,
+            fun _ ↦ ⟨fun _ ↦ by field_simp [hN]; ring, fun _ ↦ trivial⟩⟩
         grade_add_eq_zero := by
           simp [↓reindex_equiv Y.indexEquiv, ↓reindex_equiv Y''.indexEquiv, Y.gram_eq, Y''.gram_eq,
             flipSpace, gradedGram]
@@ -1053,16 +1162,63 @@ def middleDoubleLift (h_string : HasConsecutiveStrings Y Y' Y'') (h_card : Even 
     embX := MonoidHom.id (G E (1 : X₀ → ℤˣ))
     det_embX := by simp
     intertwines := by
-      simp [j, z, z', ↓reindex_equiv Y.indexEquiv, ↓reindex_equiv Y''.indexEquiv,
-        ratCoordMatrix_inclX, inclMatrix, fromCols_map, ← Matrix.ext_iff, Matrix.mul_apply,
-        Matrix.one_apply]
-    gradeOne := ⟨fun _ ↦ ⟨Y'.indexEquiv (Sum.inr ⟨s'' / 2, by grind⟩), by grind [gradeOf]⟩,
-      by simp [Injective]⟩
+      simp only [ratCoordMatrix_inclX, _root_.mul_inv_rev, inclMatrix, fromCols_map, mul_fromCols,
+        MonoidHom.id_apply, G.adeleMatrix_sum, G.adeleMatrix_one, G.adeleMatrix_neg, ← ext_iff,
+        Matrix.mul_apply, sum_sum_type, fromCols_apply_inl, Finset.univ_unique,
+        PUnit.default_eq_unit, map_apply, Matrix.smul_apply, Matrix.sub_apply, submatrix_apply,
+        Matrix.one_apply, id_eq, smul_eq_mul, map_mul, map_sub, MonoidWithZeroHom.map_ite_one_zero,
+        Finset.sum_singleton, fromCols_apply_inr, Matrix.add_apply, map_add, ite_mul, one_mul,
+        zero_mul, Sum.map_inl, Function.comp_apply, Sum.map_inr, Sum.forall, fromBlocks_apply₁₁,
+        mul_ite, mul_one, mul_zero, fromBlocks_apply₂₁, Matrix.zero_apply,
+        ↓reindex_equiv Y.indexEquiv, Sum.inl.injEq, EmbeddingLike.apply_eq_iff_eq, reduceCtorEq,
+        ↓reduceIte, sub_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reindex_equiv Y''.indexEquiv,
+        Sum.inr.injEq, zero_sub, mul_neg, Finset.sum_neg_distrib, add_zero, zero_add,
+        fromBlocks_apply₁₂, fromBlocks_apply₂₂, Equiv.symm_apply_apply, neg_zero, ite_self,
+        Finset.sum_const_zero, forall_const, implies_true, and_true, and_self, Finset.sum_ite_eq,
+        neg_inj, true_and, z, z', j]
+    gradeOne :=
+      ⟨fun _ ↦ ⟨Y'.indexEquiv (Sum.inr ⟨s'' / 2, by omega⟩), by simp [gradeOf]; omega⟩,
+        by simp [Injective]⟩
     stackedStringMap_apply := by
-      simp [j, z, z', ↓reindex_equiv Y'.indexEquiv, ↓Y.formAdjoint_apply Y', apply_ite star,
-        stackedStringMap, stringMap, ← Embedding.toFun_eq_coe, inclMatrix, Matrix.one_apply,
-        gradedGram, stringReversal]
-      grind [Y.N_ne_zero_and_star_eq] }
+      simp only [↓reindex_equiv Y'.indexEquiv, stackedStringMap, stringMap, ne_eq, mul_ite, mul_neg,
+        ite_mul, one_mul, mul_one, ← Embedding.toFun_eq_coe, Finset.univ_unique,
+        PUnit.default_eq_unit, EmbeddingLike.apply_eq_iff_eq, _root_.mul_inv_rev, inclMatrix,
+        fromCols_apply_inl, fromCols_apply_inr, Matrix.add_apply, submatrix_apply, Matrix.one_apply,
+        id_eq, map_mul, map_add, MonoidWithZeroHom.map_ite_one_zero, Finset.sum_singleton,
+        Sum.forall, reduceCtorEq, ↓reduceIte, Sum.inr.injEq, Sum.elim_inl, fromRows_apply_inl,
+        ↓Y.formAdjoint_apply Y', gradedGram, stringReversal, Equiv.symm_apply_apply, Sum.map_inr,
+        fromBlocks_apply₂₂, of_apply, Fin.rev_rev, Sum.map_inl, map_apply, fromBlocks_apply₁₂,
+        Matrix.zero_apply, map_zero, star_zero, mul_zero, fromBlocks_apply₁₁, map_one,
+        implies_true, Fin.val_rev, star_toAdele, apply_ite star, star_neg, star_mul', star_one,
+        add_zero, true_and, forall_const, Sum.elim_inr, fromRows_apply_inr, fromBlocks_apply₂₁,
+        zero_add, Function.comp_apply, zero_mul, Sum.inl.injEq, ite_self, and_self, and_true, z, z',
+        j]
+      have hrev : (⟨s / 2, by omega⟩ : Fin s) = (⟨s / 2, by omega⟩ : Fin s).rev :=
+        Fin.ext (by simp only [Fin.val_rev]; omega)
+      have hcs : star (Y.genericConst : E) = Y.genericConst := Y.genericConst.prop.2
+      obtain ⟨hN, hNstar⟩ := Y.N_ne_zero_and_star_eq
+      constructor <;> intro b <;> by_cases hb : b = ⟨s'' / 2, by omega⟩
+      · subst hb
+        have h1 : s' - (s'' / 2 + 1) = s - (s / 2 + 1) := by omega
+        have h2 : 2 * (s - (s / 2 + 1)) + 1 = s := by omega
+        have h4 : (⟨s'' / 2, by omega⟩ : Fin s').rev ≠ ⟨s'' / 2, by omega⟩ :=
+          ne_of_apply_ne Fin.val (by rw [Fin.val_rev]; omega)
+        simp only [← hrev, h1, h2, h_odd, ↓reduceIte, h4, lt_self_iff_false, true_iff,
+          map_one, mul_one, ← map_mul, hNstar, hcs, h_const]
+        congr 1; field_simp [hN]
+      · have hne : s' - ((b : ℕ) + 1) ≠ s - (s / 2 + 1) := by
+          have hb' : (b : ℕ) ≠ s'' / 2 := fun h ↦ hb (Fin.ext h)
+          omega
+        simp only [hne, hb, ↓reduceIte, map_zero, zero_mul, mul_zero]
+      · subst hb
+        have h1 : 2 * (s'' / 2) + 1 ≠ s' := by omega
+        have h2 : 2 * (s'' / 2) + 1 < s' := by omega
+        have he : ¬ Odd s' := by rw [Nat.not_odd_iff_even]; exact ⟨(s' / 2), by omega⟩
+        simp only [h1, h2, he, ↓reduceIte, iff_true]
+      · have hne : s'' / 2 ≠ (b : ℕ) := by
+          have hb' : (b : ℕ) ≠ s'' / 2 := fun h ↦ hb (Fin.ext h)
+          omega
+        simp only [hne, hb, ↓reduceIte, map_zero] }
 
 /-- The pair data for s = 1 (so Y' and Y'' have no string), N = pp̄,
 `Y'.genericConst = Y.genericConst` and `card ι + card ι''` even: no plane is removed, and z/p, z the
@@ -1089,7 +1245,11 @@ def lastDoubleLift (h_string : HasConsecutiveStrings Y Y' Y'') (h_card : Even (c
         gram_incl := by
           simp [j, Y.gram_eq, Y''.gram_eq, apply_ite star, flipSpace, gradedGram, hyperbolicSum,
             ← Matrix.ext_iff, Matrix.mul_apply, Matrix.one_apply]
-          grind [Y.N_ne_zero_and_star_eq]
+          have h0 : (⟨0, hs.ge⟩ : Fin s) = (⟨0, hs.ge⟩ : Fin s).rev :=
+            Fin.ext (by simp only [Fin.val_rev]; omega)
+          have hp0 : p ≠ 0 := fun h ↦ Y.N_ne_zero_and_star_eq.1 (by rw [← hp, h, zero_mul])
+          simp only [← h0, ↓reduceIte, neg_neg, ← hp]
+          field_simp [hp0, star_ne_zero.mpr hp0]
         grade_add_eq_zero := by
           simp [↓reindex_equiv Y.indexEquiv, ↓reindex_equiv Y''.indexEquiv, Y.gram_eq, Y''.gram_eq,
             flipSpace, gradedGram]
@@ -1101,13 +1261,33 @@ def lastDoubleLift (h_string : HasConsecutiveStrings Y Y' Y'') (h_card : Even (c
       (MonoidHom.inl (G E (1 : X₀ → ℤˣ)) (G E (1 : Unit → ℤˣ)))
     det_embX := by simp [G.blockEmb, Subtype.ext_iff]
     intertwines := by
-      simp [j, ↓reindex_equiv Y.indexEquiv, ↓reindex_equiv Y''.indexEquiv, Finset.univ_eq_empty,
-        ratCoordMatrix_inclX, G.blockEmb, ← Matrix.ext_iff, Matrix.mul_apply, Matrix.one_apply]
+      simp only [ratCoordMatrix_inclX, G.blockEmb, MulEquiv.toMonoidHom_eq_coe, MonoidHom.coe_comp,
+        MonoidHom.coe_ofClass, Function.comp_apply, MonoidHom.inl_apply, G.adeleMatrix_sum,
+        G.adeleMatrix_one, G.adeleMatrix_neg, G.adeleMatrix_reindex, Equiv.refl_symm,
+        Equiv.coe_refl, submatrix_id_id, ← ext_iff, Matrix.mul_apply, map_apply, of_apply,
+        sum_sum_type, ↓reindex_equiv Y.indexEquiv, ↓reindex_equiv Y''.indexEquiv,
+        Finset.univ_eq_empty, Sum.elim_inl, reduceCtorEq, ↓reduceIte,
+        MonoidWithZeroHom.map_ite_one_zero, ite_mul, one_mul, zero_mul, Finset.sum_empty,
+        Sum.elim_inr, Sum.inr.injEq, Finset.univ_unique, PUnit.default_eq_unit,
+        Finset.sum_singleton, zero_add, Sum.forall, mul_ite, mul_one, mul_zero, fromBlocks_apply₂₁,
+        Matrix.zero_apply, ite_self, Finset.sum_const_zero, add_zero, IsEmpty.forall_iff,
+        fromBlocks_apply₂₂, Sum.inl.injEq, EmbeddingLike.apply_eq_iff_eq, Finset.sum_ite_eq',
+        Finset.mem_univ, map_zero, fromBlocks_apply₁₁, fromBlocks_apply₁₂, one_apply_eq,
+        forall_const, true_and, submatrix_apply, Equiv.symm_apply_apply, implies_true,
+        Finset.sum_ite_eq, and_self, Matrix.one_apply, and_true, j]
     gradeOne := .ofIsEmpty
     stackedStringMap_apply := by
-      simp [j, ↓reindex_equiv Y'.indexEquiv, ↓Y.formAdjoint_apply Y', Finset.univ_eq_empty,
-        stackedStringMap, stringMap, ← Embedding.toFun_eq_coe, gradedGram, stringReversal]
-      grind }
+      simp only [↓reindex_equiv Y'.indexEquiv, stackedStringMap, stringMap, ne_eq, mul_ite, mul_neg,
+        ite_mul, one_mul, mul_one, ← Embedding.toFun_eq_coe, Finset.univ_eq_empty, of_apply,
+        Sum.elim_inl, reduceCtorEq, ↓reduceIte, zero_mul, Finset.sum_empty, Sum.forall,
+        IsEmpty.forall_iff, Sum.elim_inr, Function.comp_apply, fromRows_apply_inl,
+        ↓Y.formAdjoint_apply Y', gradedGram, stringReversal, Equiv.symm_apply_apply, Sum.map_inl,
+        id_eq, submatrix_apply, fromBlocks_apply₁₁, one_apply_eq, map_one, map_apply,
+        Matrix.zero_apply, map_zero, star_zero, mul_zero, implies_true, Sum.map_inr,
+        fromBlocks_apply₂₁, fromBlocks_apply₂₂, and_self, fromRows_apply_inr, fromBlocks_apply₁₂,
+        Fin.rev_rev, Fin.val_rev, zero_add, star_toAdele, true_and, forall_const, j]
+      have : IsEmpty (Fin s') := ⟨fun b ↦ by have hb := b.isLt; omega⟩
+      simp only [IsEmpty.forall_iff] }
 
 end EdgePair
 
