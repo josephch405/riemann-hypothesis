@@ -210,8 +210,11 @@ lemma New.stoneWeierstrass_ultrametric (N : Submodule k C(X, k)) (φ : C(X, k))
       fun c _ ↦ by simpa using! norm_mul_le_of_le (norm_le_one c)⟩
     -- `1` is not in it, as `φ` is far from `N`
     have h_ne_top : (N' ⊔ ball).comap (LinearMap.toSpanSingleton B C(X, k) φ) ≠ ⊤ := by
-      simpa [N', ball, Ideal.eq_top_iff_one, Submodule.mem_sup, ← eq_sub_iff_add_eq',
-        closedBall_openAddSubgroup] using h_far
+      rw [Ideal.ne_top_iff_one, Submodule.mem_comap, LinearMap.toSpanSingleton_apply, one_smul,
+        Submodule.mem_sup]
+      rintro ⟨g, hg, h', hh', h_eq⟩
+      have h_sub : φ - g = h' := sub_eq_iff_eq_add'.2 h_eq.symm
+      exact (h_far g hg).not_ge (h_sub ▸ mem_closedBall_zero_iff.mp hh')
     obtain ⟨m, hm, h_le⟩ := Ideal.exists_le_maximal _ h_ne_top
     exact ⟨m, hm, fun w g hg h ↦
       h_le (mem_sup.2 ⟨g, hg, _, by simpa [ball] using! h, add_sub_cancel ..⟩)⟩
@@ -231,7 +234,7 @@ lemma New.stoneWeierstrass_ultrametric (N : Submodule k C(X, k)) (φ : C(X, k))
       use f ^ n
       suffices h_le : ‖(f : C(X, k)) x‖ ^ n * ‖g x‖ ≤ r by simpa [U] using h_le
       calc ‖(f : C(X, k)) x‖ ^ n * ‖g x‖ ≤ r / (‖g x‖ + 1) * ‖g x‖ := by grw [hn]
-        _ ≤ r := by simp [field]
+        _ ≤ r := by rw [div_mul_eq_mul_div, div_le_iff₀ (by positivity)]; nlinarith
     have h_mono (e f : P) : U f ⊆ U (e * f) := fun x hx ↦ by
       simp only [U, Set.mem_preimage, Metric.mem_closedBall, dist_zero_right, ContinuousMap.coe_mul,
         Pi.mul_apply, MulMemClass.coe_mul, norm_mul, mul_assoc] at hx ⊢
@@ -255,8 +258,10 @@ lemma New.stoneWeierstrass_ultrametric (N : Submodule k C(X, k)) (φ : C(X, k))
     obtain ⟨f, hf⟩ := h_small v h_pos h_max
     -- `w = f * v / v y` vanishes at `a` and `f - w` at `y`, so both lie in `m`, while `f` does not.
     let w : B := ⟨(v y)⁻¹ • (f * v),
-      A.smul_mem (mul_mem f.val.property.1 (sub_mem hu (algebraMap_mem ..))) _, by
-        simpa [norm_smul, field, closedBall_openAddSubgroup]⟩
+      A.smul_mem (mul_mem f.val.property.1 (sub_mem hu (algebraMap_mem ..))) _,
+      mem_closedBall_zero_iff.2 (by
+        rw [norm_smul, norm_inv, inv_mul_le_iff₀ h_pos, mul_one]
+        exact hf)⟩
     have w_mem : w ∈ m := by_contra fun hw ↦ (ha ⟨w, hw⟩).not_gt (by simp [w, v])
     have diff_mem : f - w ∈ m := by_contra fun hw ↦
       (hy ⟨_, hw⟩).not_gt (by simp [w, mul_comm, norm_pos_iff.1 h_pos])
@@ -381,8 +386,14 @@ lemma New.mem_uniformClosure_weylRep_coeff {l N : ℕ} {Φ : Type} [Fact l.Prime
         (∑ i ∈ range 1, Finsupp.single ((![⟨τ, a⟩] 0 : Σ _ : Φ, Fin N).fst, i) 1) +
           diagramWeight (fun _ ↦ N + 1) (κ d) := by
       ext ⟨σ, i⟩
-      simp [diagramWeight_apply, κ, Pi.single_apply, sum_add_distrib]
-      grind [a.isLt]
+      have h1 : 1 ∈ Ioo 0 (N + 1) := mem_Ioo.2 (by have := a.pos; omega)
+      simp only [diagramWeight_apply, κ, Pi.single_apply, sum_add_distrib, range_one, sum_singleton,
+        Matrix.cons_val_zero, Finsupp.coe_add, Finsupp.single_apply, Pi.add_apply, Prod.mk.injEq]
+      by_cases hσ : σ = τ
+      · subst hσ; by_cases hi : i = 0
+        · subst hi; simp [h1]; omega
+        · simp [mem_Ioo, show ¬i < 1 by omega]; exact Ne.symm hi
+      · simp [hσ]; exact fun h ↦ absurd h.symm hσ
     rw [h_weight]
     exact SetLike.mul_mem_graded (minor_mem_nabla (Fin.forall_fin_one.2 rfl)) hF
   -- That multiplier is `∑ b, z γ τ a b * v b` at `γ`, and `v` is independent over `L`.
@@ -397,8 +408,25 @@ lemma New.mem_uniformClosure_weylRep_coeff {l N : ℕ} {Φ : Type} [Fact l.Prime
   let w : MatrixPoly (Σ _ : Φ, Fin N) k :=
     ∏ τ, tableauPoly (N := N + 1) (k := κ 0 τ) k (Sigma.mk τ) fun h _ ↦ Fin.castLE h.is_le
   have w_ne : w.eval y ≠ 0 := by
-    simp [w, y, tableauPoly, prod_eq_zero_iff, BlockTriangular, hv.ne_zero,
-      det_of_isLowerTriangular, minor, RingHom.map_det]
+    intro h
+    dsimp only [w] at h
+    rw [eval_prod] at h
+    obtain ⟨τ, -, hτ⟩ := Finset.prod_eq_zero_iff.mp h
+    dsimp only [tableauPoly] at hτ
+    rw [eval_prod] at hτ
+    obtain ⟨h', -, hh'⟩ := Finset.prod_eq_zero_iff.mp hτ
+    rw [eval_prod] at hh'
+    obtain ⟨_, -, hk⟩ := Finset.prod_eq_zero_iff.mp hh'
+    simp only [minor, RingHom.map_det] at hk
+    rw [det_of_isLowerTriangular] at hk
+    · obtain ⟨i, -, hi⟩ := Finset.prod_eq_zero_iff.mp hk
+      simp only [RingHom.mapMatrix_apply, Matrix.map_apply, Matrix.of_apply, eval_X, y,
+        Function.comp_apply, Fin.val_castLE, le_refl, ↓reduceIte] at hi
+      exact hv.ne_zero _ hi
+    · intro i j hij
+      have hlt : (i : ℕ) < j := hij
+      simp only [RingHom.mapMatrix_apply, Matrix.map_apply, Matrix.of_apply, eval_X, y,
+        Function.comp_apply, Fin.val_castLE, show ¬(j : ℕ) ≤ (i : ℕ) by omega, ↓reduceIte]
   have h_local (γ : X) : ∃ b ∈ S, ∀ δ : X, (∀ u ∈ S / S, u δ = u γ) → φ δ = b δ := by
     refine ⟨E ((φ γ / w.eval y) • rowSubst (fun τ ↦ (z γ τ).val⁻¹) w), subset_span
       ⟨0, _, smul_mem _ _ (rowSubst_mem_nabla _ prod_tableauPoly_mem_nabla), rfl⟩, fun δ h ↦ ?_⟩
@@ -415,11 +443,18 @@ lemma New.mem_uniformClosure_weylRep_coeff {l N : ℕ} {Φ : Type} [Fact l.Prime
     nabla_le_span_nablaBasis_mul_detPow _
       (by simpa [diagramWeight, sum_range_succ, sum_add_distrib] using hF)
   refine ⟨κ d, fun τ ↦ κ d τ N, β, fun i ↦ (b i).eval y,
-    fun τ ↦ hasNoSmallRelations_of_rapid_decrease (by simp [κ]) (by grind), funext ?_⟩
+    fun τ ↦ hasNoSmallRelations_of_rapid_decrease (by simp [κ]) fun h hh ↦ by
+      simp only [κ, show h ≠ 1 by omega, ↓reduceIte, add_zero], funext ?_⟩
   -- Substituting `z γ` acts on the family `b` by the matrix
   -- `weylRep (κ d) (fun τ ↦ κ d τ N) (z γ)`.
-  simp [E, b, ← hβ, weylRep, mulVec, dotProduct, mul_sum, Units.smul_def, sum_mul, mul_assoc,
-    linearCombination_apply]
+  intro γ
+  simp only [← hβ, linearCombination_apply, map_sum, map_smul, map_mul, FitsRanks.refl,
+    ← sum_schur_smul_nablaBasis, schurDetExp_self, detPow_zero, mul_one, rowSubst_detPow,
+    Algebra.mul_smul_comm, sum_mul, Algebra.smul_mul_assoc, smul_eval, mul_sum,
+    coeFnLinearMap_apply, ZeroHom.toFun_eq_coe, AddMonoidHom.toZeroHom_coe,
+    coeFnAddMonoidHom_apply, ContinuousMap.coe_mk, dotProduct, mulVec, weylRep, zpow_natCast,
+    Units.smul_def, Units.coe_prod, Units.val_pow_eq_pow_val, GeneralLinearGroup.val_det_apply,
+    MonoidHom.coe_mk, OneHom.coe_mk, Matrix.smul_apply, smul_eq_mul, mul_assoc, E, b]
 
 end FreeWeightDensity
 
@@ -543,7 +578,15 @@ lemma GaloisRep.exists_padicModel_hecke_contraction (j : ℕ) :
   · -- If `w ∤ l` the matrices are `1`, so the nonzero `Y y` is `1`.
     cases y with
     | none => simp [Y]
-    | some _ => aesop (add simp [weylRep, padicComponents_ofSplitPlace]) (add simp Matrix.one_apply)
+    | some p =>
+      have hpc : padicComponents (l := l) (γ p.1) = 1 := funext fun τ ↦
+        padicComponents_ofSplitPlace (w := w) (hw := hw)
+          (g := transposeGL (basicCosetRep p.1)) (fun h ↦ absurd h hl)
+      have h1 : Y (some p) = if p.2.1 = p.2.2 then 1 else 0 := by
+        simp only [Y, Option.elim'_some, hpc, map_one, Matrix.one_apply]
+      split_ifs at h1 with h_eq
+      · simp [h1]
+      · exfalso; exact h_pos.ne' (by simp [h1])
   · -- By the ultrametric inequality the sum obeys the bound that each of its terms obeys;
     -- the integer `c` has norm at most `1`.
     have h_sum : ‖T₀ φ z‖ ≤ ‖Y y‖ * r := by
@@ -551,8 +594,10 @@ lemma GaloisRep.exists_padicModel_hecke_contraction (j : ℕ) :
       simp only [T₀, LinearMap.sum_apply, Finset.sum_apply, LinearMap.pi_apply]
       iterate 2 refine norm_sum_le_of_forall_le_of_nonneg hr fun _ _ ↦ ?_
       exact norm_mul_le_of_le (h_max _) (hφ _)
-    exact (IsUltrametricDist.norm_zsmul_le ((-(Y y)⁻¹ • T₀) φ z) c).trans
-      (show ‖(-(Y y)⁻¹ • T₀) φ z‖ ≤ r by simpa [field] using h_sum)
+    refine (IsUltrametricDist.norm_zsmul_le ((-(Y y)⁻¹ • T₀) φ z) c).trans ?_
+    rw [LinearMap.smul_apply, Pi.smul_apply, smul_eq_mul, norm_mul, norm_neg, norm_inv,
+      inv_mul_le_iff₀ h_pos]
+    exact h_sum
   · intro κ' f M P F ⟨h_sph, t, hP, h_eig⟩ hM
     -- As `M` intertwines, each summand of `T₀` is `padicModel` of a translate of `f`.
     have h_term (U : Submodule (ResField w) (Fin N → ResField w))
@@ -606,8 +651,10 @@ lemma exists_weylRep_eq_submatrix_kronecker (T : Set (InfinitePlace E))
             σ σ := by
   subst hp
   use Equiv.piEquivPiSubtypeProd (fun τ ↦ τ ∈ T) _
-  simp [← ext_iff, weylRep, schur_apply_eq_prod (Φ := Subtype.{1} _), schur_apply_eq_prod (κ := μ),
-    ← Fintype.prod_subtype_mul_prod_subtype (fun τ ↦ τ ∈ T), mul_smul_mul_comm]
+  simp only [weylRep, ← Fintype.prod_subtype_mul_prod_subtype (fun τ ↦ τ ∈ T), MonoidHom.coe_mk,
+    OneHom.coe_mk, Equiv.piEquivPiSubtypeProd_apply, ← ext_iff, Matrix.smul_apply, FitsRanks.refl,
+    schur_apply_eq_prod (κ := μ), mul_smul_mul_comm, submatrix_apply, kroneckerMap_apply,
+    schur_apply_eq_prod (Φ := Subtype.{1} _)]
   tauto
 
 /-- For a character `θ` of `K` that is `1` near `1`, a form `f` of weight `κ` and `c` in
@@ -701,10 +748,28 @@ lemma padicModel_mem_uniformClosure {K : Subgroup (Gf E (Fin N))} (hK : IsLevel 
   -- `Φ c` factors through the components `z` over `T`, by `h_fix`.
   let z : C(K, T → GL (Fin N) (PadicAlgCl l)) := .mk fun k τ ↦ padicComponents (c * k.val)⁻¹ τ
   have h_factor : (fun k ↦ Φ c k y).FactorsThrough z := fun k ↦ by
-    refine (mul_left_surjective k).forall.2 fun d hd ↦ ?_
-    -- `simp_all` works with `hd` and `h_fix` only
-    clear * - hd h_fix
-    simp_all +unfoldPartialApp [funext_iff, z, Φ, u, ← mul_assoc, (h_fix ..).1 _, mulIndicator]
+    refine (mul_left_surjective k).forall.2 fun d h_z ↦ ?_
+    have h_eq : ∀ τ ∈ T, padicComponents (l := l) d.val τ = 1 := fun τ hτ ↦ by
+      have h_zτ : padicComponents (l := l) (c * k.val)⁻¹ τ =
+          padicComponents (l := l) (c * (k * d).val)⁻¹ τ := congr_fun h_z ⟨τ, hτ⟩
+      rw [Subgroup.coe_mul, ← mul_assoc, map_inv, map_inv, Pi.inv_apply, Pi.inv_apply,
+        _root_.inv_inj, map_mul (padicComponents (l := l)) (c * k.val) d.val,
+        Pi.mul_apply, left_eq_mul] at h_zτ
+      exact h_zτ
+    obtain ⟨hd_stab, hd_θ⟩ := h_fix d h_eq
+    have h_mul : T.mulIndicator (padicComponents (l := l) (c * (k * d).val)⁻¹) =
+        T.mulIndicator (padicComponents (l := l) (c * k.val)⁻¹) := by
+      ext1 τ
+      by_cases hτ : τ ∈ T
+      · simp only [Set.mulIndicator, hτ, ↓reduceIte]
+        exact (congr_fun h_z ⟨τ, hτ⟩).symm
+      · simp only [Set.mulIndicator, hτ, ↓reduceIte]
+    have h_u : (u c (k * d)).2 = (u c k).2 := by
+      ext i
+      simp only [u, Function.comp_apply, Pi.smul_apply, Subgroup.coe_mul, ← mul_assoc,
+        mem_rightStabilizer.1 hd_stab (c * k.1)]
+      rw [map_inv, map_mul, hd_θ, mul_one, ← map_inv]
+    simp only [Φ, h_mul, h_u]
   -- By `padicComponents_apply_mem_iSup_adjoin` the entries of `z` over `τ` lie in the finite
   -- extension of `ℚ_[l]` generated by an image of `E`; take the compositum over `τ`. So `Φ c · y`
   -- is a uniform limit from the span of the matrix coefficients `β ⬝ᵥ weylRep a b (z ·) *ᵥ ξ` with
