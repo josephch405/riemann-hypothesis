@@ -64,9 +64,7 @@ noncomputable section
 A criterion for residual absolute irreducibility, in the strong form that the image of the group
 spans the matrix algebra over the coefficient ring
 (`New.Selmer.IsLatticeIn.span_range_eq_top_of_map_pow_eq_map_conj`). In the application `γ` and `φ`
-come from tame inertia and Frobenius at an auxiliary place. A spanning family has an absolutely
-irreducible reduction (`New.Selmer.eq_bot_or_eq_top_of_span_eq_top`), and its stable lattice is
-unique up to scalars (`New.Selmer.exists_eq_smul_of_conj_eq`).
+come from tame inertia and Frobenius at an auxiliary place.
 -/
 
 section ResidualIrreducibility
@@ -149,7 +147,8 @@ lemma New.Selmer.IsLatticeIn.span_range_eq_top_of_map_pow_eq_map_conj {G n : Typ
     rw [commute_iff_eq, ← map_pow, ← map_mul, ← map_mul, h_conj, map_mul, map_mul, h_fix]
   have h_comm (p : Fin (card n) × Fin (card n)) : Commute (u (w p)) (u (φ⁻¹ ^ card n)) := by
     have h_R : R (w p * φ⁻¹ ^ card n) = R (φ⁻¹ ^ card n * w p) := by
-      have h_pow := (Commute.pow_pow_self (R φ) p.1.val (card n)).mul_left (h_comm_φ.pow_left p.2.val)
+      have h_pow :=
+          (Commute.pow_pow_self (R φ) p.1.val (card n)).mul_left (h_comm_φ.pow_left p.2.val)
       simpa only [w, map_mul, map_pow, map_inv, inv_pow] using h_pow.inv_right.eq
     simpa only [map_mul, commute_iff_eq] using u_congr h_R
   exact Matrix.exists_eq_smul_one_of_commute_of_span_eq_top h_span h_comm

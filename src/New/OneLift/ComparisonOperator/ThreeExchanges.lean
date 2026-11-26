@@ -451,7 +451,7 @@ lemma carrierForm_mem_rapidOfLevel_and_isAdelicHol {m : ℕ} [NeZero m] (hm_even
     -- the class sum is now a finite sum: read off the index type, the coefficients and the points
     exact ⟨_, _, _, _, h_class_sum⟩
   -- `hψ` is the weight instance that `isAdelicHol_pairTheta` needs.
-  have ⟨h𝔪, ψ, hψ, _⟩ := h_tame
+  let ⟨h𝔪, ψ, hψ, _⟩ := h_tame
   have h_mem (N : RingOfIntegers E) (g : Gf E (Fin (2 * m) ⊕ Fin m)) : θ g ∈ rapidOfLevel V N := by
     -- Level one: on `stdLevel` the factor `c (det k)⁻¹` cancels against `χ (det k)`.
     have h_level : HasLevel (θ g) (⟨stdLevel E _, isOpen_stdLevel⟩ : OpenSubgroup _) := by
@@ -830,7 +830,8 @@ lemma exists_mul_thirdExchangeLeftSide_eq_choiceFn : ∃ (C : ℂ) (c : D.Twist 
         inv_inv, mul_assoc]
     have h_half : twistedChiMPow ϑ.toTameChar j * upsilonU1 ^ (D.m / 2) =
         ϑ.toAutChar / ((upsilonU1 ^ (D.m / 2))⁻¹ / D.chiM ^ j.val) := by
-      rw [twistedChiMPow, div_eq_mul_inv ϑ.toAutChar, inv_div, div_inv_eq_mul, mul_left_comm, mul_assoc]
+      rw [twistedChiMPow, div_eq_mul_inv ϑ.toAutChar, inv_div, div_inv_eq_mul, mul_left_comm,
+        mul_assoc]
     simp [← Complex.ofReal_pow, mul_pow, div_pow, heckeValueProd, places_twistModulus,
       exchangePair,
       hc₃_norm, hc₁₂_norm, signPoint, ← division_def, div_right_comm _ (_ * _), div_mul_div_comm,
