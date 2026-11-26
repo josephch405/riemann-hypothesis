@@ -440,21 +440,13 @@ theorem integral_mul_tsum_cutBessel {e : GInf E ε → ℂ} {y : New.G E ε → 
   simpa only [mul_tsum_cutBessel a _ hy_inv] using
     integral_quotMeasure_tsum_eq V.Γ (integrable_mul_cutBessel a hy)
 
-omit [S.IsAdmissible] [HasPrimitiveRoot5040 E] in
-/-- The product of y with the Poincaré series of φ, expanded over the pairs a. -/
-private theorem mul_poincareSeries_eq_sum (y : New.G E ε → ℂ) :
-    y g * X.poincareSeries φ g =
-      ∑ a : S.Classes × S.BesselCoord, φ a * (y g * ∑' γ : V.Γ, X.cutBessel a (γ * g)) := by
-  rw [poincareSeries, Finset.mul_sum]
-  exact Finset.sum_congr rfl fun _ _ ↦ mul_left_comm ..
-
 /-- Unfolding, for admissible filling data and a form y on V of any type e (a bounded automorphic
 function): the integral over Γ∖G of y times the Poincaré series of φ is
 ∑_a φ_a ∫_G y·`X.cutBessel a`. -/
 theorem integral_mul_poincareSeries {e : GInf E ε → ℂ} {y : New.G E ε → ℂ} (hy : V.IsForm e y) :
     ∫ g : New.G E ε, y g * X.poincareSeries φ g ∂V.Γ.quotMeasure =
       ∑ a : S.Classes × S.BesselCoord, φ a * ∫ g : New.G E ε, y g * X.cutBessel a g := by
-  simp only [mul_poincareSeries_eq_sum]
+  simp only [poincareSeries, Finset.mul_sum, mul_left_comm (y _)]
   rw [integral_finsetSum _ fun a _ ↦ (integrable_mul_tsum_cutBessel a hy).const_mul (φ a)]
   simp only [integral_const_mul, integral_mul_tsum_cutBessel _ hy]
 

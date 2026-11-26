@@ -455,13 +455,6 @@ lemma measurePreserving_inclMatrix (g : n ≃ k) : MeasurePreserving (inclMatrix
   rw [h_eq]
   exact (measurePreserving_piCongrLeft _ g.symm).symm
 
-omit [TopologicalSpace A] [MeasureSpace A] [Place A] in
-/-- The Gram matrix of the standard basis vectors `e_(g j)` for `J` is the submatrix of `J` on the
-indices `g j`. -/
-lemma gram_inclMatrix {n : Type*} (g : n → k) (J : Matrix k k A) :
-    (inclMatrix A g)ᴴ * J * inclMatrix A g = J.submatrix g g := by
-  simp [inclMatrix, Matrix.mul_apply, ← ext_iff, Matrix.one_apply]
-
 /-- If `f` enumerates the basis indices of `V_l` without repetition, then extension by zero along
 `f` carries the volume of `n → A` to the Haar measure of `V_l`. -/
 lemma map_inclMatrix_eq_floorVolume (f : n → 𝔰.BesselIndex)
@@ -513,7 +506,8 @@ lemma HyperbolicBasis.gram_floorBasis :
   let incl : 𝔰.MiddleIndex ⊕ S ⊕ S → 𝔰.BesselIndex := inr ∘ inl ⊕ᵥ Sum.map (↑) (inr ∘ (↑))
   have block : T.splitGram.submatrix incl incl = T.fromBlocks 0 0 (fromBlocks 0 1 1 0) := by
     simp [incl, S, splitGram, ← ext_iff, Matrix.one_apply]
-  rw [floorBasis, gram_mul, gram_inclMatrix, gram_mul, gram_inclMatrix, block]
+  rw [floorBasis, gram_mul, conjTranspose_inclMatrix_mul_mul_inclMatrix, gram_mul,
+    conjTranspose_inclMatrix_mul_mul_inclMatrix, block]
   simp [F.gram_eq, fromBlocks_conjTranspose, fromBlocks_multiply, ← ext_iff, Matrix.one_apply]
 
 /-- Multiplication by `F.basisMatrix`, the matrix of the hyperbolic basis `F` of `V_ϱ`, preserves
@@ -524,7 +518,8 @@ lemma HyperbolicBasis.measurePreserving_mulVec : MeasurePreserving (F.basisMatri
   let M : Matrix 𝔰.MiddleIndex 𝔰.MiddleIndex A := F.basisMatrix * inclMatrix A e
   have gram_sq : (Mᴴ * T * M) ^ 2 = 1 := by
     rw [gram_mul]
-    simp [sq, gram_inclMatrix, F.gram_eq, ↓reindex_equiv e.symm, fromBlocks_multiply,
+    simp [sq, conjTranspose_inclMatrix_mul_mul_inclMatrix, F.gram_eq, ↓reindex_equiv e.symm,
+      fromBlocks_multiply,
       fromCols_mul_fromRows, fromCols_mul_fromBlocks, fromBlocks_mul_fromRows, ← ext_iff,
       Matrix.one_apply]
   have h_left : Mᴴ * T * M * (Mᴴ * T) * M = 1 := by rw [Matrix.mul_assoc _ _ M, ← sq, gram_sq]
@@ -614,7 +609,7 @@ lemma measurable_floorWeyl [H : IsHermitianUnit T.splitGram] :
     Measurable (floorWeyl l : A → T.G) := by
   classical
   have h_isUnit : Measurable fun c : A ↦ IsUnit c :=
-    measurableEmbedding_units_val.measurableSet_range.mem
+    Units.measurableEmbedding_val.measurableSet_range.mem
   refine measurable_unitary_of_coe
     (measurable_pi_iff.2 fun i ↦ measurable_pi_iff.2 fun j ↦ ?_)
   simp only [floorWeyl, weylOn, eq_ite_iff, not_and, Pi.star_apply, isUnit_star, star_star,

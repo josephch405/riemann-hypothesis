@@ -746,7 +746,7 @@ lemma IsGaloisCovering.etale_of_isPullback {R : CommRingCat} {W Z : Over (Spec R
   have h_point (m : MaximalSpectrum N) : Nonempty (B →ₐ[A] Ω m) := by
     obtain ⟨y, hy⟩ : ∃ y : Spec (of (Ω m)) ⟶ W.left,
         y ≫ c.left = specMap (algebraMap A (Ω m)) ≫ u :=
-      exists_point_over c.left (hG.surjective.surj _)
+      (Scheme.Hom.exists_comp_eq_iff_mem_range c.left _).2 (hG.surjective.surj _)
     exact (exists_algHom_specMap_comp_eq hp (Ω m) y hy).nonempty
   let χ : B →ₐ[A] ∀ m : MaximalSpectrum N, Ω m := .pi fun m ↦ (h_point m).some
   have hχ (x : A) : χ (algebraMap A B x) = algebraMap N _ (algebraMap A N x) := χ.commutes x

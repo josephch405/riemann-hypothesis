@@ -1,5 +1,6 @@
 module
 
+import TauCeti.Analysis.Matrix.L2OpNorm
 public import Mathlib.Analysis.LocallyConvex.AbsConvexOpen
 import Mathlib.Algebra.Order.Star.Real
 import Mathlib.Algebra.Ring.IsFormallyReal
@@ -103,7 +104,6 @@ lemma New.lintegral_mul_le_of_frameMatrix_le {𝔰 : Shape} {w φ : 𝔰.G₁ �
   -- Unfold along `besselU`; it suffices to bound the integral of `φ (s * y)` over `s ∈ besselU`.
   -- Write `s = u * liftUnitriangular x * u₀` with `u ∈ besselU0` and `φ (u₀ * y) ≠ 0`: the integral
   -- over `u` is at most `K`, and it vanishes unless all coordinates of `x` have norm at most `R`.
-  have : ContinuousMul 𝔰.G₁ := inferInstance
   let box : Set (UpperEntries 𝔰.n) := .pi ⊤ fun _ ↦ Metric.closedBall 0 R
   have inner_le (y : 𝔰.G₁) : ∫⁻ u : (𝔰.middleGram (1 : ℂ)).besselU, φ (u * y) ∂𝔰.besselHaar ≤
       K * .ofReal ((2 * R) ^ (2 * 𝔰.n ^ 2)) := by
@@ -279,7 +279,7 @@ lemma New.RealPlace.norm_frameMatrix_le_of_isBoundedInCell {𝔰 : Shape} {P : �
     simp [realFrameGram_eq_frameMatrix_mul y hs, (mem_openCell.1 hsy.mem_openCell).1]
   calc ‖frameMatrix s a b‖
     _ = ‖(realFrameGram y * (realFrameGram (s * y))⁻¹) b a‖ := by simp [h_adjoint]
-    _ ≤ ‖realFrameGram y * (realFrameGram (s * y))⁻¹‖ := norm_apply_le_l2_opNorm b a
+    _ ≤ ‖realFrameGram y * (realFrameGram (s * y))⁻¹‖ := norm_apply_le_l2_opNorm _ b a
     _ ≤ P * P := norm_mul_le_of_le hy.norm_le hsy.norm_inv_le
     _ = P ^ 2 := (sq P).symm
 
@@ -593,7 +593,7 @@ lemma New.RealPlace.norm_convolutionWeight_le {𝔰 : Shape} {R : ℝ} (hR : 0 <
     by_cases hy : φ y = 0
     · simp [hy]
     -- Both entries have norm at most `‖y‖ = ‖y⁻¹‖ ≤ R`.
-    have entry_le : ‖y.val c b‖ ≤ R := (norm_apply_le_l2_opNorm c b).trans (hφ_supp y hy)
+    have entry_le : ‖y.val c b‖ ≤ R := (norm_apply_le_l2_opNorm _ c b).trans (hφ_supp y hy)
     have inv_entry_le : ‖y⁻¹.val a d‖ ≤ R := by
       grw [norm_apply_le_l2_opNorm, U.norm_inv, hφ_supp y hy]
     grw [norm_div, norm_mul, entry_le, inv_entry_le]

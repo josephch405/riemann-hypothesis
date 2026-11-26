@@ -163,12 +163,6 @@ lemma isClassFunction_evalGL : IsClassFunction (F.evalGL (n := n)) := by
     simClassOf_eq_of_equiv x.toLin.toLinearEquiv fun v ↦ by simp
   exact congrArg F h_sim.symm
 
-private lemma evalGL_sub (X Y : Hall k₀) (γ : GL n k₀) :
-    (X - Y).evalGL γ = X.evalGL γ - Y.evalGL γ := rfl
-
-private lemma evalGL_mulMoebius (X : Hall k₀) (γ : GL n k₀) :
-    X.mulMoebius.evalGL γ = X.evalGL γ * moebius.evalGL γ := rfl
-
 /-- On `GL_m(k₀)`, the function `moebius + (1 - constOne) ^ (m + 1) * -moebius` agrees with
 `moebius`: its second term vanishes on classes of dimension at most `m`. -/
 private lemma evalGL_moebius_add_one_sub_constOne_pow_mul {m : ℕ} (γ : GL (Fin m) k₀) :
@@ -310,8 +304,10 @@ lemma Lift.sub (h : Lift R F F') (h' : Lift R G G') : Lift R (F - G) (F' - G') :
   -- On the coset of each `σ` with fixed field `k`, `Φ - Ψ` takes the value `F γ - G γ`; where the
   -- fixed field is `k'`, it takes the value of `F' - G'`.
   refine ⟨Φ - Ψ, sub_mem hΦ hΨ, fun σ hσ s γ hs hγ ↦ ?_, fun σ hσ s γ hs hγ ↦ ?_⟩
-  · rw [Pi.sub_apply, hΦ_F σ hσ s γ hs hγ, hΨ_G σ hσ s γ hs hγ, evalGL_sub]
-  · rw [Pi.sub_apply, hΦ_F' σ hσ s γ hs hγ, hΨ_G' σ hσ s γ hs hγ, evalGL_sub]
+  · rw [Pi.sub_apply, hΦ_F σ hσ s γ hs hγ, hΨ_G σ hσ s γ hs hγ]
+    rfl
+  · rw [Pi.sub_apply, hΦ_F' σ hσ s γ hs hγ, hΨ_G' σ hσ s γ hs hγ]
+    rfl
 
 omit [Finite k] in
 /-- Let `b` split the indices `n` into ordered blocks. Let `P` be the subgroup of
@@ -432,9 +428,11 @@ lemma Lift.mulMoebius (h : Lift R F F') : Lift R F.mulMoebius F'.mulMoebius := b
   obtain ⟨Ψ, hΨ, hΨ_k, hΨ_k'⟩ := hJ (m + 1) m
   refine ⟨Φ * Ψ, mul_mem hΦ hΨ, fun σ hσ s γ hs hγ ↦ ?_, fun σ hσ s γ hs hγ ↦ ?_⟩
   · rw [Pi.mul_apply, hΦ_F σ hσ s γ hs hγ, hΨ_k σ hσ s γ hs hγ,
-      evalGL_moebius_add_one_sub_constOne_pow_mul, evalGL_mulMoebius]
+      evalGL_moebius_add_one_sub_constOne_pow_mul]
+    rfl
   · rw [Pi.mul_apply, hΦ_F' σ hσ s γ hs hγ, hΨ_k' σ hσ s γ hs hγ,
-      evalGL_moebius_add_one_sub_constOne_pow_mul, evalGL_mulMoebius]
+      evalGL_moebius_add_one_sub_constOne_pow_mul]
+    rfl
 
 /-- If F lifts to F', then (−1)^m times the dimension m part of `F.mulMoebius * constOne` lifts to
 the same expression for F'. Here `F.mulMoebius` is the pointwise product F·μ, with μ the inverse of

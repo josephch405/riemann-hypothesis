@@ -635,7 +635,7 @@ lemma enorm_amplitudeSum_sq_le {E : Type} [Field E] [CMType E] {𝔰 : Shape} {S
       ∑' Λ, ‖S.amplitudeSum .cut (T ∩ {γ | S.termDisc γ ≠ 0} ∩ link ⁻¹' {Λ}) c s c'‖ₑ ^ 2 := by
     refine (tsum_range product fun Λ Λ' h ↦ by simpa using h).trans (tsum_congr fun Λ ↦ ?_)
     have h_set : T ∩ S.piece ⁻¹' {some Λ} = T ∩ {γ | S.termDisc γ ≠ 0} ∩ link ⁻¹' {Λ} :=
-      Set.ext fun γ ↦ by by_cases h_disc : S.termDisc γ = 0 <;> simp [piece, h_disc, and_assoc]
+      Set.ext fun γ ↦ by by_cases h_disc : S.termDisc γ = 0 <;> simp [piece, h_disc]
     simp only [product, part, h_set, sq]
   let nearRepsOfPiece (κ : Piece E 𝔰) : Set (S.G E) :=
     S.nearRepresentativesOver (T ∩ S.piece ⁻¹' {κ}) c s c'

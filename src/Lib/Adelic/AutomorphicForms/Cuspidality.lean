@@ -345,7 +345,7 @@ lemma Space.nonempty_cuspFrame (W : Space E n s) {θ κ : ℝ}
         (rank_of_apply_min e star_indep i.castSucc)
     have rank_right : (X i.rev).rank = i.rev + 1 :=
       (rank_transpose _).trans (rank_of_apply_min e hy_indep i.rev.castSucc)
-    rw [← card_sub_rank_eq_finrank_ker, rank_left, finrank_range_mulVecLin, rank_right, hk,
+    rw [finrank_ker_mulVecLin, rank_left, finrank_range_mulVecLin, rank_right, hk,
       Fin.val_rev]
     omega
   exact ⟨{
@@ -772,7 +772,7 @@ is the unipotent radical, `Γ` the group of rational points, `Z_δ` the real bal
 theorem exists_norm_le_of_radicalCovered (he : IsCuspKernel B e) [Nonempty n] (j : ℕ) :
     ∃ δ₀ : ℝ, 0 < δ₀ ∧
     ∀ (J : Subgroup (Gf E n)) [IsLevel J] (W : Space E n s) (g : G E s) (δ : ℝ) (X : Matrix n n E)
-      (_hδ : 0 ≤ δ) (_hX_ne : X ≠ 0) (_hX_iso : Xᴴ * (W.J * X) = 0)
+      (_hX_ne : X ≠ 0) (_hX_iso : Xᴴ * (W.J * X) = 0)
       (_h_cover : (W.move g).RadicalCovered X δ J) (f : G E s → ℂ) (T : ℝ) (_h_cont : Continuous f)
       (_h_bound : ∀ x : G E s, ‖f x‖ ≤ T) (_h_fix : realConv e f = f) (_h_level : HasLevel f J)
       (_h_inv : ∀ ν : U W.J, (ν, 1) ∈ dilationGroup (m := n) X →
@@ -786,7 +786,9 @@ theorem exists_norm_le_of_radicalCovered (he : IsCuspKernel B e) [Nonempty n] (j
   have size_mul_le (z v : GInf E s) : size (z * v) ≤ size z * size v := prod_opNorm_mul_le z v
   have weight_pos (z : GInf E s) : 0 < size z ^ (2 * j) := by positivity [one_le_size z]
   obtain ⟨δ₀, hδ₀, h_osc⟩ := exists_norm_sub_le_half he (2 * j)
-  refine ⟨δ₀, hδ₀, fun J _ W g δ X hδ hX_ne hX h_cover f T h_cont h_bound h_fix h_level h_inv ↦ ?_⟩
+  refine ⟨δ₀, hδ₀, fun J _ W g δ X hX_ne hX h_cover f T h_cont h_bound h_fix h_level h_inv ↦ ?_⟩
+  obtain ⟨γ, -, hγ, -⟩ := h_cover 1 ((W.move g).radical X).one_mem
+  have hδ : 0 ≤ δ := dist_nonneg.trans hγ
   have hT_nonneg : 0 ≤ T := (norm_nonneg _).trans (h_bound 1)
   suffices h_weighted : ∀ z : GInf E s, ‖f (g * (z, 1))‖ / size z ^ (2 * j) ≤ (δ / δ₀) ^ j * T by
     simpa [Prod.mk_one_one, size] using h_weighted 1
@@ -862,7 +864,7 @@ theorem exists_norm_mul_height_pow_le (he : IsCuspKernel B e) (K : OpenSubgroup 
     (mul_le_mul_of_nonneg_right this (pow_nonneg (V.height_pos g).le A)).trans_eq (by ring)
   rcases le_total δ 1 with hδ_le | hδ_ge
   · obtain ⟨cusp, h_cover⟩ := h_frame hδ_le
-    grw [h_decay J V g δ cusp.isotropicCols hδ_pos.le cusp.ne_zero cusp.isotropic h_cover F c
+    grw [h_decay J V g δ cusp.isotropicCols cusp.ne_zero cusp.isotropic h_cover F c
       hF.continuous hc (hF.realConv_eq he.integrable) (fun k hk ↦ h_level k hk.1)
       (fun ν _ ↦ hF.rat_mul _ ⟨ν, rfl⟩), (inf_le_left : δ₀ ⊓ 1 ≤ δ₀)]
   · exact (hc g).trans (le_mul_of_one_le_left hc₀ (one_le_pow₀

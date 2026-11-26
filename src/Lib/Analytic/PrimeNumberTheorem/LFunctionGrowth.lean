@@ -184,7 +184,19 @@ lemma norm_regularL_le_sq (hl : 10 ^ 10 ≤ l) (hN : N ≤ rexp l) (h_re : 1 - 1
   have g_le_exp_cube (z : ℂ) (hz : a ≤ z.re) : ‖g z‖ ≤ rexp l ^ 3 := by
     have h_denom : 1 ≤ ‖z - (s - 2)‖ := denom_ge z hz
     have hz_norm : ‖z‖ ≤ 4 * rexp l * ‖z - (s - 2)‖ := by
-      nlinarith [norm_le_norm_sub_add z (s - 2), norm_sub_le s 2, Complex.norm_two]
+      have h_exp : 3 ≤ rexp l := by linarith only [hl, exp_ge]
+      have h_center : ‖s - 2‖ ≤ 3 * rexp l + 2 := by
+        calc
+          ‖s - 2‖ ≤ ‖s‖ + ‖(2 : ℂ)‖ := norm_sub_le s 2
+          _ ≤ 3 * rexp l + 2 := by simpa only [Complex.norm_two] using add_le_add_left h_norm ‖(2 : ℂ)‖
+      calc
+        ‖z‖ ≤ ‖z - (s - 2)‖ + ‖s - 2‖ := norm_le_norm_sub_add z (s - 2)
+        _ ≤ ‖z - (s - 2)‖ + (3 * rexp l + 2) := add_le_add_right h_center _
+        _ ≤ ‖z - (s - 2)‖ + (3 * rexp l + 2) * ‖z - (s - 2)‖ := by
+          exact add_le_add_right (le_mul_of_one_le_right (show 0 ≤ 3 * rexp l + 2 by positivity) h_denom) _
+        _ = (3 * rexp l + 3) * ‖z - (s - 2)‖ := by ring
+        _ ≤ 4 * rexp l * ‖z - (s - 2)‖ :=
+          mul_le_mul_of_nonneg_right (by linarith only [h_exp]) (norm_nonneg _)
     rw [norm_div, div_le_iff₀ (by linarith)]
     calc
       ‖regularL χ z‖ ≤ 8 * N * ‖z‖ := norm_regularL_le_linear χ (by linarith)

@@ -656,7 +656,8 @@ lemma exists_class_star_idem_mul_mem_iff [Fact N.Prime] (hP : IsSplitLevel P N)
   -- The map `w ↦ η w̄` preserves integrality in both directions.
   have h_twist (w : 𝔸f E) : η * star w ∈ Ô E ↔ w ∈ Ô E := by
     refine ⟨fun h ↦ ?_, fun h ↦ mul_mem hη_mem (star_mem_Ô h)⟩
-    have h_inv : η * star (η * star w) = -w := by grind [star_mul', star_star]
+    have h_inv : η * star (η * star w) = -w := by
+      rw [star_mul', star_star, ← mul_assoc, mul_comm η (star η), hη_norm, neg_one_mul]
     simpa only [h_inv, neg_mem_iff] using mul_mem hη_mem (star_mem_Ô h)
   -- It turns the left side into `z - y / N` at `P`.
   set z : 𝔸f E := η * ↑π⁻¹ * star t with hz

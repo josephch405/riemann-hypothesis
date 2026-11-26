@@ -132,17 +132,12 @@ private lemma heckeFun_iwahoriDoubleCoset_eq_card_smul [IsSmoothRep ρ] {t : Fin
     _ = (Fintype.card C : ℂ) • compactMean ρ proIwahori (ρ (diagGL t) x) := by
         simp [Nat.cast_smul_eq_nsmul]
 
-/-- For dominant `t` and `i ≤ j`, the quotient `t i / t j` is integral. -/
-private lemma coe_div_mem_integer_of_mem_dominantTorus {t : Fin N → (LocField w)ˣ}
-    (ht : t ∈ dominantTorus) {i j : Fin N} (hij : i ≤ j) : (t i / t j).val ∈ 𝒪[LocField w] := by
-  simp [v.mem_integer_iff, ht hij, div_le_one_of_le₀]
-
 /-- For dominant `t`, the families `c` of classes `c (i, j)` in `𝒪 / (t i / t j)`, over the pairs
 `i < j`. -/
 private abbrev UnitriangularClasses (t : Fin N → (LocField w)ˣ) (ht : t ∈ dominantTorus) : Type _ :=
   ∀ p : {p : Fin N × Fin N // p.fst < p.snd}, 𝒪[LocField w] ⧸
     span {(⟨(t p.val.fst / t p.val.snd).val,
-      coe_div_mem_integer_of_mem_dominantTorus ht p.property.le⟩ : 𝒪[LocField w])}
+      by simp [v.mem_integer_iff, ht p.property.le, div_le_one_of_le₀]⟩ : 𝒪[LocField w])}
 
 /-- The upper unitriangular integral matrix whose entries above the diagonal are representatives of
 the classes `c`. -/

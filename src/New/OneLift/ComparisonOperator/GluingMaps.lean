@@ -613,6 +613,11 @@ lemma card_secondFactorIndex_le : card D.SecondFactorIndex ≤ D.t := by
   rw [Fintype.card_sum, Fintype.card_fin, D.card_rowIndex]
   grind [D.hundred_mul_m_add_nine_lt_k, D.r_add_one, D.t_eq_five_mul_r]
 
+variable (D) in
+private lemma card_secondFactorIndex_le_two_mul_n : card D.SecondFactorIndex ≤ 2 * D.n D.m := by
+  have ht : D.t ≤ 6 * D.r := by rw [D.t_eq_five_mul_r]; omega
+  exact (card_secondFactorIndex_le D).trans (ht.trans (D.six_mul_r_le_n.trans (by omega)))
+
 /-- The diagram `μ⁻` has few boxes: at each place it has at most `D.gap` columns of each height, and
 the heights are below the rank of `V°`, which is at most `t`. -/
 lemma sum_mul_colsMinus_le :
@@ -710,8 +715,7 @@ lemma M_pow_denominatorExponent_sq_mul_le_exp :
         grind [Fintype.card_fin, D.six_mul_r_le_n, D.hundred_mul_m_add_nine_lt_k, D.r_add_one])
     have h_second :
         Nat.card (StdClasses (principalLevel D.SecondFactorIndex (D.piM ^ 2))) ≤ exp D.b :=
-      card_stdClasses_le_exp_of_le le_rfl (by
-        grind [card_secondFactorIndex_le D, D.six_mul_r_le_n, D.t_eq_five_mul_r])
+      card_stdClasses_le_exp_of_le le_rfl (card_secondFactorIndex_le_two_mul_n D)
     nth_grw 1 [← h_flat]
     grw [← h_second]
     -- What is left counts the matrices, the two sets of classes and the selections of rows.
@@ -921,7 +925,7 @@ lemma sum_slice_eq_zero_of_mem_falseLiftsAt {w : FinPlace D.E} {hw : star w ≠ 
   have h_small (h' : Gf D.E D.SecondFactorIndex) :
       classAut stdRatPoints (principalLevel D.SecondFactorIndex (D.piM ^ 2)) h' = ⊥ :=
     D.classAut_eq_bot_of_le_chosenLevel (D.principalLevel_le_chosenLevel ⟨_, sq _⟩)
-      (by grind [card_secondFactorIndex_le D, D.six_mul_r_le_n, D.t_eq_five_mul_r]) h'
+      (card_secondFactorIndex_le_two_mul_n D) h'
   -- The inner product with a form supported on one class is the pairing with the value there.
   simpa [↓h_small, classSum, ↓ finsum_eq_sum_of_fintype, DividedSplitting.productForm,
     inner_classForm] using! h_period

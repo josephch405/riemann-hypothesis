@@ -135,7 +135,7 @@ lemma IsCutBessel.inner_embedH_mul (hF : IsCutBessel F rep ρ s b W f)
     (k : U (1 : Matrix 𝔰.κ 𝔰.κ ℂ)) (x y : 𝔰.G₁) :
     ⟪F (embedH k * x), F (embedH k * y)⟫_ℂ = ⟪F x, F y⟫_ℂ := by
   simp [(hF.isBesselFunction .cut).map_unitary_mul, Unitary.map_mem,
-    ContinuousLinearMap.inner_map_map_of_mem_unitary]
+    ContinuousLinearMap.inner_map_map_of_mem_unitary, -Matrix.toEuclideanCLM_apply]
 
 -- Keeps definitional checks from unfolding the finite sums.
 seal Finset.sum in

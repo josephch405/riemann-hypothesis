@@ -1,5 +1,6 @@
 module
 
+public import TauCeti.RepresentationTheory.AsAlgebraHom
 import TauCeti.RepresentationTheory.Simple.Basic
 import TauCeti.RepresentationTheory.CharacterTable.Values
 public import Aesop.BuiltinRules
@@ -218,13 +219,13 @@ lemma IsChar.isClassFunction (hχ : IsChar χ) : IsClassFunction χ := by
 lemma IsIrreducibleChar.isChar (hχ : IsIrreducibleChar χ) : IsChar χ :=
   hχ.imp fun _ h ↦ h.2
 
-variable [Finite G]
+/-- The value of an irreducible character at the identity has positive real part. -/
+lemma IsIrreducibleChar.re_apply_one_pos (hχ : IsIrreducibleChar χ) : 0 < (χ 1).re := by
+  obtain ⟨V, hV, rfl⟩ := hχ
+  have : Nontrivial V := (FDRep.isIrreducible_of_simple V).nontrivial
+  simpa [FDRep.char_one] using (Module.finrank_pos (R := ℂ) (M := V))
 
-lemma IsChar.exists_finMean_eq_natCast (hχ : IsChar χ) : ∃ m : ℕ, finMean χ = m := by
-  -- the average of a character is the dimension of the invariants
-  obtain ⟨V, rfl⟩ := hχ
-  use Module.finrank ℂ (Representation.invariants V.ρ)
-  simp [finMean_eq, ← V.average_char_eq_finrank_invariants, div_eq_inv_mul]
+variable [Finite G]
 
 lemma IsChar.apply_inv (hχ : IsChar χ) (g : G) : χ g⁻¹ = conj (χ g) := by
   obtain ⟨V, rfl⟩ := hχ
@@ -250,12 +251,16 @@ lemma IsChar.star (hχ : IsChar χ) : IsChar fun g : G ↦ conj (χ g) := by
 an `S`-linear combination `f` of characters lies in the image of `S` in `ℂ`. -/
 lemma IsChar.exists_classInner_eq (hχ : IsChar χ) (hf : f ∈ virtualChars S G) :
     ∃ m : S, classInner χ f = algebraMap S ℂ m := by
-  -- Write `f = ∑ j, a j • ψ j` with characters `ψ j`. Each `classInner χ (ψ j)` is the average of
-  -- the character `conj χ * ψ j`, a natural number `m j`.
+  -- Write `f = ∑ j, a j • ψ j` with characters `ψ j`. Each pairing is the dimension of the
+  -- space of equivariant maps from the representation for `χ` to the one for `ψ j`.
   obtain ⟨n, a, ψ, rfl⟩ := mem_span_set'.1 hf
   choose m hm using fun j : Fin n ↦
-    show ∃ m : ℕ, classInner χ (ψ j) = m from
-      (hχ.star.mul (ψ j).property).exists_finMean_eq_natCast
+    show ∃ m : ℕ, classInner χ (ψ j) = m from by
+      obtain ⟨V, rfl⟩ := hχ
+      obtain ⟨W, hW⟩ := (ψ j).property
+      rw [← hW]
+      exact ⟨_, by simpa [classInner, finMean_eq, div_eq_inv_mul, V.conj_char, mul_comm] using
+        V.scalar_product_char_eq_finrank_equivariant W⟩
   use ∑ j : Fin n, a j * m j
   calc classInner χ (∑ j : Fin n, a j • (ψ j : G → ℂ))
       = ∑ j : Fin n, algebraMap S ℂ (a j) * classInner χ (ψ j) := by
@@ -306,11 +311,6 @@ lemma IsClassFunction.commute (he : IsClassFunction e.coeff) (x : ℂ[H]) : Comm
     simpa [mul_assoc] using he (t⁻¹ * g) t
   ext g
   simp only [coeff_mul_apply_left x e, coeff_mul_apply_right e x, h_swap, mul_comm]
-
-/-- An element `e` of the group algebra of a finite group `H` acts in the representation `σ` as
-the sum of the operators `σ s` weighted by the coefficients of `e`. -/
-lemma asAlgebraHom_eq_sum [Fintype H] : σ.asAlgebraHom e = ∑ s : H, e.coeff s • σ s := by
-  simp [asAlgebraHom_def, MonoidAlgebra.lift_apply, sum_fintype]
 
 /-- `e` is a central idempotent of the complex group algebra `ℂ[H]` of a group `H`: it is
 idempotent and its coefficients form a class function. -/
@@ -407,7 +407,7 @@ open MonoidAlgebra Finset LinearMap ComplexConjugate Matrix Algebra Representati
 attribute [local instance low] Fintype.ofFinite
 
 variable {G H V : Type*} [Group G] [Finite G] [Group H] {χ f : G → ℂ}
-  [AddCommGroup V] [Module ℂ V] [Module.Finite ℂ V] {ρ : Representation ℂ G V}
+  [AddCommGroup V] [Module ℂ V] {ρ : Representation ℂ G V}
   (Z : Type*) [CommSemiring Z] [Algebra Z ℂ]
 
 omit [Group G] in
@@ -448,8 +448,6 @@ lemma eq_of_eq_sum_of_classInner_eq_intCast {ι : Type*} [Fintype ι] {χ : ι �
 /-- An irreducible character has norm `1` (Mathlib's `FDRep.char_orthonormal`). -/
 lemma IsIrreducibleChar.classInner_self (hχ : IsIrreducibleChar χ) : classInner χ χ = 1 := by
   obtain ⟨V, hV, rfl⟩ := hχ
-  have : Invertible (Fintype.card G : ℂ) :=
-    invertibleOfNonzero (Nat.cast_ne_zero.2 Fintype.card_ne_zero)
   have h := FDRep.char_orthonormal V V
   simp only [Nonempty.intro (CategoryTheory.Iso.refl V), ite_true] at h
   rw [← h, classInner, finMean_eq, Nat.card_eq_fintype_card, div_eq_inv_mul]
@@ -495,8 +493,6 @@ function expands. The brackets `⟨ , ⟩` denote the inner product `New.classIn
 structure IsExpansionFamily {ι : Type*} [Fintype ι] (χ : ι → G → ℂ) : Prop where
   /-- Each `χ i` is an irreducible character. -/
   isIrreducibleChar (i : ι) : IsIrreducibleChar (χ i)
-  /-- Each `χ i` has positive degree. -/
-  re_apply_one_pos (i : ι) : 0 < (χ i 1).re
   /-- A class function `φ` is the sum of the `⟨χ i, φ⟩ • χ i`. -/
   eq_sum {φ : G → ℂ} (hφ : IsClassFunction φ) : φ = ∑ i : ι, classInner (χ i) φ • χ i
 
@@ -504,36 +500,29 @@ variable (G) in
 /-- A finite group has a finite family of characters in which every class function expands. -/
 lemma exists_isExpansionFamily : ∃ (n : ℕ) (χ : Fin n → G → ℂ), IsExpansionFamily χ := by
   classical
-  have : Invertible (Nat.card G : ℂ) :=
-    invertibleOfNonzero (Nat.cast_ne_zero.2 Nat.card_pos.ne')
   obtain ⟨d, ρ, hirr, hind, -⟩ := TauCeti.exists_irreducible_family_conjClasses ℂ G
   have := hirr
   let e : ConjClasses G ≃ Fin (Fintype.card (ConjClasses G)) := Fintype.equivFin (ConjClasses G)
   let χ : Fin (Fintype.card (ConjClasses G)) → G → ℂ := fun i ↦ (ρ (e.symm i)).character
   refine ⟨Fintype.card (ConjClasses G), χ,
-    fun i ↦ ⟨.of (ρ (e.symm i)), (FDRep.simple_iff_isIrreducible _).2 (hirr _), rfl⟩, fun i ↦ ?_,
+    fun i ↦ ⟨.of (ρ (e.symm i)), (FDRep.simple_iff_isIrreducible _).2 (hirr _), rfl⟩,
     fun {φ} hφ ↦ funext fun g ↦ ?_⟩
-  · have : Nontrivial (ρ (e.symm i)).asModule := IsSimpleModule.nontrivial ℂ[G] _
-    have : Nontrivial (Fin (d (e.symm i)) → ℂ) := (ρ (e.symm i)).asModuleEquiv.injective.nontrivial
-    have hpos : 0 < Module.finrank ℂ (Fin (d (e.symm i)) → ℂ) :=
-      Module.finrank_pos (R := ℂ) (M := Fin (d (e.symm i)) → ℂ)
-    simpa [χ, Representation.character] using hpos
-  · let Φ : TauCeti.ClassFunction ℂ G := ⟨φ, TauCeti.ClassFunction.mem_iff.2 hφ⟩
-    have h_pair (i : Fin (Fintype.card (ConjClasses G))) :
-        TauCeti.ClassFunction.characterPairing
-            (TauCeti.ClassFunction.ofCharacter (ρ (e.symm i))) Φ =
-          classInner (χ i) φ := by
-      rw [TauCeti.ClassFunction.characterPairing_apply, classInner, finMean,
-        finsum_eq_sum_of_fintype, div_eq_inv_mul]
-      congr 1
-      refine Fintype.sum_equiv (Equiv.inv G) _ _ fun x ↦ ?_
-      simp [Φ, χ]
-    have hexp := TauCeti.ClassFunction.apply_eq_sum_characterPairing_mul_character ρ hind rfl Φ g
-    have hsum : ∑ i, classInner (χ i) φ * χ i g =
-        ∑ C, TauCeti.ClassFunction.characterPairing (TauCeti.ClassFunction.ofCharacter (ρ C)) Φ *
-          (ρ C).character g :=
-      Fintype.sum_equiv e.symm _ _ fun i ↦ by simp [h_pair i, χ]
-    simpa [Φ, Finset.sum_apply] using hexp.trans hsum.symm
+  let Φ : TauCeti.ClassFunction ℂ G := ⟨φ, TauCeti.ClassFunction.mem_iff.2 hφ⟩
+  have h_pair (i : Fin (Fintype.card (ConjClasses G))) :
+      TauCeti.ClassFunction.characterPairing
+          (TauCeti.ClassFunction.ofCharacter (ρ (e.symm i))) Φ =
+        classInner (χ i) φ := by
+    rw [TauCeti.ClassFunction.characterPairing_apply, classInner, finMean,
+      finsum_eq_sum_of_fintype, div_eq_inv_mul]
+    congr 1
+    refine Fintype.sum_equiv (Equiv.inv G) _ _ fun x ↦ ?_
+    simp [Φ, χ]
+  have hexp := TauCeti.ClassFunction.apply_eq_sum_characterPairing_mul_character ρ hind rfl Φ g
+  have hsum : ∑ i, classInner (χ i) φ * χ i g =
+      ∑ C, TauCeti.ClassFunction.characterPairing (TauCeti.ClassFunction.ofCharacter (ρ C)) Φ *
+        (ρ C).character g :=
+    Fintype.sum_equiv e.symm _ _ fun i ↦ by simp [h_pair i, χ]
+  simpa [Φ, Finset.sum_apply] using hexp.trans hsum.symm
 
 /-- Let `f` and `I` be class functions on a finite group `G` with `⟨I, f⟩ ≠ 0`, `⟨f, f⟩ = 1` and
 `0 ≤ re (f 1)`, where `⟨ , ⟩` is the inner product `New.classInner`. Suppose `⟨χ, f⟩` is an integer
@@ -555,7 +544,7 @@ lemma IsClassFunction.isIrreducibleChar_of_classInner_eq_intCast {I : G → ℂ}
   have hχ_irr := hχ.isIrreducibleChar i
   obtain ⟨m, hm⟩ := h_int (χ i) hχ_irr.isChar hI_ne (hχ_irr.mul_classInner_translate hI)
   obtain rfl : f = χ i := eq_of_eq_sum_of_classInner_eq_intCast (hχ.eq_sum hf) h_norm h_re
-    (hχ.re_apply_one_pos i) hm (by simpa [hm] using hf_ne)
+    hχ_irr.re_apply_one_pos hm (by simpa [hm] using hf_ne)
   exact hχ_irr
 
 variable {Z} in
@@ -601,6 +590,15 @@ lemma IsClassFunction.exists_eq_mul_groupAlgElem_mul (hf : IsClassFunction f) (a
     simp [ha_zero]
   · simp [hc, hi, algebraMap_eq_smul_one]
 
+/-- The trace of the group algebra element with coefficients `conj (χ g)`, divided by the order
+of the group, is the inner product of `χ` with the character of the representation. -/
+lemma trace_asAlgebraHom_groupAlgElem_conj (χ : G → ℂ) :
+    trace ℂ V (ρ.asAlgebraHom (groupAlgElem (conj ∘ χ))) / Nat.card G =
+      classInner χ ρ.character := by
+  simp [asAlgebraHom_eq_sum, classInner, finMean, finsum_eq_sum_of_fintype, character]
+
+variable [Module.Finite ℂ V]
+
 /-- Let `i : G →* H` be a group homomorphism with `G` finite, `χ` a character of `H` and `s ∈ H`.
 If the product of `χ ∘ i` with the character of a finite-dimensional representation `ρ` of `G` has
 average zero, then `∑ g, χ (i g * s) • g` acts as zero in `ρ`. -/
@@ -612,13 +610,13 @@ lemma IsChar.asAlgebraHom_groupAlgElem_eq_zero {χ : H → ℂ} (hχ : IsChar χ
   obtain ⟨τ, rfl⟩ := hχ
   have h_trace : trace ℂ (TensorProduct ℂ τ V) (tprod (τ.ρ.comp i) ρ).averageMap = 0 := by
     simpa [GroupAlgebra.average, trace_tensorProduct', FDRep.character, character, finMean,
-      finsum_eq_sum_of_fintype] using h_mean
+      finsum_eq_sum_of_fintype, -asAlgebraHom_sum_single_one] using h_mean
   have h_avg : (tprod (τ.ρ.comp i) ρ).averageMap = 0 :=
     (isProj_averageMap _).isIdempotentElem.eq_zero_of_trace_eq_zero h_trace
   -- Read this in `End τ ⊗ End V`, then apply `T : A ⊗ B ↦ trace (A * τ s) • B`.
   have h_tensor : ∑ u : G, τ.ρ (i u) ⊗ₜ[ℂ] ρ u = 0 := by
     apply (homTensorHomEquiv ℂ τ V τ V).injective
-    simpa [GroupAlgebra.average] using h_avg
+    simpa [GroupAlgebra.average, -asAlgebraHom_sum_single_one] using h_avg
   let T : TensorProduct ℂ (τ →ₗ[ℂ] τ) (V →ₗ[ℂ] V) →ₗ[ℂ] V →ₗ[ℂ] V :=
     TensorProduct.lift (lsmul ℂ (V →ₗ[ℂ] V) ∘ₗ trace ℂ τ ∘ₗ mulRight ℂ (τ.ρ s))
   calc ρ.asAlgebraHom (groupAlgElem fun x : G ↦ τ.character (i x * s))
@@ -630,8 +628,7 @@ in `ρ` iff `χ` is orthogonal to the character of `ρ` for the inner product `N
 lemma IsChar.asAlgebraHom_groupAlgElem_eq_zero_iff (h : IsChar χ) :
     ρ.asAlgebraHom (groupAlgElem (conj ∘ χ)) = 0 ↔ classInner χ ρ.character = 0 := by
   refine ⟨fun h_zero ↦ ?_, fun h_zero ↦ ?_⟩
-  · simpa [classInner, finMean, finsum_eq_sum_of_fintype, character, asAlgebraHom_eq_sum]
-      using congrArg (trace ℂ V) h_zero
+  · rw [← trace_asAlgebraHom_groupAlgElem_conj χ, h_zero, map_zero, zero_div]
   · -- `IsChar.asAlgebraHom_groupAlgElem_eq_zero` for the character `conj χ`, with `i` the identity
     -- and `s = 1`
     simpa [asAlgebraHom_eq_sum] using h.star.asAlgebraHom_groupAlgElem_eq_zero (i := .id G) (s := 1)
@@ -728,7 +725,7 @@ lemma self_adjoint {V : Type*} [AddCommGroup V] [Module ℂ V] (ρ : Representat
   have h_adj (s : G) : B (ρ s x) y = B x (ρ s⁻¹ y) := by simp [← hB s x]
   have h_term (s : G) : B ((e.coeff s • ρ s) x) y = B x ((e.coeff s⁻¹ • ρ s⁻¹) y) := by
     simp [h_adj, ← h_coeff]
-  simp only [asAlgebraHom_eq_sum, LinearMap.sum_apply, map_sum]
+  simp only [Representation.asAlgebraHom_eq_sum, LinearMap.sum_apply, map_sum]
   exact Fintype.sum_equiv (.inv G) _ _ h_term
 
 /-- Convolution with a central idempotent e of ℂ[G], along a homomorphism φ : G → H of finite
@@ -758,7 +755,8 @@ lemma sum_norm_sq_conv_le {V : Type*} [NormedAddCommGroup V] [InnerProductSpace 
   have h_norm : ‖ρ.asAlgebraHom e (.toLp 2 f)‖ ≤ ‖WithLp.toLp 2 f‖ := by
     simpa [hK] using K.norm_starProjection_apply_le _
   -- write both norms in coordinates and square
-  simpa (disch := positivity) [ρ, L, PiLp.norm_eq_of_L2, asAlgebraHom_eq_sum] using h_norm
+  simpa (disch := positivity) [ρ, L, PiLp.norm_eq_of_L2, Representation.asAlgebraHom_eq_sum]
+    using h_norm
 
 end New.IsCentralProj
 

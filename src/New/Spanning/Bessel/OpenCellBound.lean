@@ -1,5 +1,6 @@
 module
 
+import TauCeti.Analysis.Matrix.L2OpNorm
 import Mathlib.Algebra.Order.Star.Int
 import Mathlib.Algebra.Order.Star.Real
 import Mathlib.MeasureTheory.SpecificCodomains.WithLp
@@ -12,6 +13,7 @@ import Lib.DiscreteSeries.Bruhat.ComplexPlace
 import Lib.DiscreteSeries.Haar.TotalMass
 import Lib.General.Analysis.GaussianIntegral
 import Lib.Shimura.ComplexTheta.AppellHumbertData
+import New.Spanning.Bessel.MeanValue
 import New.Spanning.Unfolding.Link
 
 /-!
@@ -195,12 +197,6 @@ section OpenCellBound
 open Finset Fintype Subgroup Matrix New.RealPlace MeasureTheory Norms.L2Operator ProbabilityTheory
   ENNReal Metric IdemSemiring Measure ComplexConjugate Fin
 
-private lemma continuousMul_G₁ {𝔰 : New.Shape} : ContinuousMul 𝔰.G₁ := inferInstance
-
-private lemma continuousInv_G₁ {𝔰 : New.Shape} : ContinuousInv 𝔰.G₁ := inferInstance
-
-private lemma measurableMul₂_G₁ {𝔰 : New.Shape} : MeasurableMul₂ 𝔰.G₁ := inferInstance
-
 private lemma mul_conjTranspose_inclMatrix_apply {l m n : Type*} [Fintype m] [DecidableEq n]
     (M : Matrix l m ℂ) (u : m → n) (x : l) (j : n) :
     (M * (New.inclMatrix ℂ u)ᴴ) x j = ∑ k : m, if j = u k then M x k else 0 := by
@@ -225,42 +221,21 @@ private lemma mul_dualFrameCols_conjTranspose_eStar {𝔰 : New.Shape} {l : Type
   simp only [snoc_castSucc, snoc_last, Sum.inr.injEq, reduceCtorEq, ↓reduceIte, add_zero,
     Finset.sum_ite_eq, mem_univ]
 
-/-- The matrix `sectionCoeff Zᴴ Z` is a coefficient matrix in the formula `sectionMatrix Z Zᴴ` for
-the section `γ_Z`. Outside the last row and column its entry at `(i, a)` is
-`-(Z⁻¹)_{i,last} (Zᴴ⁻¹)_{last,a} / 2`. -/
-lemma New.RealPlace.sectionCoeff_castSucc_castSucc {𝔰 : Shape} (Z : 𝔰.FrameMatrix) (i a : Fin 𝔰.ϱ) :
-    sectionCoeff Zᴴ Z i.castSucc a.castSucc =
-      -(2⁻¹ * Z⁻¹ i.castSucc (.last 𝔰.ϱ) * Zᴴ⁻¹ (.last 𝔰.ϱ) a.castSucc) := by
-  rw [sectionCoeff, Matrix.sub_apply, Matrix.sub_apply]
-  have h0 : (diagLast (𝔰 := 𝔰) 0) i.castSucc a.castSucc -
-      (1 : 𝔰.FrameMatrix) i.castSucc a.castSucc = 0 := by
-    simp only [diagLast, diagonal_apply, Matrix.one_apply, snoc_castSucc, Pi.one_apply, sub_self]
-  rw [h0, zero_sub, neg_inj]
-  dsimp only [diagLast]
-  rw [Matrix.mul_diagonal]
-  simp only [snoc_castSucc, Pi.one_apply, mul_one]
-  rw [Matrix.mul_assoc, Matrix.mul_assoc, Matrix.diagonal_mul]
-  simp only [snoc_castSucc, Pi.one_apply, one_mul]
-  rw [Matrix.mul_apply, sum_univ_castSucc, Finset.sum_eq_zero]
-  · rw [zero_add, Matrix.sub_mul, Matrix.one_mul, Matrix.sub_apply, Matrix.diagonal_mul]
-    simp only [snoc_last]
-    ring
-  · intro k _
-    rw [Matrix.sub_mul, Matrix.one_mul, Matrix.sub_apply, Matrix.diagonal_mul]
-    simp only [snoc_castSucc, Pi.one_apply, one_mul, sub_self, mul_zero]
-
-/-- The last row of `sectionCoeff Zᴴ Z`, a coefficient matrix in the formula `sectionMatrix Z Zᴴ`
-for the section `γ_Z`, vanishes outside the last column. -/
-lemma New.RealPlace.sectionCoeff_last_castSucc {𝔰 : Shape} (Z : 𝔰.FrameMatrix) (a : Fin 𝔰.ϱ) :
-    sectionCoeff Zᴴ Z (.last 𝔰.ϱ) a.castSucc = 0 := by
-  rw [sectionCoeff, Matrix.sub_apply, Matrix.sub_apply]
-  have h_ne : Fin.last 𝔰.ϱ ≠ a.castSucc := (castSucc_lt_last a).ne'
-  have h0 : (diagLast (𝔰 := 𝔰) 0) (.last 𝔰.ϱ) a.castSucc -
-      (1 : 𝔰.FrameMatrix) (.last 𝔰.ϱ) a.castSucc = 0 := by
-    simp only [diagLast, diagonal_apply_ne _ h_ne, Matrix.one_apply_ne h_ne, sub_self]
-  rw [h0, zero_sub, neg_eq_zero, Matrix.mul_assoc, Matrix.mul_assoc, Matrix.mul_assoc,
-    diagLast, Matrix.diagonal_mul]
-  simp only [snoc_last, zero_mul]
+/-- In the columns before the last, the ordinary rows of `sectionCoeff Zᴴ Z` have coefficient
+`-1/2` and its last row vanishes. -/
+private lemma sectionCoeff_apply_castSucc {𝔰 : New.Shape} (Z : 𝔰.FrameMatrix)
+    (i : Fin (𝔰.ϱ + 1)) (a : Fin 𝔰.ϱ) :
+    sectionCoeff Zᴴ Z i a.castSucc =
+      -(snoc (α := fun _ ↦ ℂ) 1 0 i * (2⁻¹ * Z⁻¹ i 𝔰.top * Zᴴ⁻¹ 𝔰.top a.castSucc)) := by
+  induction i using Fin.lastCases with
+  | last =>
+    simpa [castSucc_ne_last] using sectionCoeff_conjTranspose_top_apply Zᴴ a.castSucc
+  | cast i =>
+    have h_conj : starRingEnd ℂ (Zᴴ⁻¹ 𝔰.top i.castSucc) = Z⁻¹ i.castSucc 𝔰.top := by
+      rw [← conjTranspose_nonsing_inv]
+      simp
+    simpa [castSucc_ne_last, h_conj, mul_neg, mul_assoc] using
+      sectionCoeff_conjTranspose_castSucc_apply Zᴴ i a.castSucc
 
 /-- Let `Z` lie in the open cell `𝔰.openCell`: `Z` is invertible and the last diagonal entry of
 `Z⁻¹` has absolute value less than 1. Let `γ_Z = gramSection Z`, an element of the unitary group
@@ -331,10 +306,11 @@ lemma New.inv_apply_eStar_eq_sum_frameVector {𝔰 : Shape} {Z : 𝔰.FrameMatri
   rw [h_col, mul_inclMatrix, mul_inclMatrix, Matrix.mul_apply, Matrix.mul_apply, sub_eq_add_neg]
   congr 1
   · exact sum_congr rfl fun i _ ↦ by rw [submatrix_apply, id_eq, mul_comm]
-  · rw [sum_univ_castSucc, sectionCoeff_last_castSucc, mul_zero, add_zero, ← sum_neg_distrib]
+  · rw [sum_univ_castSucc, sectionCoeff_apply_castSucc, snoc_last, zero_mul, neg_zero, mul_zero,
+      add_zero, ← sum_neg_distrib]
     refine sum_congr rfl fun i _ ↦ ?_
-    rw [submatrix_apply, id_eq, Shape.besselFrame, snoc_castSucc, sectionCoeff_castSucc_castSucc,
-      mul_neg, neg_neg, mul_comm]
+    rw [submatrix_apply, id_eq, Shape.besselFrame, snoc_castSucc, sectionCoeff_apply_castSucc,
+      snoc_castSucc, Pi.one_apply, one_mul, mul_neg, neg_neg, mul_comm]
 
 /-- A bound for `‖z‖` from the length of `γ_Z z`. Let `n = 𝔰.n = ϱ + 1`, `8 n ≤ M` and
 `M ^ (9 n) ≤ R`. Let `M⁻¹ ≤ gramDiscReal Z`, the number |det Z|² − |D_ϱ|² with D_ϱ the leading
@@ -391,16 +367,16 @@ lemma New.norm_le_of_besselLength_gramSection_mul_le {𝔰 : Shape} {M R : ℝ} 
     calc _ ≤ ∑ i : Fin (𝔰.ϱ + 1), R * R + ∑ i : Fin 𝔰.ϱ, ‖(2⁻¹ : ℂ)‖ * R * R * R := by
           refine add_le_add (sum_le_sum fun i _ ↦ ?_) (sum_le_sum fun i _ ↦ ?_)
           · rw [norm_smul, ← conjTranspose_nonsing_inv, conjTranspose_apply, norm_star]
-            exact mul_le_mul ((norm_apply_le_l2_opNorm _ _).trans hZ'_norm)
+            exact mul_le_mul ((norm_apply_le_l2_opNorm _ _ _).trans hZ'_norm)
               ((hy_frame i).trans hMR) (norm_nonneg _) hR0
           · rw [norm_smul, norm_mul, norm_mul, ← conjTranspose_nonsing_inv, conjTranspose_apply,
               norm_star]
             refine mul_le_mul ?_ ((hz_frame i.castSucc).trans hMR) (norm_nonneg _)
               (mul_nonneg (mul_nonneg (norm_nonneg _) hR0) hR0)
             exact mul_le_mul
-              (mul_le_mul_of_nonneg_left ((norm_apply_le_l2_opNorm _ _).trans hZ_inv)
+              (mul_le_mul_of_nonneg_left ((norm_apply_le_l2_opNorm _ _ _).trans hZ_inv)
                 (norm_nonneg _))
-              ((norm_apply_le_l2_opNorm _ _).trans hZ_inv) (norm_nonneg _)
+              ((norm_apply_le_l2_opNorm _ _ _).trans hZ_inv) (norm_nonneg _)
               (mul_nonneg (norm_nonneg _) hR0)
       _ = R ^ 2 * (𝔰.ϱ + 1 + 𝔰.ϱ * R / 2) := by
           rw [Fin.sum_const, Fin.sum_const, nsmul_eq_mul, nsmul_eq_mul, norm_inv,
@@ -512,7 +488,7 @@ lemma New.BesselSystem.lintegral_indicator_mul_enorm_sq_le {𝔰 : Shape} {B : �
   have h_frame (y : 𝔰.G₁) (hy : A.indicator (1 : 𝔰.G₁ → ℝ≥0∞) y ≠ 0) (s : 𝔰.G₁) (_ : s ∈ besselU)
       (hsy : A.indicator (1 : 𝔰.G₁ → ℝ≥0∞) (s * y) ≠ 0) (a b : Fin (𝔰.ϱ + 1)) :
       ‖frameMatrix s a b‖ ≤ R * R :=
-    (norm_apply_le_l2_opNorm (𝔰.besselFrame a) (𝔰.besselFrame b)).trans <| by
+    (norm_apply_le_l2_opNorm _ (𝔰.besselFrame a) (𝔰.besselFrame b)).trans <| by
       simpa using norm_mul_le_of_le (hA_norm _ (Set.mem_of_indicator_ne_zero hsy))
         ((U.norm_inv y).trans_le (hA_norm y (Set.mem_of_indicator_ne_zero hy)))
   have h_invariant : besselS.FixesLeft fun y : 𝔰.G₁ ↦ ‖X.besselFn .full y‖ₑ ^ 2 :=
@@ -539,7 +515,6 @@ lemma New.isL2Contraction_of_columns {𝔰 : Shape} {I : Type*} [Fintype I] [Dec
       (((μ S)⁻¹ * K) • volume.withDensity fun y : 𝔰.G₁ ↦ A.indicator 1 y * ‖W y‖ₑ ^ 2)
       fun (i : I × I) (x : T) (y : 𝔰.G₁) ↦ W (s * g x * y) i.1 * conj (W (t x * y) i.2) := by
   -- Apply `h_bound` column by column, to the weights `β j`.
-  have : MeasurableMul₂ 𝔰.G₁ := measurableMul₂_G₁
   intro φ C hφ hC
   have hA_meas : MeasurableSet A := hA.measurableSet
   have hψ : Integrable (A.indicator φ) := (volume.integrableOn_of_bounded hA.measure_ne_top
@@ -635,8 +610,6 @@ lemma New.BesselSystem.isL2Contraction_gramSection {𝔰 : Shape} {B P c : ℝ} 
       fun (i : X.Index × X.Index) (x : 𝔰.FixerFactors) (y : 𝔰.G₁) ↦
         X.besselFn .full (s * (gramSection Z * (x.2 * embedH x.1)⁻¹) * y) i.1 *
           conj (X.besselFn .full (t x * y) i.2) := by
-  have : ContinuousMul 𝔰.G₁ := continuousMul_G₁
-  have : ContinuousInv 𝔰.G₁ := continuousInv_G₁
   let g₀ (x : 𝔰.FixerFactors) : 𝔰.G₁ := gramSection Z * (x.2 * embedH x.1)⁻¹
   have hg₀_meas : Measurable g₀ :=
     (continuous_const.fun_mul
@@ -731,8 +704,6 @@ lemma New.exists_mul_eq_mul_gramSection_mul {𝔰 : Shape} {γ : 𝔰.G₁}
       ∀ x : 𝔰.FixerFactors,
         γ * t x = s * (gramSection (realFrameGram γ) * (x.2 * embedH x.1)⁻¹) := by
   -- Write `γ = u k γ_Z (u' k')⁻¹`, and take `s = u k` and `t(h, v) = u' k' h⁻¹ v⁻¹`.
-  have : ContinuousMul 𝔰.G₁ := continuousMul_G₁
-  have : ContinuousInv 𝔰.G₁ := continuousInv_G₁
   obtain ⟨u, k, u', k', hγ_eq⟩ := exists_eq_mul_gramSection_mul (Z := realFrameGram γ) hγ rfl
   have ht_meas : Measurable fun x : 𝔰.FixerFactors ↦
       unipotentOf u' * embedH (k' * x.1⁻¹) * (x.2⁻¹ : besselU0) :=
@@ -810,6 +781,10 @@ structure New.BesselSystem.IsKernelBound {𝔰 : Shape} {B : ℝ} {f : ℕ} (X :
   ae_mem_of_besselLength_le :
     ∀ᵐ x : T ∂m, ∀ z ∈ frameBox M, besselLength (g x * z) ≤ M → z ∈ A
 
+private lemma cast_frameRank_le_rank {𝔰 : New.Shape} : (𝔰.n : ℝ) ≤ 𝔰.r :=
+  Nat.cast_le.2 (by simpa only [Fintype.card_fin] using
+    Fintype.card_le_of_injective 𝔰.besselFrame New.besselFrame_injective)
+
 /-- The open cell bound at the section `γ_Z = gramSection Z`, for the uncut function
 `W = X.besselFn .full` of a Bessel system `X` with scale `B`. Here `n = ϱ + 1` and `I = X.Index`.
 
@@ -835,10 +810,9 @@ lemma New.BesselSystem.exists_isKernelBound_gramSection {𝔰 : Shape} {B M : �
   -- Take for `A` a tube over a set `Ω ⊆ besselU0`, for `m` Haar measure conditioned on `v ∈ Ω`, and
   -- for `ν` a multiple of `‖W‖²` on `A`; Schur's bound gives the contraction.
   have hB : 8 * 𝔰.r ≤ B := X.eight_mul_rank_le
-  have h_rank : (𝔰.r : ℝ) = 𝔰.ϱ + (card 𝔰.κ + 1 + 𝔰.ϱ) := by
-    dsimp only [Shape.r]
-    simp only [card_sum, Fintype.card_fin, card_unique, Nat.cast_add, Nat.cast_one]
-  have hM_eight : 8 * (𝔰.ϱ + 1) ≤ M := by linarith [Nat.cast_nonneg (α := ℝ) (card 𝔰.κ)]
+  have hM_eight : 8 * (𝔰.ϱ + 1) ≤ M := by
+    rw [← Nat.cast_succ]
+    linarith [cast_frameRank_le_rank (𝔰 := 𝔰)]
   have hM_two : 2 ≤ M := by linarith
   have h_disc_half : 0 < gramDiscReal Z / 2 :=
     half_pos (h_disc.trans_lt' (inv_pos.2 (by linarith)))
@@ -944,11 +918,8 @@ lemma New.BesselSystem.exists_isOpenCellBound {𝔰 : Shape} {B : ℝ} {f : ℕ}
       X.IsOpenCellBound γ ρ A ν m t := by
   -- Reduce to the section: with `Z` the Gram matrix of the two frames, the shifts `t` satisfy
   -- `γ t(h, v) = s γ_Z (v h)⁻¹`. Use the scale `M = ρ ^ (9 n) / gramDiscReal Z`.
-  have hn_rank : (𝔰.n : ℝ) ≤ 𝔰.r := Nat.cast_le.2 (by
-    dsimp only [Shape.n, Shape.r]
-    simp only [card_sum, Fintype.card_fin, card_unique]
-    omega)
-  have hρ_n : 𝔰.n ≤ ρ := by linarith [X.eight_mul_rank_le, Nat.cast_nonneg (α := ℝ) 𝔰.n]
+  have hρ_n : 𝔰.n ≤ ρ := by
+    linarith [X.eight_mul_rank_le, Nat.cast_nonneg (α := ℝ) 𝔰.n, cast_frameRank_le_rank (𝔰 := 𝔰)]
   have hρ_one : 1 ≤ ρ := (Nat.one_le_cast.2 𝔰.ϱ.succ_pos).trans hρ_n
   have hZρ (a c : Fin (𝔰.ϱ + 1)) : ‖realFrameGram γ a c‖ ≤ ρ ^ 2 :=
     (norm_realFrameGram_le_mul γ y a c).trans

@@ -115,7 +115,8 @@ theorem New.Fock.norm_fockInner_realHeisenbergOp_le {ι : Type} [Fintype ι] [De
   -- takes a Gaussian factor out of `v`, which is small at `x` or at `σ x + y`; the rest is bounded
   -- by `2ab ≤ a² + b²`, which does the work of the Cauchy–Schwarz inequality as `a²` and `b²` have
   -- the same integral. The dilation costs the factor `c^(2(d + |ι|)) ≤ eⁿ`.
-  have A_ne : A ≠ 0 := by linarith [card_pos (α := ι)]
+  have A_ne : A ≠ 0 :=
+    (card_pos.trans_le ((Nat.le_add_left (card ι) d).trans hA)).ne'
   let c : ℝ := √(n / A + 1)
   let v_scaled : fockSpace ε := (c : ℂ) ^ d • v
   let G (x : ι → ℂ) : ℝ := ‖v_scaled (c⁻¹ • x)‖ ^ 2

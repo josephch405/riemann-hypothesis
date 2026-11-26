@@ -2,6 +2,8 @@ module
 
 import Mathlib.Algebra.Order.Star.Real
 import TauCeti.LinearAlgebra.Matrix.Range
+import TauCeti.LinearAlgebra.Submodule.Prod.Index
+import TauCeti.RingTheory.Ideal.Norm.AbsNorm
 public import Lib.SiegelWeil.Mass
 public import New.Spanning.RemainingTerms.SiegelLemma
 import Lib.Adelic.Adeles.LocalFactors
@@ -47,11 +49,6 @@ lemma cardQuot_comap (f : N →ₗ[R] N') (M : Submodule R N') :
     (M.comap f).cardQuot = M.toAddSubgroup.relIndex (LinearMap.range f).toAddSubgroup :=
   M.toAddSubgroup.index_comap f.toAddMonoidHom
 
-/-- Pulling back along a surjective linear map keeps the index. -/
-lemma cardQuot_comap_of_surjective {f : N →ₗ[R] N'} (hf : Function.Surjective f)
-    (M : Submodule R N') : (M.comap f).cardQuot = M.cardQuot :=
-  M.toAddSubgroup.index_comap_of_surjective (f := f.toAddMonoidHom) hf
-
 lemma submoduleZeta_anti {s t : ℕ} (hst : s ≤ t) : submoduleZeta R N t ≤ submoduleZeta R N s := by
   refine tsum_le_tsum fun M ↦ pow_le_pow_of_le_one zero_le ?_ hst
   exact ENNReal.inv_le_one.2 (Nat.one_le_cast.2 (Nat.pos_of_ne_zero M.property))
@@ -81,43 +78,14 @@ index in `N'` is at most the same sum for `N`. -/
 lemma submoduleZeta_le_of_surjective {f : N →ₗ[R] N'} (hf : Function.Surjective f) (s : ℕ) :
     submoduleZeta R N' s ≤ submoduleZeta R N s := by
   let pull (M : {M : Submodule R N' // M.cardQuot ≠ 0}) : {M : Submodule R N // M.cardQuot ≠ 0} :=
-    ⟨M.val.comap f, (cardQuot_comap_of_surjective hf M.val).trans_ne M.property⟩
+    ⟨M.val.comap f,
+      (Submodule.cardQuot_comap_of_surjective hf M.val).trans_ne M.property⟩
   have h_inj : Function.Injective pull := fun M₁ M₂ h_eq ↦
     Subtype.ext (Submodule.comap_injective_of_surjective hf (congrArg Subtype.val h_eq))
   calc _ = ∑' M, ((pull M).val.cardQuot : ℝ≥0∞)⁻¹ ^ s :=
-        tsum_congr fun M ↦ by simp only [pull, cardQuot_comap_of_surjective hf]
+        tsum_congr fun M ↦ by simp only [pull, Submodule.cardQuot_comap_of_surjective hf]
     _ ≤ submoduleZeta R N s :=
       tsum_comp_le_tsum_of_injective h_inj fun M ↦ (M.val.cardQuot : ℝ≥0∞)⁻¹ ^ s
-
-/-- The index of a submodule of a product is the index of its projection to the first factor times
-the index of its intersection with the second factor. -/
-lemma cardQuot_eq_cardQuot_map_fst_mul_comap_inr (M : Submodule R (N × N')) :
-    M.cardQuot = (M.map (.fst R N N')).cardQuot * (M.comap (.inr R N N')).cardQuot := by
-  let K : Submodule R (N × N') := LinearMap.range (.inr R N N')
-  have h_sup : (M.map (.fst R N N')).comap (.fst R N N') = M ⊔ K := by
-    rw [Submodule.comap_map_eq, LinearMap.ker_fst]
-  have h_fst : (M ⊔ K).cardQuot = (M.map (.fst R N N')).cardQuot := by
-    rw [← h_sup, cardQuot_comap_of_surjective LinearMap.fst_surjective]
-  have h_snd : M.toAddSubgroup.relIndex (M ⊔ K).toAddSubgroup =
-      (M.comap (.inr R N N')).cardQuot := by
-    rw [cardQuot_comap, Submodule.sup_toAddSubgroup, sup_comm, AddSubgroup.relIndex_sup_right]
-  rw [← h_fst, ← h_snd, mul_comm]
-  exact (AddSubgroup.relIndex_mul_index (Submodule.toAddSubgroup_mono le_sup_left)).symm
-
-/-- Let `M` be a submodule of `R × N` whose first coordinates are the multiples of `g`, and let
-`(g, n) ∈ M`. Then `M` is spanned by `(g, n)` and its intersection with `N`. -/
-lemma eq_span_sup_of_map_fst_eq_span {M : Submodule R (R × N)} {g : R} {n : N} (hn : (g, n) ∈ M)
-    (hg : M.map (.fst R R N) = R ∙ g) :
-    M = R ∙ (g, n) ⊔ (M.comap (.inr R R N)).map (.inr R R N) := by
-  refine le_antisymm ?_
-    (sup_le ((Submodule.span_singleton_le_iff_mem _ _).2 hn) (Submodule.map_comap_le _ _))
-  rintro ⟨a, x⟩ hax
-  obtain ⟨c, rfl⟩ : ∃ c : R, c • g = a :=
-    Submodule.mem_span_singleton.1 (hg.le (Submodule.mem_map_of_mem hax))
-  have h_rest : ((0 : R), x - c • n) ∈ M := by simpa using M.sub_mem hax (M.smul_mem c hn)
-  refine Submodule.mem_sup.2 ⟨c • (g, n), Submodule.mem_span_singleton.2 ⟨c, rfl⟩,
-    (0, x - c • n), Submodule.mem_map_of_mem (f := .inr R R N) h_rest, ?_⟩
-  simp
 
 /-- For a submodule `M` of finite index in `N`, the sum of `[N : M] ^ (-(s + 1))` over the classes
 modulo `M` is `[N : M] ^ (-s)`. -/
@@ -150,7 +118,7 @@ lemma submoduleZeta_prod_le (h_principal : ∀ I : Ideal R, I.cardQuot ≠ 0 →
       ∃ d : Data, build d = M.val ∧ weight d = (M.val.cardQuot : ℝ≥0∞)⁻¹ ^ (s + 1) := by
     have h_index : M.val.cardQuot =
         (M.val.map (.fst R R N)).cardQuot * (M.val.comap (.inr R R N)).cardQuot :=
-      cardQuot_eq_cardQuot_map_fst_mul_comap_inr M.val
+      Submodule.cardQuot_eq_cardQuot_map_fst_mul_cardQuot_comap_inr M.val
     obtain ⟨hI, hM'⟩ := mul_ne_zero_iff.1 (h_index.symm.trans_ne M.property)
     let I : {I : Submodule R R // I.cardQuot ≠ 0} := ⟨M.val.map (.fst R R N), hI⟩
     obtain ⟨⟨g, n⟩, hn, hg⟩ : gen I ∈ M.val.map (.fst R R N) :=
@@ -159,7 +127,8 @@ lemma submoduleZeta_prod_le (h_principal : ∀ I : Ideal R, I.cardQuot ≠ 0 →
     let c : N ⧸ M'.val := Submodule.Quotient.mk n
     have h_congr : c.out - n ∈ M'.val := (Submodule.Quotient.eq _).1 c.out_eq
     have h_mem : (gen I, c.out) ∈ M.val := by simpa [← hg] using M.val.add_mem hn h_congr
-    have h_span : M.val = build ⟨I, M', c⟩ := eq_span_sup_of_map_fst_eq_span h_mem (h_gen I)
+    have h_span : M.val = build ⟨I, M', c⟩ :=
+      Submodule.eq_span_singleton_sup_map_inr h_mem (h_gen I)
     refine ⟨⟨I, M', c⟩, h_span.symm, ?_⟩
     rw [h_index, Nat.cast_mul, ENNReal.mul_inv (.inr (natCast_ne_top _)) (.inl (natCast_ne_top _)),
       mul_pow]

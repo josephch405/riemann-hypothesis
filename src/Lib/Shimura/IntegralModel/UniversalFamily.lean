@@ -519,10 +519,10 @@ lemma New.ThetaObject.TorusModel.hasSpanningCoords_of_specMap_comp_eq {E O W : T
   -- `m + 1` and `m + 2` differ by `1`, so they are not both zero in `k`
   obtain ⟨c, hmc, hc⟩ : ∃ c > m, (c : k) ≠ 0 := by
     by_cases h_succ : ((m + 1 : ℕ) : k) = 0
-    · refine ⟨m + 2, by omega, fun h_two ↦ one_ne_zero (α := k) ?_⟩
-      push_cast at h_two h_succ
-      linear_combination h_two - h_succ
-    · exact ⟨m + 1, by omega, h_succ⟩
+    · refine ⟨(m + 1).succ, Nat.lt_trans (Nat.lt_succ_self m) (Nat.lt_succ_self _), ?_⟩
+      rw [Nat.cast_succ, h_succ, zero_add]
+      exact one_ne_zero
+    · exact ⟨m + 1, Nat.lt_succ_self m, h_succ⟩
   -- the bundle `N ^ (c ^ 2)` of `y`, pulled back to `x`, is the one in Serre's theorem
   have h_pow_eq : (x₀.lineBundle.pull hx₀.schemeMap.left).pow (c ^ 2) =
       (y.lineBundle.pow (c ^ 2)).pull hx.schemeMap.left := by

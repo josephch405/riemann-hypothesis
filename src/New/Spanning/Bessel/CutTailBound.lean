@@ -58,11 +58,6 @@ variable {𝔰 : Shape} {I : Type} {ε : 𝔰.BesselIndex → ℤˣ} [Fintype I]
   [p : UnitarySignFrame 𝔰 ε] {rep : U (1 : Matrix 𝔰.κ 𝔰.κ ℂ) →* unitaryGroup I ℂ} {l : HCParam ε}
   {A L : ℕ}
 
-private lemma continuousMul_G₁ {𝔰 : Shape} : ContinuousMul 𝔰.G₁ := inferInstance
-
-private lemma continuousSMul_real_euclidean {I : Type} [Fintype I] :
-    ContinuousSMul ℝ (EuclideanSpace ℂ I) := inferInstance
-
 private lemma sFinite_besselGraphMeasure {𝔰 : Shape} : SFinite 𝔰.besselGraphMeasure := by
   unfold Shape.besselGraphMeasure
   infer_instance
@@ -267,7 +262,6 @@ lemma IsBesselFunction.smul_of_invariant {Y : 𝔰.G₁ → EuclideanSpace ℂ I
     {a : 𝔰.G₁ → ℝ} (ha_cont : Continuous a) {K : ℝ} (ha_le : ∀ y : 𝔰.G₁, |a y| ≤ K)
     (ha_inv : ∀ s ∈ besselS, ∀ y : 𝔰.G₁, a (s * y) = a y) :
     IsBesselFunction rep fun y : 𝔰.G₁ ↦ a y • Y y := by
-  have : ContinuousSMul ℝ (EuclideanSpace ℂ I) := continuousSMul_real_euclidean
   obtain ⟨K', hK'⟩ := hY.bounded
   have h_bound (y : 𝔰.G₁) : ‖a y • Y y‖ ≤ K * K' := by
     rw [norm_smul, Real.norm_eq_abs]
@@ -425,13 +419,7 @@ lemma lintegral_besselGraph_mul_eq {x : 𝔰.G₁} (φ : 𝔰.G₁ → ℝ≥0�
     (y : 𝔰.G₁) :
     ∫⁻ s : 𝔰.besselGraph, φ (x⁻¹ * (s.val.fst * (t * y))) ∂𝔰.besselGraphMeasure =
       ∫⁻ s : 𝔰.besselGraph, φ (x⁻¹ * (s.val.fst * y)) ∂𝔰.besselGraphMeasure := by
-  have : ContinuousMul 𝔰.G₁ := continuousMul_G₁
-  have : ContinuousMul ↥𝔰.besselGraph :=
-    ⟨(((continuous_fst.comp (continuous_subtypeVal.comp continuous_fst)).mul
-        (continuous_fst.comp (continuous_subtypeVal.comp continuous_snd))).prodMk
-      ((continuous_snd.comp (continuous_subtypeVal.comp continuous_fst)).mul
-        (continuous_snd.comp (continuous_subtypeVal.comp continuous_snd)))).subtype_mk _⟩
-  have : MeasurableMul ↥𝔰.besselGraph := ContinuousMul.measurableMul
+  have : MeasurableMul ↥𝔰.besselGraph := inferInstance
   obtain ⟨u, hu, k, rfl⟩ := exists_besselU_mul_toBesselH ht isUnit_one
   have h_mem : (u * toBesselH 𝔰 1 k, k) ∈ 𝔰.besselGraph := by
     rw [Shape.mem_besselGraph_iff_mul_inv_mem]
@@ -467,7 +455,6 @@ lemma exists_isDecayMajorant_besselAverage {f m : ℕ} {b : ℝ} {x : 𝔰.G₁}
   -- With `φ g = (2 / ‖g‖) ^ M` and `Φ y = ∫ φ (x⁻¹ s y) ds`, the majorant is `|c| Φ`. It is bounded
   -- by `lintegral_decay_le_besselBallVolume`, and unfolding gives its integral; the volume of the
   -- ball cancels against the norm of `W`.
-  have : ContinuousMul 𝔰.G₁ := continuousMul_G₁
   have : SFinite 𝔰.besselGraphMeasure := sFinite_besselGraphMeasure
   obtain ⟨hb_one, hb_two⟩ : 1 ≤ b ∧ 2 ≤ b := ⟨by linarith, by linarith⟩
   let M : ℕ := 9 * 𝔰.r ^ 2
@@ -558,7 +545,6 @@ lemma exists_isCutPair_besselAverage {m : ℕ} {b : ℝ} {x : 𝔰.G₁} {v : Eu
   obtain ⟨c, hc⟩ : ∃ c : ℝ, ‖c‖ₑ ^ 2 * ∫⁻ y, ‖W y‖ₑ ^ 2 ∂besselQuotMeasure = card I :=
     exists_enorm_sq_mul_eq h_ne_zero
       ((lintegral_enorm_sq hW_int hW.memLp_top).trans_ne ofReal_ne_top) (card I)
-  have : ContinuousSMul ℝ (EuclideanSpace ℂ I) := continuousSMul_real_euclidean
   let F : C(𝔰.G₁, EuclideanSpace ℂ I) := ⟨fun y ↦ c • W y, hW_cont.const_smul c⟩
   have hF : IsBesselFunction rep F :=
     hW.smul_of_invariant hW_cont continuous_const (K := |c|) (fun _ ↦ le_rfl) fun _ _ _ ↦ rfl

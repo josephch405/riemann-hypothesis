@@ -766,7 +766,8 @@ lemma LineBundle.IsProjEmbedding.nonempty_uniformisation [IsAbelianScheme A]
     -- complex point `x`; then `y = m • x` lies in the image.
     obtain ⟨x, hx⟩ :
         ∃ x : Spec (CommRingCat.of ℂ) ⟶ A.left, x ≫ (e.range.index • 𝟙 A).left = y.left :=
-      exists_point_over _ ((IsAbelianScheme.nsmul_surjective _ h_index.index_ne_zero).surj _)
+      (Scheme.Hom.exists_comp_eq_iff_mem_range _ _).2
+        ((IsAbelianScheme.nsmul_surjective _ h_index.index_ne_zero).surj _)
     have hxy : homMk x (by simp [← y.w, ← hx]) ≫ (e.range.index • 𝟙 A) = y := OverMorphism.ext hx
     rw [← hxy]
     simpa [comp_nsmul] using e.range.nsmul_index_mem _

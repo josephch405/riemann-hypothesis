@@ -86,7 +86,8 @@ instance : Category (HodgeTest k) where
     Σ a : X.baseAlg ⟶ Y.baseAlg,
       (X.Index → X.baseAlg) →ₛₗ[(a.hom : X.baseAlg →+* Y.baseAlg)] Y.Index → Y.baseAlg
   id _ := ⟨𝟙 _, .id⟩
-  comp f g := ⟨f.1 ≫ g.1, g.2.toAddHom.comp f.2.toAddHom, by simp⟩
+  comp f g := ⟨f.1 ≫ g.1, g.2.toAddHom.comp f.2.toAddHom,
+    fun m x ↦ (congrArg g.2 (f.2.map_smulₛₗ m x)).trans (g.2.map_smulₛₗ _ _)⟩
 
 /-- The semilinear map of a composite of morphisms of pairs is the composite of the semilinear
 maps. -/
@@ -118,44 +119,62 @@ def HodgeTest.sqZeroExt : HodgeTest k ⥤ CommAlg k where
   map {_ Y} f :=
     ofHom
       { toFun x := (f.1 x.fst, f.2 x.snd)
-        map_one' := by apply TrivSqZeroExt.ext <;> simp
+        map_one' := by
+          apply TrivSqZeroExt.ext <;>
+            simp only [fst_one, snd_one, map_one, map_zero, fst_mk, snd_mk]
         map_mul' := by
           intro x y
           apply TrivSqZeroExt.ext
-          · simp
+          · simp only [fst_mul, map_mul, fst_mk]
             rfl
           · let image (z : TrivSqZeroExt _ _) : TrivSqZeroExt Y.baseAlg (Y.Index → Y.baseAlg) :=
               (f.1 z.fst, f.2 z.snd)
             change f.2 (x * y).snd = (image x * image y).snd
             rw [TrivSqZeroExt.snd_mul, TrivSqZeroExt.snd_mul, op_smul_eq_smul,
-              op_smul_eq_smul]
-            simp [image]
-        map_zero' := by apply TrivSqZeroExt.ext <;> simp
+              op_smul_eq_smul, _root_.map_add, LinearMap.map_smulₛₗ, LinearMap.map_smulₛₗ]
+            rfl
+        map_zero' := by
+          apply TrivSqZeroExt.ext <;> simp only [fst_zero, snd_zero, map_zero, fst_mk, snd_mk]
         map_add' := by
           intro x y
-          apply TrivSqZeroExt.ext <;> simp <;> rfl
+          apply TrivSqZeroExt.ext <;>
+            simp only [fst_add, snd_add, _root_.map_add, fst_mk, snd_mk] <;> rfl
         commutes' := by
           intro r
-          apply TrivSqZeroExt.ext <;> simp [Algebra.algebraMap_eq_smul_one] }
+          apply TrivSqZeroExt.ext <;>
+            simp only [Algebra.algebraMap_eq_smul_one, fst_smul, snd_smul, fst_one, snd_one,
+              _root_.map_smul, map_one, smul_zero, map_zero, fst_mk, snd_mk] }
 
 private lemma exteriorHom_ext {X : HodgeTest k} {Y : AlgCat k}
     {f g : AlgCat.of k (ExteriorAlgebra X.baseAlg (X.Index → X.baseAlg)) ⟶ Y}
     (hT : ∀ r, f (algebraMap X.baseAlg _ r) = g (algebraMap X.baseAlg _ r))
     (hM : ∀ v, f (ExteriorAlgebra.ι X.baseAlg v) = g (ExteriorAlgebra.ι X.baseAlg v)) : f = g := by
   ext x
-  induction x using induction <;> simp_all
+  induction x using induction with
+  | algebraMap r => exact hT r
+  | ι v => exact hM v
+  | mul a b ha hb => rw [map_mul, map_mul, ha, hb]
+  | add a b ha hb => rw [_root_.map_add, _root_.map_add, ha, hb]
 
 /-- The functor sending a pair (A, M) to the exterior algebra ⋀_A M, as a k-algebra. -/
 def exteriorAlg : HodgeTest k ⥤ AlgCat k where
   obj X := AlgCat.of k (ExteriorAlgebra X.baseAlg (X.Index → X.baseAlg))
   map f :=
     AlgCat.ofHom <|
-      AlgHom.mk' (exteriorMap f.2) fun r x ↦ by simpa using exteriorMap_smul f.2 (r • 1) x
+      AlgHom.mk' (exteriorMap f.2) fun r x ↦ by
+        simpa only [algebraMap_smul, RingHom.coe_coe, AlgHom.commutes] using
+          exteriorMap_smul f.2 (algebraMap k _ r) x
   map_id _ := by
-    apply exteriorHom_ext <;> intro x <;> simp [Algebra.algebraMap_eq_smul_one]
+    apply exteriorHom_ext <;> intro x <;>
+      simp only [ConcreteCategory.hom_ofHom, Algebra.algebraMap_eq_smul_one, AlgHom.coe_mk',
+        exteriorMap_smul, exteriorMap_iota, RingHom.coe_coe, map_one, AlgCat.hom_id, AlgHom.coe_id,
+        id_eq]
     all_goals rfl
   map_comp _ _ := by
-    apply exteriorHom_ext <;> intro x <;> simp [Algebra.algebraMap_eq_smul_one]
+    apply exteriorHom_ext <;> intro x <;>
+      simp only [ConcreteCategory.hom_ofHom, Algebra.algebraMap_eq_smul_one, AlgHom.coe_mk',
+        exteriorMap_smul, exteriorMap_iota, RingHom.coe_coe, map_one, AlgCat.hom_comp,
+        AlgHom.coe_comp, Function.comp_apply]
     all_goals rfl
 
 /-- The functor (A, M) ↦ ⋀_A M with values in abelian groups: the coefficient of Hodge
@@ -200,7 +219,8 @@ lemma exteriorMap_formBasis (f : P ⟶ Q) (j : P.Index ↪o Q.Index)
 private lemma HodgeTest.withIndex_map_snd_single (i : ι) :
     ((withIndex ι).map f).2 (single i 1) = single i 1 := by
   change f ∘ single i 1 = single i 1
-  grind
+  exact (Pi.single_op (fun _ ↦ f) (fun _ ↦ map_zero f.hom) i 1).symm.trans
+    (congrArg (single i) (map_one f.hom))
 
 /-- Let f : A → B be a map of k-algebras and x a form in ⋀_A A^ι. Under the map ⋀_A A^ι → ⋀_B B^ι
 induced by f, the coordinate at a set s of indices in the basis of wedge products of standard basis
@@ -216,7 +236,8 @@ lemma HodgeTest.repr_withIndex_map (x :
     simpa using
       exteriorMap_formBasis ((withIndex ι).map f) (.refl _) (withIndex_map_snd_single f) t
   conv_lhs => rw [← formBasis.sum_repr x, _root_.map_sum]
-  simp [h_form, Finsupp.single_apply]
+  simp only [exteriorMap_smul, h_form]
+  exact congrFun (formBasis.repr_sum_self _) s
 
 /-- For a pair C = (A, M), the k-algebra projection A ⊕ M → A, (a, m) ↦ a, from the square-zero
 extension. -/
@@ -284,7 +305,7 @@ lemma HodgeTest.existsUnique_lift_away (g : A) (h_loc : (Submonoid.powers g).IsL
   let lift : (withIndex ι).obj B ⟶ Z :=
     ⟨ofHom (Away.liftAlgHom g hg), semilinearOfBasis _ fun i ↦ φ.2 (single i 1)⟩
   have h_lift : (withIndex ι).map f ≫ lift = φ :=
-    hom_ext (Hom.ext (AlgHom.ext fun x ↦ Away.lift_eq g hg x)) fun i ↦ by
+    hom_ext (Hom.ext (AlgHom.ext fun x ↦ Away.lift_eq (S := B) g hg x)) fun i ↦ by
       rw [comp_snd_apply, withIndex_map_snd_single f i]
       exact semilinearOfBasis_single _ _ i
   have h_injective : Injective fun y : (withIndex ι).obj B ⟶ Z ↦ (withIndex ι).map f ≫ y := by
@@ -312,9 +333,7 @@ def HodgeTest.baseComparison : Comparison (hodgeCoeff (k := E)) (hodgeCoeff (k :
     { app X := by
         change (hodgeCoeff (k := k)).obj X ⟶ (hodgeCoeff (k := k)).obj X
         exact 𝟙 _
-      naturality X Y f := by
-        change (hodgeCoeff (k := k)).map f ≫ 𝟙 _ = 𝟙 _ ≫ (hodgeCoeff (k := k)).map f
-        simp }
+      naturality X Y f := by rfl }
 
 /-- Base change: for an E-algebra k, the additive map from the Hodge cohomology over E of N to
 that over k of N restricted to k-algebras. -/

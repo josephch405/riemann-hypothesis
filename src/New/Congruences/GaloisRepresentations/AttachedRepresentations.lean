@@ -189,7 +189,7 @@ theorem trivialLift_mem_range_typeProjection (hp : p.IsMainPair j) :
   refine ⟨Y.trivialLift, ?_⟩
   -- The idempotent is the mean over the group, which fixes `Y.trivialLift`.
   change typeProjection Y.descentPair (fun _ ↦ X - 1) Y.trivialLift = Y.trivialLift
-  simp_all [asAlgebraHom_eq_sum, tupleIdem, labelIdem, Y.formAction_trivialLift,
+  simp_all [Representation.asAlgebraHom_eq_sum, tupleIdem, labelIdem, Y.formAction_trivialLift,
     ← Nat.cast_smul_eq_nsmul ℂ, smul_smul, prod_ne_zero_iff]
 
 end AptInstances

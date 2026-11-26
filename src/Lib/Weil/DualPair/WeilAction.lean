@@ -117,20 +117,17 @@ lemma star_matrixToVec_dotProduct_matrixToVec [Semiring R] [StarRing R] [Fintype
     matrixToVec]
   exact Fintype.sum_prod_type_right _
 
-private lemma matrixToVec_eq_vec_transpose (M : Matrix m' m R) : matrixToVec M = vec Mᵀ := rfl
-
 /-- On vectors indexed by pairs, `A ⊗ₖ Bᵀ` is the map `x ↦ A x B`. -/
 @[local simp]
 lemma kronecker_mulVec_eq_matrixToVec [CommSemiring R] [Fintype m] [Fintype m'] (A : Matrix l' m' R)
     (B : Matrix m l R) (x : m' × m → R) :
     A ⊗ₖ Bᵀ *ᵥ x = matrixToVec (A * vecToMatrix x * B) := by
   -- Mathlib's `kronecker_mulVec_vec`, for the transpose of `vecToMatrix x`
-  have h_transpose : Bᵀ * (vecToMatrix x)ᵀ * Aᵀ = (A * vecToMatrix x * B)ᵀ := by
-    rw [← transpose_mul, ← transpose_mul, Matrix.mul_assoc]
-  calc A ⊗ₖ Bᵀ *ᵥ x = A ⊗ₖ Bᵀ *ᵥ vec (vecToMatrix x)ᵀ := by
-        rw [← matrixToVec_eq_vec_transpose, matrixToVec_vecToMatrix]
+  calc A ⊗ₖ Bᵀ *ᵥ x = A ⊗ₖ Bᵀ *ᵥ vec (vecToMatrix x)ᵀ := rfl
     _ = vec (Bᵀ * (vecToMatrix x)ᵀ * Aᵀ) := kronecker_mulVec_vec Bᵀ (vecToMatrix x)ᵀ A
-    _ = matrixToVec (A * vecToMatrix x * B) := by rw [h_transpose, matrixToVec_eq_vec_transpose]
+    _ = matrixToVec (A * vecToMatrix x * B) := by
+      rw [← transpose_mul, ← transpose_mul, Matrix.mul_assoc]
+      rfl
 
 section
 

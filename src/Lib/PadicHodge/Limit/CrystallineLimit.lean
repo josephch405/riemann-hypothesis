@@ -95,6 +95,7 @@ structure PadicRep (Γ : Type*) [Group Γ] (p : ℕ) [ThePrime p] where
   {Index : Type}
   /-- The index set is finite. -/
   [fintypeIndex : Fintype Index]
+  /-- Equality on the index set is decidable. -/
   [decEqIndex : DecidableEq Index]
   /-- The homomorphism from `Γ` to invertible matrices over the algebraic closure of `ℚ_p`. -/
   rep : Γ →* GL Index (PadicAlgCl p)

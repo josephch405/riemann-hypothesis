@@ -43,12 +43,6 @@ open Module QZChar Set FinPlace IsGalois
 
 variable {Γ K : Type} [Group Γ] [TopologicalSpace Γ] [Field K] [EmbeddedNumberField K]
 
-/-- The character χ, as a homomorphism on Γ, takes at g the value of `abelianLift χ` at the class
-of g. -/
-private lemma QZChar.toHom_eq_abelianLift [IsTopologicalGroup Γ] (χ : QZChar Γ) (g : Γ) :
-    toHom χ g = abelianLift χ (g : TopologicalAbelianization Γ) :=
-  rfl
-
 /-- g lies in the kernel of χ exactly when `abelianLift χ` kills the class of g. -/
 private lemma QZChar.mem_ker_iff_abelianLift_eq_one [IsTopologicalGroup Γ] (χ : QZChar Γ) (g : Γ) :
     g ∈ ker χ ↔ abelianLift χ (g : TopologicalAbelianization Γ) = 1 :=
@@ -119,14 +113,17 @@ lemma range_abelianLift_comp_artinAt :
   · -- The local symbol of `x` is the class of some `g` in the decomposition group.
     rintro _ ⟨x, rfl⟩
     obtain ⟨g, hg⟩ := QuotientGroup.mk_surjective (localArtin Γ A v x)
-    refine ⟨g, g.2, ?_⟩
-    rw [MonoidHom.comp_apply, h.artinAt_eq_of_localArtin_eq hg.symm, toHom_eq_abelianLift]
+    refine ⟨g, g.property, ?_⟩
+    rw [MonoidHom.comp_apply, h.artinAt_eq_of_localArtin_eq hg.symm]
+    rfl
   · -- `localArtin` has dense range, so it meets the open fibre of `χ` through `g`.
     rintro _ ⟨g, hg, rfl⟩
     let ψ := comap (subgroupIncl (decompGroup Γ A)) χ
     obtain ⟨x, hx⟩ := h.denseRange_localArtin.exists_mem_open
       ((continuous_abelianLift ψ).isOpen_preimage {toHom χ g} trivial)
-      ⟨⟦⟨g, hg⟩⟧, by simp [ψ, QZChar.comap, toHom_eq_abelianLift, subgroupIncl]⟩
+      ⟨⟦⟨g, hg⟩⟧, by
+        simp [ψ, QZChar.comap, subgroupIncl]
+        rfl⟩
     exact ⟨x, (h.abelianLift_artinAt χ x).trans hx⟩
 
 /-- Let `A` be a place of `Ω` over `v`. A character `χ` kills all local symbols at `v` exactly when

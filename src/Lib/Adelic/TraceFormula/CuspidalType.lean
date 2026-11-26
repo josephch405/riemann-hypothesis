@@ -145,7 +145,7 @@ lemma sum_coeff_labelIdem_radicalHom {c : k[X]} (hc : IsLabel (Fintype.card n) c
         (groupAlgElem fun Z : Multiplicative (Matrix n n k) ↦ χ (U Z * (z * y))) = 0 :=
       h_char.asAlgebraHom_groupAlgElem_eq_zero U (z * y) h_mean
     -- the trivial representation sends a group algebra element to the sum of its coefficients
-    simpa [asAlgebraHom_eq_sum, ← ofAdd.sum_comp] using LinearMap.congr_fun h_elem 1
+    simpa [Representation.asAlgebraHom_eq_sum, ← ofAdd.sum_comp] using LinearMap.congr_fun h_elem 1
   -- The coefficients are a multiple of the conjugate character, which is a class function.
   have h_coeff (u : GL n k) : (labelIdem n c).coeff (y * (u * z)) =
       χ 1 / Nat.card (GL n k) * starRingEnd ℂ (χ (u * (z * y))) := by

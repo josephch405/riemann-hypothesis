@@ -384,7 +384,9 @@ lemma exists_pow_mul_mem_amaxImage (hU : c.IsPeriodMatrix U h v) :
   -- `amaxImage`
   have hWU : W *ᵥ U *ᵥ y = (c.E * tau) ^ h • y := hU.mulVec_injective (by rw [hW, mulVec_smul])
   -- the entries of `U y = E ^ h x` lie in `amaxImage`
-  have hUy_int : ∀ j : d, (U *ᵥ y) j ∈ amaxImage := by aesop
+  have hUy_int (j : d) : (U *ᵥ y) j ∈ amaxImage := by
+    rw [hy, Pi.smul_apply]
+    exact amaxImage.smul_mem (amaxImage.algebraMap_mem (x j)) _
   have h_eq : U *ᵥ (p ^ n • c.extendToBPlus f ∘ y) = c.E.val ^ h • p ^ n • w := by
     rw [smul_comm, ← hw, ← mulVec_smul]
   have h_hat_int (j : d) : (p ^ n • c.extendToBPlus f ∘ y) j ∈ amaxImage := by
@@ -482,9 +484,9 @@ lemma exists_ainfToBPlus_eq_pow_mul (hU : c.IsPeriodMatrix U h v) :
   exact ⟨a, fun i ↦ by rw [ha, pow_add _ _ m, mul_assoc]⟩
 
 /-- Let `U` over `B⁺` be a period matrix of height `h` with Frobenius factor `v`. The `x` over
-`A_inf` for which `U y = E ^ h x` has a solution `y` with entries in `S_B` (`c.bicommutant`, the
-closure of `S[E/p]` in `B⁺` with `p` inverted) form an `S`-module spanned by the columns of a square
-matrix `Q` over `A_inf`; moreover `U Z = E ^ h Q` for a matrix `Z` with entries in `S_B`. -/
+`A_inf` for which `U y = E ^ h x` has a solution `y` with entries in `S_B` (`c.bicommutant`) form
+an `S`-module spanned by the columns of a square matrix `Q` over `A_inf`; moreover `U Z = E ^ h Q`
+for a matrix `Z` with entries in `S_B`. -/
 lemma exists_spanning_matrix (hU : c.IsPeriodMatrix U h v) :
     ∃ (Q : Matrix d d Ainf) (Z : Matrix d d BPlus),
       (∀ i j : d, Z i j ∈ c.bicommutant) ∧

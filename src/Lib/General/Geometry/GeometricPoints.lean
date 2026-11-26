@@ -1,5 +1,6 @@
 module
 
+public import TauCeti.AlgebraicGeometry.RationalPoint.Image
 public import Mathlib.RingTheory.RegularLocalRing.Defs
 public import Mathlib.RingTheory.SimpleRing.Principal
 import Mathlib.AlgebraicGeometry.AlgClosed.Basic
@@ -89,17 +90,6 @@ lemma exists_point_mem {k : Type*} [Field k] [IsAlgClosed k] (X : Over (Spec (.o
   obtain ⟨x, hx_section, hx_mem⟩ := exists_section_mem X.hom hS hS_ne
   exact ⟨homMk x hx_section, hx_mem⟩
 
-/-- Let f : X → S be locally of finite type, k algebraically closed and t a k-point of S. If the
-image of t lies in the image of f, then there is a k-point y of X over t, that is, y ≫ f = t. -/
-lemma exists_point_over {k : Type*} {X : Scheme} [Field k] [IsAlgClosed k] {S : Scheme}
-    (f : X ⟶ S) [LocallyOfFiniteType f] {t : Spec (.of k) ⟶ S}
-    (ht : t (IsLocalRing.closedPoint k) ∈ range f) : ∃ y : Spec (.of k) ⟶ X, y ≫ f = t := by
-  -- The fibre of `f` over `t` is nonempty and locally of finite type over `k`, so it has a
-  -- `k`-point.
-  obtain ⟨q, -⟩ : IsLocalRing.closedPoint k ∈ range (snd f t) := by rwa [range_snd]
-  obtain ⟨x, hx, -⟩ := exists_section_mem (snd f t) isOpen_univ.isLocallyClosed ⟨q, mem_univ q⟩
-  exact ⟨x ≫ fst f t, by rw [Category.assoc, condition, reassoc_of% hx]⟩
-
 /-- Let `f : A ⟶ S` be smooth and `η i` complex points with dense images in `S`
 (`New.IsDenseFamily`). If every complex point of `A` over some `η i` is one of the points `ξ z`,
 then the `ξ z` have dense images in `A`. -/
@@ -114,7 +104,7 @@ lemma IsDenseFamily.of_fibres {A S : Scheme} {κ Z : Type} {η : κ → (Spec (.
   -- An open neighbourhood `U` of `x` contains a complex point over `η i`, which is some `ξ z`.
   let V : A.Opens := ⟨U, hU⟩
   obtain ⟨y, hy⟩ : ∃ y : Spec (.of ℂ) ⟶ V, y ≫ V.ι ≫ f = η i :=
-    exists_point_over (V.ι ≫ f) ⟨⟨x, hxU⟩, hx.symm⟩
+    (Scheme.Hom.exists_comp_eq_iff_mem_range (V.ι ≫ f) _).2 ⟨⟨x, hxU⟩, hx.symm⟩
   obtain ⟨z, hz⟩ := h_all i (y ≫ V.ι) hy
   exact ⟨(y ≫ V.ι) (IsLocalRing.closedPoint ℂ), (y _).property, z, by simp only [hz]⟩
 

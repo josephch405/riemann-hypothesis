@@ -348,9 +348,10 @@ lemma IsAmpleType.thetaNorm_thetaShift (G : IsAmpleType B χ) (hu : u ∈ B.dual
 
 namespace HasGoodReduction
 
+variable (B χ v) in
 /-- The ball of radius ‖f‖: the module, over the valuation ring of v, of the theta functions g for
 (L, B, χ) with v(`New.RealComplexForm.thetaShift` B x g 0) ≤ ‖f‖ at every torsion point x. -/
-noncomputable def normBall (_ : HasGoodReduction B χ v r) (f : V → ℂ) :
+noncomputable def normBall (f : V → ℂ) :
     Submodule v.valuationSubring (V → ℂ) :=
   (B.thetaSpace χ).restrictScalars v.valuationSubring ⊓
     ⨅ x : torsionPoints L,
@@ -359,10 +360,10 @@ noncomputable def normBall (_ : HasGoodReduction B χ v r) (f : V → ℂ) :
 
 variable (G : HasGoodReduction B χ v r)
 
+include G in
 /-- A function lies in the ball of `g` if and only if it is a theta function for (L, B, χ) whose
 theta norm is at most that of `g`. -/
-@[local simp, local grind =]
-lemma mem_normBall : f ∈ G.normBall g ↔ f ∈ B.thetaSpace χ ∧ B.thetaNorm v f ≤ B.thetaNorm v g := by
+lemma mem_normBall : f ∈ normBall B χ v g ↔ f ∈ B.thetaSpace χ ∧ B.thetaNorm v f ≤ B.thetaNorm v g := by
   -- for a theta function `f` the sizes are bounded above, so `‖f‖ ≤ ‖g‖` says that each size of
   -- `f` is at most `‖g‖`
   rw [normBall, Submodule.mem_inf, Submodule.restrictScalars_mem]
@@ -371,11 +372,11 @@ lemma mem_normBall : f ∈ G.normBall g ↔ f ∈ B.thetaSpace χ ∧ B.thetaNor
   -- membership in the preimage of `v.leSubmodule` is, by definition, the bound on the size at `x`
   exact forall_congr' fun x ↦ Iff.rfl
 
+include G in
 /-- For `u` in the dual lattice, the ball of `g` is stable under the translation
 `New.RealComplexForm.thetaShift B u`. -/
-@[local grind .]
-lemma thetaShift_mem_normBall (hu : u ∈ B.dualLattice) (hf : f ∈ G.normBall g) :
-    B.thetaShift u f ∈ G.normBall g := by
+lemma thetaShift_mem_normBall (hu : u ∈ B.dualLattice) (hf : f ∈ normBall B χ v g) :
+    B.thetaShift u f ∈ normBall B χ v g := by
   obtain ⟨hf_theta, hf_le⟩ := G.mem_normBall.mp hf
   exact G.mem_normBall.mpr ⟨G.thetaShift_mem_of_mem_dualLattice hu hf_theta,
     (G.thetaNorm_thetaShift hu).trans_le hf_le⟩
@@ -433,8 +434,8 @@ lemma exists_smul_thetaNorm_eq (h_le : L ≤ L₀) [IsFullRankLattice L₀]
       (hN : ∀ u ∈ B.dualLattice (L := L₀), ∀ x ∈ N, B.thetaShift u x ∈ N) : f ∈ N ↔ γ • g ∈ N := by
     simpa using h_scale N (by simpa using hN)
   -- Balls are stable under shifts, so f and γ • g lie in each other's ball.
-  have h_ball (y : V → ℂ) : f ∈ G.normBall y ↔ γ • g ∈ G.normBall y :=
-    h_scale (G.normBall y) fun u hu x ↦ G.thetaShift_mem_normBall (h_dual hu)
+  have h_ball (y : V → ℂ) : f ∈ normBall B χ v y ↔ γ • g ∈ normBall B χ v y :=
+    h_scale (normBall B χ v y) fun u hu x ↦ G.thetaShift_mem_normBall (h_dual hu)
   have h_norm : B.thetaNorm v f = v γ * B.thetaNorm v g := by
     obtain ⟨hγg_theta, hγg_le⟩ :=
       G.mem_normBall.mp ((h_ball f).mp (G.mem_normBall.mpr ⟨hf, le_rfl⟩))
@@ -459,6 +460,7 @@ lemma exists_smul_thetaNorm_eq (h_le : L ≤ L₀) [IsFullRankLattice L₀]
   have h_in_M : γ • g ∈ M := by simpa using (mem_N (γ • g)).mp h_in_N 0 (zero_mem _)
   exact ⟨γ⁻¹, γ • g, h_in_M, by simp [γ0], by simp [h_norm, γ0]⟩
 
+include G in
 /-- Assume good reduction (`G`), and let f be a theta function for (L, B, χ) (`hf`) and for an
 Appell–Humbert datum (L₀, B, ζ) (`hAH`, `hf_L₀`) with L ≤ L₀ (`h_le`). A module M over the valuation
 ring of v that contains the translates of f by the dual lattice of L₀ contains every theta
@@ -466,7 +468,7 @@ function g for (L₀, B, ζ) that lies in the ball of f (`New.ThetaTori.HasGoodR
 lemma mem_of_mem_normBall (h_le : L ≤ L₀) [IsFullRankLattice L₀]
     (hAH : IsAppellHumbert (L := L₀) B ζ)
     (hf_L₀ : f ∈ B.thetaSpace (L := L₀) ζ) (hg_L₀ : g ∈ B.thetaSpace (L := L₀) ζ)
-    (h_shift : ∀ u ∈ B.dualLattice (L := L₀), B.thetaShift u f ∈ M) (hg : g ∈ G.normBall f) :
+    (h_shift : ∀ u ∈ B.dualLattice (L := L₀), B.thetaShift u f ∈ M) (hg : g ∈ normBall B χ v f) :
     g ∈ M := by
   obtain ⟨hg_theta, hg_le⟩ := G.mem_normBall.mp hg
   rcases eq_or_ne f 0 with hf_zero | hf_ne
@@ -480,6 +482,7 @@ lemma mem_of_mem_normBall (h_le : L ≤ L₀) [IsFullRankLattice L₀]
   have hc : v c ≤ 1 := by simpa [h_norm, G.thetaNorm_pos hf hf_ne] using hg_le
   exact M.smul_mem ⟨c, hc⟩ hx
 
+include G in
 /-- Assume good reduction `G` for `(B, χ)` at `v` with level `r`: the ample-type conditions,
 `v(N) = 1` for some `N` mapping the dual lattice of `L` into `L`, `r > 1` with `v(r) = 1`, and a
 multiplicative sup norm. Let `f` be a theta function for `(L, B, χ)` (`hf`) and also for an
@@ -491,7 +494,7 @@ module for `f ^ r` in degree `r • B`. -/
 lemma normBall_pow [IsFullRankLattice L₀] (hAH : IsAppellHumbert (L := L₀) B ζ)
     (hf_L₀ : f ∈ B.thetaSpace (L := L₀) ζ)
     (h_div : ∀ u : V, r • u ∈ L → u ∈ L₀) (G_nsmul : HasGoodReduction (r • B) (χ ^ r) v r) :
-    G.normBall f ^ r = G_nsmul.normBall (f ^ r) := by
+    normBall B χ v f ^ r = normBall (r • B) (χ ^ r) v (f ^ r) := by
   -- ≤ is submultiplicativity of the norm. For ≥, by `mem_of_mem_normBall` it is enough to put each
   -- shift of f ^ r by a vector b of the dual of L for r • B into the r-th power of the ball;
   -- `mem_of_mem_normBall` again, now for L₀, reduces this to the shifts of t = f ^ (r - 1) * (shift
@@ -519,13 +522,13 @@ lemma normBall_pow [IsFullRankLattice L₀] (hAH : IsAppellHumbert (L := L₀) B
         exact mul_le_mul' (hx.2 i) (hy.2 i)
   intro x hx
   have hAH_pow : IsAppellHumbert (L := L₀) ((a + 1) • B) (ζ ^ (a + 1)) := hAH.nsmul (a + 1)
-  have hf_mem : f ∈ G.normBall f := G.mem_normBall.mpr ⟨hf, le_rfl⟩
+  have hf_mem : f ∈ normBall B χ v f := G.mem_normBall.mpr ⟨hf, le_rfl⟩
   have hf_pow : f ^ (a + 1) ∈ ((a + 1) • B).thetaSpace (χ ^ (a + 1)) := thetaSpace.pow hf _
   -- By `mem_of_mem_normBall` for L₀ = L it suffices to treat each shift of f ^ r.
   refine G_nsmul.mem_of_mem_normBall hf_pow le_rfl G_nsmul.isAppellHumbert hf_pow
     (G_nsmul.mem_normBall.mp hx).left (fun b hb ↦ ?_) hx
   have hb' : (a + 1) • b ∈ B.dualLattice := mem_dualLattice_nsmul.mp hb
-  have h_shift_mem : B.thetaShift ((a + 1) • b) f ∈ G.normBall f :=
+  have h_shift_mem : B.thetaShift ((a + 1) • b) f ∈ normBall B χ v f :=
     G.thetaShift_mem_normBall hb' hf_mem
   set t : V → ℂ := f ^ a * B.thetaShift ((a + 1) • b) f with ht
   have ht_L : t ∈ ((a + 1) • B).thetaSpace (χ ^ (a + 1)) := by
@@ -548,7 +551,7 @@ lemma normBall_pow [IsFullRankLattice L₀] (hAH : IsAppellHumbert (L := L₀) B
   -- The dual of L₀ for r • B lies in the dual of L for B (`dualLattice_nsmul_le`), and a shift of
   -- t is a product of r shifts of elements of the ball.
   have h_shift_t : ∀ u ∈ ((a + 1) • B).dualLattice (L := L₀),
-      ((a + 1) • B).thetaShift u t ∈ G.normBall f ^ (a + 1) := by
+      ((a + 1) • B).thetaShift u t ∈ normBall B χ v f ^ (a + 1) := by
     intro u hu
     have hu' : u ∈ B.dualLattice := dualLattice_nsmul_le a.succ_ne_zero h_div hu
     rw [show ((a + 1) • B).thetaShift u t =
@@ -574,6 +577,7 @@ lemma normBall_pow [IsFullRankLattice L₀] (hAH : IsAppellHumbert (L := L₀) B
     (hAH_pow.thetaShift_mem (thetaSpace.pow hf_L₀ _) b) h_shift_t
     (G_nsmul.mem_normBall.mpr ⟨G_nsmul.thetaShift_mem_of_mem_dualLattice hb hf_pow, h_norm_le⟩)
 
+include G in
 /-- Integral normal generation: assume good reduction (`G`), and let f be a theta function for (L,
 B, χ) (`hf`) and also for an Appell–Humbert datum (L₀, B, ζ) (`hAH`, `hf_L₀`) on a lattice L₀
 containing r⁻¹L (`h_div`). Then the r^j-th power of the ball of radius ‖f‖ is the ball of radius
@@ -581,14 +585,14 @@ containing r⁻¹L (`h_div`). Then the r^j-th power of the ball of radius ‖f�
 B, χ ^ r ^ j); here r > 1, with v(r) = 1, is the level of `G`. -/
 lemma normBall_pow_pow [IsFullRankLattice L₀] (hAH : IsAppellHumbert (L := L₀) B ζ)
     (hf_L₀ : f ∈ B.thetaSpace (L := L₀) ζ) (h_div : ∀ u : V, r • u ∈ L → u ∈ L₀) (j : ℕ) :
-    G.normBall f ^ r ^ j = (G.pow j).normBall (f ^ r ^ j) := by
+    normBall B χ v f ^ r ^ j = normBall (r ^ j • B) (χ ^ r ^ j) v (f ^ r ^ j) := by
   induction j with
   | zero => simp
   | succ j ih =>
-    have h_pow : G.normBall f ^ r ^ (j + 1) = (G.pow j).normBall (f ^ r ^ j) ^ r := by
+    have h_pow : normBall B χ v f ^ r ^ (j + 1) = normBall (r ^ j • B) (χ ^ r ^ j) v (f ^ r ^ j) ^ r := by
       rw [pow_succ, pow_mul, ih]
     -- Apply `normBall_pow` to f ^ r ^ j in degree r ^ j • B. The forms r • r ^ j • B and r ^
-    -- (j + 1) • B agree; simp rewrites the form under the good-reduction argument of `normBall`.
+    -- (j + 1) • B agree; the corresponding characters and theta functions also agree.
     rw [h_pow]
     have hB_eq : r • (r ^ j • B) = r ^ (j + 1) • B := by rw [← mul_nsmul, ← pow_succ]
     have hχ_eq : (χ ^ r ^ j) ^ r = χ ^ r ^ (j + 1) := by rw [← pow_mul, ← pow_succ]
@@ -597,12 +601,11 @@ lemma normBall_pow_pow [IsFullRankLattice L₀] (hAH : IsAppellHumbert (L := L�
       hB_eq ▸ hχ_eq ▸ G.pow (j + 1)
     have h_step := (G.pow j).normBall_pow (thetaSpace.pow hf (r ^ j)) (hAH.nsmul (r ^ j))
       (thetaSpace.pow hf_L₀ (r ^ j)) h_div G'
-    have h_congr : ∀ {B₁ B₂ : LatticeForm L} {χ₁ χ₂ : V → ℂ} {g₁ g₂ : V → ℂ}
-        (G₁ : HasGoodReduction B₁ χ₁ v r) (G₂ : HasGoodReduction B₂ χ₂ v r),
-        B₁ = B₂ → χ₁ = χ₂ → g₁ = g₂ → G₁.normBall g₁ = G₂.normBall g₂ := by
-      rintro _ _ _ _ _ _ _ _ rfl rfl rfl
+    have h_congr : ∀ {B₁ B₂ : LatticeForm L} {χ₁ χ₂ : V → ℂ} {g₁ g₂ : V → ℂ},
+        B₁ = B₂ → χ₁ = χ₂ → g₁ = g₂ → normBall B₁ χ₁ v g₁ = normBall B₂ χ₂ v g₂ := by
+      rintro _ _ _ _ _ _ rfl rfl rfl
       rfl
-    exact h_step.trans (h_congr G' (G.pow (j + 1)) hB_eq hχ_eq hf_eq)
+    exact h_step.trans (h_congr hB_eq hχ_eq hf_eq)
 
 /-! ### Reduction of a ball -/
 
@@ -616,7 +619,7 @@ include hf_ne
 `hf_ne`). Every theta function g for (L, B, χ) is c • y for some c in ℂ and y in the ball of f, with
 ‖g‖ = v(c)‖f‖. -/
 lemma exists_eq_smul_normBall (hg : g ∈ B.thetaSpace χ) :
-    ∃ c : ℂ, ∃ y ∈ G.normBall f,
+    ∃ c : ℂ, ∃ y ∈ normBall B χ v f,
       g = c • y ∧
       B.thetaNorm v g = v c * B.thetaNorm v f := by
   -- `exists_smul_thetaNorm_eq` for L₀ = L and M the ball of f, which contains the shifts of f.
@@ -632,13 +635,13 @@ the supremum of `v (B.thetaShift x g 0)` over the torsion points `x` of `V/L`. A
 reduction (`G`): `(L, B, χ)` is of ample type, the norm is multiplicative, some natural number `N`
 with `v N = 1` maps the dual lattice into `L`, and `r > 1` has `v r = 1`. Let `f ≠ 0` be a theta
 function for `(L, B, χ)`, and let `ballMap` be an `O`-linear map from a finite `O`-module `W` onto
-the ball `G.normBall f` of the theta functions `g` with `‖g‖ ≤ ‖f‖`. Let `φ` be a ring map from `O`
+the ball `normBall B χ v f` of the theta functions `g` with `‖g‖ ≤ ‖f‖`. Let `φ` be a ring map from `O`
 onto a field `k`, and `reduction` a `φ`-semilinear map from `W` to a `k`-vector space `Q` that
 vanishes at `w` exactly when `‖ballMap w‖ < ‖f‖`. Then the `k`-span of the image of `reduction`
 has the dimension over `k` that the space `B.thetaSpace χ` of theta functions has over `ℂ`. -/
 lemma finrank_reduction_eq (G : HasGoodReduction B χ v r) (hf : f ∈ B.thetaSpace χ)
     (hf_ne : f ≠ 0) {W : Type} [AddCommGroup W] [Module v.valuationSubring W]
-    {ballMap : W →ₗ[v.valuationSubring] V → ℂ} (h_range : ballMap.range = G.normBall f)
+    {ballMap : W →ₗ[v.valuationSubring] V → ℂ} (h_range : ballMap.range = normBall B χ v f)
     {k Q : Type*} [Field k] [AddCommGroup Q] [Module k Q] [Module.Finite v.valuationSubring W]
     {φ : v.valuationSubring →+* k} (hφ : Function.Surjective φ) {reduction : W →ₛₗ[φ] Q}
     (h_zero : ∀ w : W, reduction w = 0 ↔ B.thetaNorm v (ballMap w) < B.thetaNorm v f) :
@@ -662,7 +665,7 @@ lemma finrank_reduction_eq (G : HasGoodReduction B χ v r) (hf : f ∈ B.thetaSp
   have h_span : span ℂ (ballMap.range : Set (V → ℂ)) = B.thetaSpace χ := by
     refine span_eq_of_le _ (fun z hz ↦ (G.mem_normBall.mp (h_range.le hz)).left) fun g hg ↦ ?_
     -- Every theta function is a multiple of an element of the ball.
-    obtain ⟨c, z, hz, rfl, -⟩ : ∃ c : ℂ, ∃ z ∈ G.normBall f,
+    obtain ⟨c, z, hz, rfl, -⟩ : ∃ c : ℂ, ∃ z ∈ normBall B χ v f,
         g = c • z ∧ B.thetaNorm v g = v c * B.thetaNorm v f :=
       G.exists_eq_smul_normBall hf hf_ne hg
     exact smul_mem _ c (subset_span (h_range.ge hz))
@@ -685,7 +688,7 @@ lemma finrank_reduction_eq (G : HasGoodReduction B χ v r) (hf : f ∈ B.thetaSp
       ballMap.quotKerEquivRange_symm_apply_image w ⟨w, rfl⟩
     -- `red (e t)` is `reduction w`, so `ballMap w` has norm less than `f`.
     replace ht : B.thetaNorm v (ballMap w) < B.thetaNorm v f := by simpa [red, h_e, h_zero] using ht
-    obtain ⟨a, z, hz, hw, h_norm⟩ : ∃ a : ℂ, ∃ z ∈ G.normBall f,
+    obtain ⟨a, z, hz, hw, h_norm⟩ : ∃ a : ℂ, ∃ z ∈ normBall B χ v f,
         ballMap w = a • z ∧ B.thetaNorm v (ballMap w) = v a * B.thetaNorm v f :=
       G.exists_eq_smul_normBall hf hf_ne (G.mem_normBall.mp (h_range.le ⟨w, rfl⟩)).left
     have ha : v a < 1 := by simpa [h_norm, G.thetaNorm_pos hf hf_ne] using ht
@@ -722,6 +725,7 @@ lemma finrank_reduction_eq (G : HasGoodReduction B χ v r) (hf : f ∈ B.thetaSp
     _ = finrank ℂ (span ℂ (ballMap.range : Set (V → ℂ))) := by simp
     _ = finrank ℂ (B.thetaSpace χ) := by rw [h_span]
 
+include G in
 /-- Values at points meeting every class of the dual lattice modulo L detect the reduction. Here L
 is a full lattice in the complex vector space V, B a form for it, χ and f functions V → ℂ, and v a
 valuation on ℂ. Under good reduction (`G`), let f ≠ 0 be a theta function (`hf`, `hf_ne`),
@@ -729,7 +733,7 @@ valuation on ℂ. Under good reduction (`G`), let f ≠ 0 be a theta function (`
 congruent modulo L to some `pt b` (`hpt_cover`), and `scaled b` a primitive integral scaling of
 (ballMap w (pt b))_w with a unit coordinate (`h_scaled`). Then ‖ballMap w₀‖ < ‖f‖ if and only if
 `scaled b w₀` is a non-unit for all b. -/
-lemma thetaNorm_lt_iff_coords (h_range : ballMap.range = G.normBall f) {I : Sort*} {pt : I → V}
+lemma thetaNorm_lt_iff_coords (h_range : ballMap.range = normBall B χ v f) {I : Sort*} {pt : I → V}
     (hpt_cover : ∀ u : B.dualLattice, ∃ b : I, pt b - u ∈ L) {scaled : I → W → v.valuationSubring}
     (h_scaled : ∀ b : I, IsIntegralCoords (fun w : W ↦ ballMap w (pt b)) (scaled b)) (w₀ : W) :
     B.thetaNorm v (ballMap w₀) < B.thetaNorm v f ↔ ∀ b : I, v (scaled b w₀) < 1 := by
@@ -741,9 +745,9 @@ lemma thetaNorm_lt_iff_coords (h_range : ballMap.range = G.normBall f) {I : Sort
       (∀ w : W, (scaled b w : ℂ) = ballMap w (pt b) / s) ∧ ∃ c : W, v (scaled b c) = 1 := by
     simpa only [IsIntegralCoords] using h_scaled
   choose s hp_eq c hc using h_coords
-  have h_ball_mem (i : W) : ballMap i ∈ G.normBall f := h_range.le ⟨i, rfl⟩
+  have h_ball_mem (i : W) : ballMap i ∈ normBall B χ v f := h_range.le ⟨i, rfl⟩
   have hw₀_theta : ballMap w₀ ∈ B.thetaSpace χ := (G.mem_normBall.mp (h_ball_mem w₀)).left
-  have h_int (b : I) (y : V → ℂ) (hy : y ∈ G.normBall f) : v (y (pt b) / s b) ≤ 1 := by
+  have h_int (b : I) (y : V → ℂ) (hy : y ∈ normBall B χ v f) : v (y (pt b) / s b) ≤ 1 := by
     obtain ⟨i, rfl⟩ := h_range.ge hy
     simpa [← hp_eq, v.mem_valuationSubring_iff] using (scaled b i).prop
   constructor
@@ -788,7 +792,7 @@ lemma thetaNorm_lt_iff_coords (h_range : ballMap.range = G.normBall f) {I : Sort
         mul_lt_one_of_lt_of_le (h_small d)
           (h_int b _ (G.thetaShift_mem_normBall hu (h_ball_mem (c d))))
   obtain ⟨hc_theta, hc_le⟩ := G.mem_normBall.mp (h_ball_mem (c b))
-  have h_ball : ballMap (c b) ∈ G.normBall (ballMap w₀) :=
+  have h_ball : ballMap (c b) ∈ normBall B χ v (ballMap w₀) :=
     G.mem_normBall.mpr ⟨hc_theta, hc_le.trans (not_lt.mp h_norm)⟩
   have h_mem : ballMap (c b) ∈ N :=
     G.mem_of_mem_normBall hw₀_theta le_rfl G.isAppellHumbert hw₀_theta hc_theta h_shift_mem h_ball

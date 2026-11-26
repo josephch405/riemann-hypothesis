@@ -374,7 +374,7 @@ lemma HasParahoricType.hasProductLabel {f : Gf E n → M → ℂ} {hw : w.IsSpli
   -- vanishes.
   suffices h_or : (labelChar T c).evalGL 1 = 0 ∨
       ∑ x : GL ρ (ResField w), starRingEnd ℂ ((labelChar T c).evalGL x) * L (σ x y) g m = 0 by
-    simpa [T, labelIdem, hc, asAlgebraHom_eq_sum, mul_assoc, ← mul_sum] using h_or
+    simpa [T, labelIdem, hc, Representation.asAlgebraHom_eq_sum, mul_assoc, ← mul_sum] using h_or
   exact .inr h_sum_Φ
 
 end ParahoricTypeLabel

@@ -1,6 +1,7 @@
 module
 
 import TauCeti.RingTheory.WittVector.ArtinSchreier
+import TauCeti.RingTheory.WittVector.Complete
 public import Mathlib.FieldTheory.IsAlgClosed.Classification
 public import Mathlib.RingTheory.WittVector.Compare
 public import Mathlib.Algebra.Polynomial.Degree.IsMonicOfDegree
@@ -147,7 +148,10 @@ lemma exists_tilt_lift_of_character (a : Multiplicative ℚ →* ℂ_[p])
     ∃ χ : Multiplicative ℚ →* OFlat, ∀ s : Multiplicative ℚ, (χ s).untilt = a s := by
   -- The values of `a` are roots of unity, so they lie in `OC`.
   have h_mem (s : Multiplicative ℚ) : a s ∈ valRingCp p := by
-    have h_den : s ^ s.toAdd.den = .ofAdd 1 ^ s.toAdd.num := by aesop
+    have h_den : s ^ s.toAdd.den = .ofAdd 1 ^ s.toAdd.num := by
+      exact congrArg Multiplicative.ofAdd (by
+        change s.toAdd.den • s.toAdd = s.toAdd.num • (1 : ℚ)
+        rw [nsmul_eq_mul, zsmul_eq_mul, Rat.den_mul_eq_num, mul_one])
     have h_fin : IsOfFinOrder (a s ^ s.toAdd.den) := by simp [← map_pow, h_den, ha]
     exact mem_valRingCp.mpr (h_fin.of_pow s.toAdd.den_nz).norm_eq_one.le
   -- Send `s` to the compatible sequence `a (s / p ^ n)` of `p`-power roots of `a s` in `OC`,
@@ -433,8 +437,8 @@ end Ainf
 /-!
 ## The kernel of θ on A_inf and divisibility by ξ, μ and τ
 
-Witt-vector surjectivity follows from Tau Ceti. Divisibility is proved by successive approximation:
-a claim is checked modulo `p`, on the constant coefficient in `O^♭`, and then lifted.
+Witt-vector surjectivity and the lifting of divisibility from the constant coefficient follow from
+Tau Ceti: a claim is checked modulo `p`, on the constant coefficient in `O^♭`, and then lifted.
 -/
 
 section ThetaKernel
@@ -502,21 +506,9 @@ lemma Witt.dvd_of_mem_of_constantCoeff_dvd {I : Ideal (WittVector p k)} (hc : c 
     (h_sat : ∀ x : WittVector p k, (p : WittVector p k) * x ∈ I → x ∈ I)
     (h_mod_p : ∀ a ∈ I, constantCoeff c ∣ constantCoeff a) :
     ∀ a ∈ I, c ∣ a := by
-  -- Successive approximation: each `x ∈ I` is `c * b + p * y` with `y` again in `I`.
-  have step (x : I) :
-      ∃ (b : WittVector p k) (y : I), (x : WittVector p k) = c * b + p * (y : WittVector p k) := by
-    obtain ⟨x, hx⟩ := x
-    -- modulo `p` the element `c` divides `x`
-    obtain ⟨y, b, hx_eq⟩ : ∃ y b : WittVector p k, y * p + b * c = x :=
-      mem_span_pair.mp (mem_span_pair_iff.mpr (h_mod_p x hx))
-    -- `p * y = x - b * c` lies in `I`, so `y` does
-    have h_py : (p : WittVector p k) * y = x - b * c := by linear_combination hx_eq
-    have hy : y ∈ I := h_sat y (by simpa [h_py] using I.sub_mem hx (I.mul_mem_left b hc))
-    exact ⟨b, ⟨y, hy⟩, by linear_combination -hx_eq⟩
   intro a ha
-  obtain ⟨b, hb⟩ := mem_range_of_approx (AddMonoidHom.mulLeft c)
-    (mul_smul_comm (p : WittVector p k) c) I.subtype step ⟨a, ha⟩
-  exact ⟨b, hb.symm⟩
+  exact mem_span_singleton.mp
+    (WittVector.eq_span_singleton_of_coeff_zero_dvd c hc h_sat h_mod_p ▸ ha)
 
 variable (g : Gp p) (m : FrobGal) (t : OFlat) (a : Ainf)
 

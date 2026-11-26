@@ -184,58 +184,6 @@ lemma galUnitsRep_conj_of_nsmul_eq_zero (γ g : Gal(Ω/ℚ)) {u : DiscreteUnits 
   calc galUnitsRep γ u = galUnitsRep γ (galUnitsRep (γ⁻¹ * conj g γ) u) := by rw [h_fix]
     _ = galUnitsRep (g * γ * g⁻¹) u := by simp
 
-/-- Shifts do not matter. Let `Λ S d` be linear maps, for finite sets `S` of primes and shifts
-`d`, such that adding a prime `q` to `S` first translates by `u/q` with weight `L q u - d q` and
-sums over the units `u` mod `q` (`Λ_insert`), and `Λ S d G` reads only `G` and the shifts on `S`
-when `S ⊆ I` (`Λ_congr`). If summing `F` over the translates by `b/r`, `r ∈ I ∖ S`, only changes
-the shifts (`distr`), then for `S ⊆ I` the value `Λ S d F` does not depend on `d`. -/
-lemma shift_indep_of_distribution {R V : Type} [CommRing R] [AddCommGroup V] [Module R V]
-    {Λ : Finset Nat.Primes → (Nat.Primes → R) → (QZ → R) →ₗ[R] V}
-    {L : ∀ q : Nat.Primes, (ZMod q)ˣ → R} {I : Finset Nat.Primes} {F : QZ → R}
-    (Λ_insert : ∀ {q : Nat.Primes} {S : Finset Nat.Primes}, q ∉ S →
-      ∀ (d : Nat.Primes → R) (G : QZ → R),
-      Λ (insert q S) d G = Λ S d fun x : QZ ↦ ∑ u : (ZMod q)ˣ, (L q u - d q) * G (x + ofZMod q u))
-    (Λ_congr : ∀ {S : Finset Nat.Primes} {d f : Nat.Primes → R}, S ⊆ I → (∀ q ∈ S, f q = d q) →
-      ∀ {G G' : QZ → R}, (∀ x : QZ, G x = G' x) → Λ S d G = Λ S f G')
-    (distr : ∀ r ∈ I, ∀ S ⊆ I, r ∉ S → ∀ d : Nat.Primes → R, ∃ f : Nat.Primes → R,
-      Λ S d (fun x : QZ ↦ ∑ b : ZMod r, F (x + ofZMod r b)) = Λ S f F)
-    {S : Finset Nat.Primes} (hS : S ⊆ I) {d f : Nat.Primes → R} :
-    Λ S d F = Λ S f F := by
-  -- Changing `d` at one `r ∈ S` changes `Λ S d F` by a multiple of
-  -- `Λ (S \ r) d (∑_b F (· + b/r) - F)`, which is zero by `distr` and induction on `S`.
-  revert hS d f
-  refine S.strongInductionOn fun S ih hS d f ↦ ?_
-  -- `step T`: the shifts may be changed from `f` to `d` on `T ⊆ S`, one prime at a time.
-  have step (T : Finset Nat.Primes) (hT : T ⊆ S) : Λ S (T.piecewise d f) F = Λ S f F := by
-    induction T using Finset.induction with
-    | empty => rfl
-    | insert r T hrT ihT =>
-      obtain ⟨hr, hT⟩ := insert_subset_iff.mp hT
-      refine .trans ?_ (ihT hT)
-      have erase_le : S.erase r ⊆ I := (erase_subset r S).trans hS
-      have r_notMem : r ∉ S.erase r := notMem_erase r S
-      -- The functions that `Λ (S.erase r)` is applied to on the two sides, and the difference
-      -- `H - F` with `H = ∑_b F (· + b/r)`, which it kills.
-      let G₁ : QZ → R := fun x : QZ ↦
-        ∑ u : (ZMod r)ˣ, (L r u - (insert r T).piecewise d f r) * F (x + ofZMod r u)
-      let G₂ : QZ → R := fun x : QZ ↦
-        ∑ u : (ZMod r)ˣ, (L r u - T.piecewise d f r) * F (x + ofZMod r u)
-      let H : QZ → R := fun x : QZ ↦ ∑ b : ZMod r, F (x + ofZMod r b)
-      have vanish {d : Nat.Primes → R} : Λ (S.erase r) d H = Λ (S.erase r) d F := by
-        obtain ⟨d', hd'⟩ := distr r (hS hr) (S.erase r) erase_le r_notMem d
-        exact hd'.trans (ih (S.erase r) (erase_ssubset hr) erase_le)
-      have h_shift (q : Nat.Primes) (hq : q ∈ S.erase r) :
-          T.piecewise d f q = (insert r T).piecewise d f q := by
-        simp [ne_of_mem_erase hq]
-      have h_fun (x : QZ) : (G₁ + (d r - f r) • (H - F)) x = G₂ x := by
-        simp [G₁, G₂, H, hrT, mul_sum, sum_eq_add_sum_units, ← add_mul, ← sum_add_distrib]
-      rw [← insert_erase hr, Λ_insert r_notMem, Λ_insert r_notMem]
-      calc Λ (S.erase r) ((insert r T).piecewise d f) G₁
-          = Λ (S.erase r) ((insert r T).piecewise d f) (G₁ + (d r - f r) • (H - F)) := by
-            simp [vanish]
-        _ = Λ (S.erase r) (T.piecewise d f) G₂ := Λ_congr erase_le h_shift h_fun
-  exact (Λ_congr hS (fun q hq ↦ by simp [hq]) fun x : QZ ↦ rfl).trans (step S le_rfl)
-
 section Derivative
 
 variable (ψ e L S d) in
@@ -342,25 +290,6 @@ lemma derivativeSum_congr (hM : N * l ^ n ∣ M) (hS : ∀ q ∈ S, (q : ℕ) �
   simpa using cyclotomicPowDirichlet_smul_derivativeSum (g := 1) (a := 1) (e := e) (ψ := ψ) hM hS
     (by simp) h_shift (fun {x} hx ↦ by simpa using hG hx)
 
-/-- Equivariance of `derivativeSum` under `g`: only the shifts change. Let `M` be a multiple
-of `N lⁿ` and of the primes of `S`, and let `a` be the cyclotomic character of `g` mod `M`. If
-`G x = G' (a x)` on the `M`-torsion of `ℚ/ℤ`, then `cycᵉ ψ (g)` times `derivativeSum … d G` is
-`derivativeSum … f G'` for some shifts `f`. -/
-lemma exists_cyclotomicPowDirichlet_smul_derivativeSum [NeZero M] (hM : N * l ^ n ∣ M)
-    (hS : ∀ q ∈ S, (q : ℕ) ∣ M) (hg : (cyclotomicCharMod Ω M g : ZMod M) = a)
-    (hG : ∀ {x : QZ}, M • x = 0 → G x = G' (a • x)) :
-    ∃ f : Nat.Primes → ZMod (l ^ n),
-      (cyclotomicPowDirichlet l e ψ g : O) • derivativeSum e ψ L S d G =
-        derivativeSum e ψ L S f G' := by
-  have a_unit {q : Nat.Primes} (hq : q ∈ S) : IsUnit (a : ZMod q) :=
-    ⟨unitsMap (hS q hq) (cyclotomicCharMod Ω M g),
-      by rw [unitsMap_val, hg, cast_natCast (hS q hq) a]⟩
-  -- The new shift at `q` is `L q v + d q`, where `v` is the unit of `ℤ/q` given by `a`.
-  let v (q : Nat.Primes) : (ZMod q)ˣ := invFun Units.val (a : ZMod q)
-  have hv (q : Nat.Primes) (hq : q ∈ S) : (v q : ZMod q) = a := invFun_eq (a_unit hq)
-  exact ⟨fun q ↦ (L q (v q)).toAdd + d q, cyclotomicPowDirichlet_smul_derivativeSum hM hS
-    (cyclotomicCharMod_eq_of_dvd hM hg) (fun q hq ↦ ⟨v q, rfl, hv q hq⟩) hG⟩
-
 /-- Let `M` be a multiple of `N lⁿ`, let the natural number `a` represent the cyclotomic character
 of `g ∈ Gal(ℚ̄/ℚ)` mod `N lⁿ`, and let `s : ℚ/ℤ → ℤ` and `G : ℚ/ℤ → ℤ/lⁿ` satisfy
 `G x = a s(x) - s(a x)` on the `M`-torsion. Suppose that the character sum
@@ -406,18 +335,6 @@ is of no use). -/
 noncomputable def commutatorLog (m : ℕ) [NeZero m] (γ : Gal(Ω/ℚ)) (y : DiscreteUnits Ω)
     (g : Gal(Ω/ℚ)) : ZMod m :=
   invFun (rootPowHom Ω m).val (galUnitsRep γ y - galUnitsRep (g * γ * g⁻¹) y)
-
-/-- If the commutator `γ⁻¹ (g γ g⁻¹)` moves `y` by an `m`-th root of unity, then `commutatorLog`
-is the exponent of `γ y / (g γ g⁻¹) y`: `ζ ^ commutatorLog m γ y g = γ y / (g γ g⁻¹) y`. -/
-lemma rootPowHom_commutatorLog (hy : m • (galUnitsRep (γ⁻¹ * conj g γ) y - y) = 0) :
-    (rootPowHom Ω m).val (commutatorLog m γ y g) =
-      galUnitsRep γ y - galUnitsRep (g * γ * g⁻¹) y := by
-  obtain ⟨-, μ_range⟩ : Injective (rootPowHom Ω m).val ∧
-      ∀ z : DiscreteUnits Ω, z ∈ (rootPowHom Ω m).val.range ↔ m • z = 0 := (rootPowHom Ω m).prop
-  -- Applying `γ` to `hy` shows that `γ y / (g γ g⁻¹) y` is an `m`-th root of unity.
-  have h_root : m • (galUnitsRep γ y - galUnitsRep (g * γ * g⁻¹) y) = 0 := by
-    simpa [smul_sub] using congr_arg (fun z : DiscreteUnits Ω ↦ -galUnitsRep γ z) hy
-  exact invFun_eq ((μ_range _).mpr h_root)
 
 /-- `commutatorLog m γ y g` is locally constant in `g`, since the orbit map `g ↦ (g γ g⁻¹) y` is. -/
 lemma isLocallyConstant_commutatorLog : IsLocallyConstant (commutatorLog m γ y) := by
@@ -471,36 +388,6 @@ lemma exists_inertia_smul_add_ofZMod [NeZero M] {q : Nat.Primes} (hq : B.valuati
   -- Without `-inv_coe_unit` this `simp` call loops.
   simp [← map_nsmul, ← cyclotomicCharMod_eq_of_dvd _ (ZMod.natCast_zmod_val _).symm, cyc_M,
     cyc_mod_q, -inv_coe_unit]
-
-/-- Let `g` lie in the inertia group of a place `B` at which `m` is a unit, let `γ` act on the
-`m`-th roots of unity by `a`, and let `g r / r = ζᵇ`. Suppose that `g y / y` and `γ y / y'` are
-`m`-th roots of unity, and that `(y / rˢ)ᵐ` and `(y' / r ^ s')ᵐ` are units at `B`. If
-`γ y / (g γ g⁻¹) y = ζᵗ`, then `t = a s b - s' b`. Here `ζ ^ t` is `rootPowHom Ω m t`. -/
-lemma exponent_eq_of_inertia {γ : Gal(Ω/ℚ)} {y y' r : DiscreteUnits Ω} {b t : ZMod m} {s s' : ℤ}
-    (hg : IsFrob B 1 g) (hm : B.valuation m = 1) (hγ : (cyclotomicCharMod Ω m γ : ZMod m) = a)
-    (hr : galUnitsRep g r - r = (rootPowHom Ω m).val b)
-    (hgy : m • (galUnitsRep g y - y) = 0) (hγy : m • (galUnitsRep γ y - y') = 0)
-    (hy : B.valuation ((m • (y - s • r)).toMul : Ω) = 1)
-    (hy' : B.valuation ((m • (y' - s' • r)).toMul : Ω) = 1)
-    (ht : (rootPowHom Ω m).val t = galUnitsRep γ y - galUnitsRep (g * γ * g⁻¹) y) :
-    a • (s * b) - t = s' * b := by
-  -- Reduce modulo `B`, where the `m`-th roots of unity stay distinct and `g` fixes the units.
-  have g_fix : galUnitsRep g (galUnitsRep γ y - y') = 1 • (galUnitsRep γ y - y') :=
-    cyclotomicCharMod_eq_iff_unitsRep.mp (hg.cyclotomicCharMod_eq hm) hγy
-  have γ_pow : galUnitsRep γ (galUnitsRep g y - y) = a • (galUnitsRep g y - y) :=
-    cyclotomicCharMod_eq_iff_unitsRep.mp hγ hgy
-  have h_mem : galUnitsRep g (y' - s' • r) - 1 • (y' - s' • r) -
-      a • (galUnitsRep g (y - s • r) - 1 • (y - s • r)) ∈ principalUnits B :=
-    sub_mem (hg.sub_nsmul_mem_principalUnits hy')
-      (nsmul_mem (hg.sub_nsmul_mem_principalUnits hy) a)
-  have h_eq : (rootPowHom Ω m).val (a • (s * b) - t - s' * b) =
-      galUnitsRep g (y' - s' • r) - 1 • (y' - s' • r) -
-        a • (galUnitsRep g (y - s • r) - 1 • (y - s • r)) := by
-    linear_combination (norm := skip) g_fix - γ_pow + galUnitsRep_conj_of_nsmul_eq_zero γ g hgy
-    -- `-nsmul_eq_mul` keeps `a •` outside `rootPowHom`, where `abel` can match it.
-    simp [ht, ← hr, ← zsmul_eq_mul, smul_sub, -nsmul_eq_mul]
-    abel
-  exact eq_of_mem_principalUnits hm (by rwa [h_eq])
 
 end CommutatorLog
 
@@ -657,35 +544,9 @@ private lemma rootPowHom_commutatorLog_of_isJacobiFamily
   have h_comm : (cyclotomicCharMod Ω M (γ⁻¹ * conj g γ)).val = (1 : ℕ) := by simp [mul_comm]
   have h_fixed : l ^ n • (galUnitsRep (γ⁻¹ * conj g γ) (y x) - y x) = 0 := by
     simpa using nsmul_galUnitsRep_sub_eq_zero_of_isJacobiFamily hJ hx (γ⁻¹ * conj g γ) 1 h_comm
-  exact rootPowHom_commutatorLog h_fixed
-
-/-- The distribution relation for the exponents. Let `lⁿ • y` be a Jacobi family at level `M` and
-let `r ∣ M` be a prime with `r ≡ 1 mod c`. Then, for every `x` killed by `M`, the exponents
-`commutatorLog (l ^ n) γ (y ·) g` at the translates `x + b / r` sum to the exponent at `r x`. -/
-private lemma sum_commutatorLog_add_ofZMod_eq_of_isJacobiFamily
-    (hJ : IsJacobiFamily p B c M (l ^ n • y)) {r : Nat.Primes} (hrM : (r : ℕ) ∣ M)
-    (hr_one : (r : ℕ) ≡ 1 [MOD c]) (g : Gal(Ω/ℚ)) {x : QZ} (hx : M • x = 0) :
-    ∑ b : ZMod r, commutatorLog (l ^ n) γ (y (x + ofZMod r b)) g =
-      commutatorLog (l ^ n) γ (y ((r : ℕ) • x)) g := by
-  -- The quotient `D = ∏_b y(x + b/r) / y(r x)` has finite order, so `γ` and `g γ g⁻¹` act alike on
-  -- it; under `rootPowHom` the two sides differ by `γ D / (g γ g⁻¹) D`.
-  have μ_inj : Injective (rootPowHom Ω (l ^ n)).val := (rootPowHom Ω (l ^ n)).property.left
-  let D : DiscreteUnits Ω := ∑ b : ZMod r, y (x + ofZMod r b) - y ((r : ℕ) • x)
-  have h_order : IsOfFinAddOrder (l ^ n • D) := by
-    simpa [D, smul_sub, smul_sum] using
-      hJ.isOfFinAddOrder_sum_sub hx r hrM hr_one.coprime_of_modEq_one.symm
-  obtain ⟨k, k_pos, hk⟩ := (h_order.of_nsmul (NeZero.ne _)).exists_nsmul_eq_zero
-  have hk_neZero : NeZero k := .of_pos k_pos
-  have h_conj : galUnitsRep γ D = galUnitsRep (g * γ * g⁻¹) D :=
-    galUnitsRep_conj_of_nsmul_eq_zero γ g hk
-  have h_level (b : ZMod r) : M • (x + ofZMod r b) = 0 := by
-    simp [← map_nsmul, (natCast_eq_zero_iff M r).mpr hrM, hx]
-  have h_level_r : M • ((r : ℕ) • x) = 0 := by simp [smul_comm M, hx]
-  apply μ_inj
-  simp only [map_sum, rootPowHom_commutatorLog_of_isJacobiFamily hJ (h_level _),
-    rootPowHom_commutatorLog_of_isJacobiFamily hJ h_level_r]
-  simpa only [D, map_sub, map_sum, sum_sub_distrib, sub_sub_sub_comm, sub_eq_sub_iff_sub_eq_sub]
-    using h_conj
+  have h_root : l ^ n • (galUnitsRep γ (y x) - galUnitsRep (g * γ * g⁻¹) (y x)) = 0 := by
+    simpa [smul_sub] using congr_arg (fun z : DiscreteUnits Ω ↦ -galUnitsRep γ z) h_fixed
+  exact invFun_eq (((rootPowHom Ω (l ^ n)).prop.2 _).mpr h_root)
 
 /-- Let `lⁿ • y` be a Jacobi family at level `M`, with `N lⁿ ∣ M`, and let every prime of `I` divide
 `M` and be `≡ 1 mod c N lⁿ`. For `S ⊆ I`, the derivative sum `derivativeSum e ψ L S d` of the
@@ -697,16 +558,51 @@ private lemma derivativeSum_commutatorLog_eq_of_isJacobiFamily
     (g : Gal(Ω/ℚ)) {S : Finset Nat.Primes} (hS : S ⊆ I) (d f : Nat.Primes → ZMod (l ^ n)) :
     derivativeSum e ψ L S d (fun x : QZ ↦ commutatorLog (l ^ n) γ (y x) g) =
       derivativeSum e ψ L S f (fun x : QZ ↦ commutatorLog (l ^ n) γ (y x) g) := by
-  -- By the distribution relation at `r ∈ I`, summing over the translates by `b / r` only changes
-  -- the shifts (`derivativeSum_eq_of_prime`); `shift_indep_of_distribution` does the rest.
-  refine shift_indep_of_distribution (Λ := derivativeSum e ψ L) (L := fun q u ↦ (L q u).toAdd)
-    (I := I) (fun hqT _ _ ↦ derivativeSum_insert hqT) ?_ ?_ hS
-  · intro T d' f' hT h_shift G G' hG
-    exact derivativeSum_congr hM (fun q hq ↦ hI_dvd q (hT hq)) h_shift fun {x} _ ↦ hG x
-  · intro r hr T hTI hrT d'
-    exact ⟨_, derivativeSum_eq_of_prime hM (fun q hq ↦ hI_dvd q (hTI hq)) (hI_one r hr).of_mul_left
-      hrT (sum_commutatorLog_add_ofZMod_eq_of_isJacobiFamily hJ (hI_dvd r hr)
-        (hI_one r hr).of_mul_right g)⟩
+  let F (x : QZ) : ZMod (l ^ n) := commutatorLog (l ^ n) γ (y x) g
+  have h_dist {r : Nat.Primes} (hr : r ∈ I) {x : QZ} (hx : M • x = 0) :
+      ∑ b : ZMod r, F (x + ofZMod r b) = F ((r : ℕ) • x) := by
+    let D : DiscreteUnits Ω := ∑ b : ZMod r, y (x + ofZMod r b) - y ((r : ℕ) • x)
+    have h_order : IsOfFinAddOrder (l ^ n • D) := by
+      simpa [D, smul_sub, smul_sum] using hJ.isOfFinAddOrder_sum_sub hx r (hI_dvd r hr)
+        (hI_one r hr).of_mul_right.coprime_of_modEq_one.symm
+    obtain ⟨k, k_pos, hk⟩ := (h_order.of_nsmul (NeZero.ne _)).exists_nsmul_eq_zero
+    have : NeZero k := .of_pos k_pos
+    have h_level (b : ZMod r) : M • (x + ofZMod r b) = 0 := by
+      simp [← map_nsmul, (natCast_eq_zero_iff M r).mpr (hI_dvd r hr), hx]
+    have h_level_r : M • ((r : ℕ) • x) = 0 := by simp [smul_comm M, hx]
+    apply (rootPowHom Ω (l ^ n)).property.left
+    simp only [F, map_sum, rootPowHom_commutatorLog_of_isJacobiFamily hJ (h_level _),
+      rootPowHom_commutatorLog_of_isJacobiFamily hJ h_level_r]
+    simpa only [D, map_sub, map_sum, sum_sub_distrib, sub_sub_sub_comm,
+      sub_eq_sub_iff_sub_eq_sub] using galUnitsRep_conj_of_nsmul_eq_zero γ g hk
+  revert hS d f
+  refine S.strongInductionOn fun S ih hS d f ↦ ?_
+  have step (T : Finset Nat.Primes) (hT : T ⊆ S) :
+      derivativeSum e ψ L S (T.piecewise d f) F = derivativeSum e ψ L S f F := by
+    induction T using Finset.induction with
+    | empty => rfl
+    | insert r T hrT ihT =>
+      obtain ⟨hr, hT⟩ := insert_subset_iff.mp hT
+      refine .trans ?_ (ihT hT)
+      have erase_le : S.erase r ⊆ I := (erase_subset r S).trans hS
+      have hr_not : r ∉ S.erase r := notMem_erase r S
+      have h_dvd : ∀ q ∈ S.erase r, (q : ℕ) ∣ M := fun q hq ↦ hI_dvd q (erase_le hq)
+      let G₁ (x : QZ) : ZMod (l ^ n) :=
+        ∑ u : (ZMod r)ˣ, ((L r u).toAdd - (insert r T).piecewise d f r) * F (x + ofZMod r u)
+      let H (x : QZ) : ZMod (l ^ n) := ∑ b : ZMod r, F (x + ofZMod r b)
+      have h_vanish : derivativeSum e ψ L (S.erase r) ((insert r T).piecewise d f) H =
+          derivativeSum e ψ L (S.erase r) ((insert r T).piecewise d f) F :=
+        (derivativeSum_eq_of_prime hM h_dvd (hI_one r (hS hr)).of_mul_left hr_not
+          (h_dist (hS hr))).trans (ih _ (erase_ssubset hr) erase_le _ _)
+      rw [← insert_erase hr, derivativeSum_insert hr_not, derivativeSum_insert hr_not]
+      calc derivativeSum e ψ L (S.erase r) ((insert r T).piecewise d f) G₁
+          = derivativeSum e ψ L (S.erase r) ((insert r T).piecewise d f)
+              (G₁ + (d r - f r) • (H - F)) := by simp [h_vanish]
+        _ = derivativeSum e ψ L (S.erase r) (T.piecewise d f) _ :=
+            derivativeSum_congr hM h_dvd (fun q hq ↦ by simp [ne_of_mem_erase hq]) fun _ ↦ by
+              simp [G₁, H, hrT, mul_sum, sum_eq_add_sum_units, ← add_mul, ← sum_add_distrib]
+  exact (derivativeSum_congr hM (fun q hq ↦ hI_dvd q (hS hq)) (fun q hq ↦ by simp [hq])
+    fun _ ↦ rfl).trans (step S le_rfl)
 
 /-- Let `lⁿ • y` be a Jacobi family at level `M` with `lⁿ ∣ M`, and let `g` lie in the inertia group
 (`IsFrob A 1 g`) of a place `A` prime to `l`, fix the `M`-th roots of unity and have `g r / r = ζᵇ`.
@@ -727,8 +623,27 @@ private lemma nsmul_floorDiff_mul_sub_commutatorLog_eq_of_isFrob
   have h_γy : l ^ n • (galUnitsRep γ (y x) - y (a • x)) = 0 :=
     nsmul_galUnitsRep_sub_eq_zero_of_isJacobiFamily hJ hx γ a ha
   have hax : M • a • x = 0 := by simp [smul_comm M, hx]
-  exact exponent_eq_of_inertia hg_inertia hl (cyclotomicCharMod_eq_of_dvd hM ha) hr h_gy h_γy
-    (h_unit hx) (h_unit hax) (rootPowHom_commutatorLog_of_isJacobiFamily hJ hx g)
+  have g_fix : galUnitsRep g (galUnitsRep γ (y x) - y (a • x)) =
+      1 • (galUnitsRep γ (y x) - y (a • x)) :=
+    cyclotomicCharMod_eq_iff_unitsRep.mp (hg_inertia.cyclotomicCharMod_eq hl) h_γy
+  have γ_pow : galUnitsRep γ (galUnitsRep g (y x) - y x) = a • (galUnitsRep g (y x) - y x) :=
+    cyclotomicCharMod_eq_iff_unitsRep.mp (cyclotomicCharMod_eq_of_dvd hM ha) h_gy
+  have h_mem : galUnitsRep g (y (a • x) - floorDiff c (a • x) • r) -
+      1 • (y (a • x) - floorDiff c (a • x) • r) -
+      a • (galUnitsRep g (y x - floorDiff c x • r) - 1 • (y x - floorDiff c x • r)) ∈
+      principalUnits A :=
+    sub_mem (hg_inertia.sub_nsmul_mem_principalUnits (h_unit hax))
+      (nsmul_mem (hg_inertia.sub_nsmul_mem_principalUnits (h_unit hx)) a)
+  have h_eq : (rootPowHom Ω (l ^ n)).val
+      (a • (floorDiff c x * b) - commutatorLog (l ^ n) γ (y x) g - floorDiff c (a • x) * b) =
+      galUnitsRep g (y (a • x) - floorDiff c (a • x) • r) -
+        1 • (y (a • x) - floorDiff c (a • x) • r) -
+        a • (galUnitsRep g (y x - floorDiff c x • r) - 1 • (y x - floorDiff c x • r)) := by
+    linear_combination (norm := skip) g_fix - γ_pow + galUnitsRep_conj_of_nsmul_eq_zero γ g h_gy
+    simp [rootPowHom_commutatorLog_of_isJacobiFamily hJ hx g, ← hr, ← zsmul_eq_mul, smul_sub,
+      -nsmul_eq_mul]
+    abel
+  exact eq_of_mem_principalUnits hl (by rwa [h_eq])
 
 /-- The relation for the character sum. Let `B` lie above `p ≡ 1 mod N lⁿ`, and let `lⁿ • y` be a
 Jacobi family at level `N lⁿ` for `p`, `B` and `c`. If the derivative sum over no primes of the
@@ -796,10 +711,15 @@ private lemma derivativeSum_commutatorLog_mul_eq_of_isJacobiFamily
       (rootPowHom_commutatorLog_of_isJacobiFamily hJ hx g')
       (rootPowHom_commutatorLog_of_isJacobiFamily hJ hax (g * g'))
       (rootPowHom_commutatorLog_of_isJacobiFamily hJ hax g)
-  obtain ⟨f, h_equiv⟩ : ∃ f : Nat.Primes → ZMod (l ^ n),
-      (cyclotomicPowDirichlet l e ψ g : O) • derivativeSum e ψ L I 0 (a • F g') =
-        derivativeSum e ψ L I f (F (g * g') - F g) :=
-    exists_cyclotomicPowDirichlet_smul_derivativeSum hM hI_dvd ha h_exponent
+  have a_unit {q : Nat.Primes} (hq : q ∈ I) : IsUnit (a : ZMod q) :=
+    ⟨unitsMap (hI_dvd q hq) (cyclotomicCharMod Ω M g),
+      by rw [unitsMap_val, ha, cast_natCast (hI_dvd q hq) a]⟩
+  let v (q : Nat.Primes) : (ZMod q)ˣ := invFun Units.val (a : ZMod q)
+  let f (q : Nat.Primes) : ZMod (l ^ n) := (L q (v q)).toAdd
+  have h_equiv : (cyclotomicPowDirichlet l e ψ g : O) • derivativeSum e ψ L I 0 (a • F g') =
+      derivativeSum e ψ L I f (F (g * g') - F g) :=
+    cyclotomicPowDirichlet_smul_derivativeSum hM hI_dvd ha_N
+      (fun q hq ↦ ⟨v q, by simp [f], invFun_eq (a_unit hq)⟩) h_exponent
   have h_shift (h : Gal(Ω/ℚ)) : derivativeSum e ψ L I f (F h) = derivativeSum e ψ L I 0 (F h) :=
     derivativeSum_commutatorLog_eq_of_isJacobiFamily hJ hM hI_dvd hI_one h le_rfl f 0
   rw [cyclotomicPowDirichlet_succ_smul ha_N killed, ← map_nsmul, h_equiv, map_sub, h_shift,

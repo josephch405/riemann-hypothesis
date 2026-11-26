@@ -265,11 +265,9 @@ lemma exists_openNormalSubgroup_forall_eq_zero (G' : OpenSubgroup Gal(Ω/E)) (m 
     simp [V, hz_add u u.property u' u'.property]
   have h_mem : (fun u : H ↦ χ (z u)) ∈ Y := by
     refine ⟨h_cocycle, fun w hw A hA u hu ↦ ?_⟩
-    have hz_zero : z u = 0 := hz_unr u ⟨w.below E, hw, A, hA.isPlaceOver_below, hu⟩
-    simp [hz_zero]
+    simp [hz_unr u ⟨w.below E, hw, A, hA.isPlaceOver_below, hu⟩]
   obtain ⟨hg_mem, h_const⟩ : ∃ hg : g ∈ H, ∀ y ∈ Y, y ⟨g, hg⟩ = y 1 := hG'' g hg
-  have h_value : χ (z g) = χ (z 1) := h_const _ h_mem
-  rw [h_value, hz_one, map_zero]
+  simpa only [Subgroup.coe_one, hz_one, map_zero] using h_const _ h_mem
 
 /-- Let `ρ` be a function from `Gal(Ω/E)` to matrices over a ring `Λ`, let `L` be a set of relations
 `∑ γ, f γ • c γ = 0` with matrix coefficients over `Λ`, let `G'` be an open subgroup, let `m ≠ 0`

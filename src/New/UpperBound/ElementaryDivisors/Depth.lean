@@ -281,15 +281,14 @@ theorem exists_eq_of_mem_support_specializeShallow {L : Type} [CommRing L] {n r 
       ringHom_map_zero x, zero_mul]),
     fun v ↦ by simp [h_eq, deepPart, deep, Finsupp.indicator_apply]⟩
 
-/-- Let the variable `v u b` determine `b`, and let the exponents `e u` be positive and distinct.
+/-- Let the variable `v u b` determine `b`, and let the exponents `e u` be distinct.
 The determinant of the matrix of the powers `X (v u b) ^ e u` is a signed sum of distinct
 monomials, so it is not zero. -/
 lemma _root_.New.det_X_pow_ne_zero {ι σ R : Type*} [Fintype ι] [DecidableEq ι] [CommRing R]
     [Nontrivial R] {v : ι → ι → σ} (hv_index : ∀ u u' b b' : ι, v u b = v u' b' → b = b')
-    {e : ι → ℕ} (he_inj : Function.Injective e) (he_pos : ∀ u : ι, e u ≠ 0) :
+    {e : ι → ℕ} (he_inj : Function.Injective e) :
     (of fun u b : ι ↦ (X (v u b) : MvPolynomial σ R) ^ e u).det ≠ 0 := by
   classical
-  have _ := he_pos
   -- Collapse each column's variables `X (v u b)` to `X b` to get the alternant `det (X b ^ e u)`.
   let φ : MvPolynomial σ R →ₐ[R] MvPolynomial ι R :=
     aeval fun s ↦ if h : ∃ b u, v u b = s then X h.choose else 0
@@ -359,7 +358,7 @@ lemma single_mem_lowPowerForms_of_ne_zero {r m : ℕ} (hm : 2 * r + m = k) {L : 
   have h_det : M.det ≠ 0 := by
     have h_inj : Function.Injective fun u : Fin r ↦ T.P ^ J u := fun u u' h_eq ↦
       Fin.ext (by rw [← hJ_div u, Nat.pow_right_injective hP h_eq, hJ_div u'])
-    refine det_X_pow_ne_zero (fun u u' b₁ b₂ h_var ↦ ?_) h_inj fun u ↦ by positivity
+    refine det_X_pow_ne_zero (fun u u' b₁ b₂ h_var ↦ ?_) h_inj
     simpa [entryRow, Fin.ext_iff] using congrArg Prod.fst h_var
   have h_unit : IsUnit (x.mapMatrix M) := by
     rw [isUnit_iff_isUnit_det, ← x.map_det]
@@ -842,8 +841,8 @@ variable {N k : ℕ} [NeZero N] {W K : Type} [CommRing W] [IsLocalRing W] [Field
 
 /-- The variable `x = (b, s)` is deep if `s` is even and `r ≤ b`, or `s` is odd and `b < r`. Give a
 deep variable the cost `1 / P ^ (2 r)` if `2 r ≤ b` and `1 / P` otherwise, and the other variables
-the cost `0`. For `0 < 2 r ≤ k` the costs add up to at most `N (k / P ^ (2 r) + r ^ 2 / P)`. -/
-lemma New.FrobeniusCycle.sum_deepIndicator_div_le (T : FrobeniusCycle N W K) {r : ℕ} (hr : 0 < r)
+the cost `0`. For `2 r ≤ k` the costs add up to at most `N (k / P ^ (2 r) + r ^ 2 / P)`. -/
+lemma New.FrobeniusCycle.sum_deepIndicator_div_le (T : FrobeniusCycle N W K) {r : ℕ}
     (hk : 2 * r ≤ k) :
     ∑ x : Fin k × ZMod N, (T.deepIndicator r x / T.P ^ (if 2 * r ≤ x.1 then 2 * r else 1) : ℝ) ≤
       N * (k / T.P ^ (2 * r) + r ^ 2 / T.P) := by
@@ -853,7 +852,6 @@ lemma New.FrobeniusCycle.sum_deepIndicator_div_le (T : FrobeniusCycle N W K) {r 
       ∑ s : ZMod N, (T.deepIndicator r (b, s) / T.P ^ (if 2 * r ≤ b.val then 2 * r else 1) : ℝ) =
         (N / 2 : ℕ) / T.P ^ (if 2 * r ≤ b.val then 2 * r else 1) := by
     rw [← T.sum_deepIndicator r b, cast_sum, Finset.sum_div]
-  have _ := hr
   have hr_sq : (r : ℝ) ≤ r ^ 2 := mod_cast Nat.le_self_pow two_ne_zero r
   have hN_half : ((N / 2 : ℕ) : ℝ) ≤ (N : ℝ) / 2 := by
     simpa only [Nat.cast_ofNat] using (Nat.cast_div_le (α := ℝ) (m := N) (n := 2))
@@ -907,7 +905,7 @@ lemma New.FrobeniusCycle.sum_finrank_deepForms_le (T : FrobeniusCycle N W K) [Ch
         simp only [cost, weight_eq_sum, nsmul_eq_mul, Finset.sum_comm (γ := Exponents N k n),
           ← Finset.sum_mul, h_mean, ← Finset.mul_sum]
     _ ≤ total * n / k * (N * (k / T.P ^ (2 * r) + r ^ 2 / T.P)) :=
-        mul_le_mul_of_nonneg_left (T.sum_deepIndicator_div_le hr hk)
+        mul_le_mul_of_nonneg_left (T.sum_deepIndicator_div_le hk)
           (div_nonneg (mul_nonneg (pow_nonneg (Nat.cast_nonneg _) _) (Nat.cast_nonneg _)) hk_pos.le)
     _ = T.divisorConstant k n r * total := by
         rw [divisorConstant]

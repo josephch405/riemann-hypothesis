@@ -191,8 +191,7 @@ private lemma pull_mk₀_comp_contractionPow_one_eq_pull_extClass_oneSubMu
       pullbackAlong α HodgeTatePair.contractionCocycle.cohomClass :=
     D.cohomClass_naturality _ α (𝟙 _) fun c d f ↦ (Category.comp_id _).symm
   rw [comp_assoc_of_eq h_nat.symm, comp_id]
-  -- `erw`: the right side is type-correct only up to unfolding `ShortComplex.map`, so `rw` fails.
-  erw [← pullbackAlong_of]
+  refine Eq.trans ?_ (pullbackAlong_of _)
   -- A unit of `B ×_T (T ⊕ M)` has a first component in `Bˣ`, which lifts its image in `Tˣ`. By
   -- `Cocycle.cohomClass_comp_eq_extClass` it remains to check that this is a lift, and that its
   -- failure to be natural in the pair is the cocycle `D`, carried into `Bˣ`.
@@ -740,12 +739,20 @@ private lemma projSpace.exists_map_eq_map_of_isTodaCancellation
       refine (congrArg P.hom (hF c u)).trans ((_root_.map_sub P.hom _ _).trans ?_)
       change relFreeAb.mk Z (φ c u) - relFreeAb.mk Z (φ c z) = _
       rw [hz, sub_zero]
+      let descend := (r.app C).hom.comp ((s.app C).hom.comp
+        (J.hom.comp ((freeAb.map a).app c).hom))
       obtain ⟨⟨_ | _⟩, t⟩ := u
-      · erw [projFirst_false (B := fun _ ↦ monoidAlg ℚ≥0) c t]
-        simp only [map_zero]
-        exact relFreeAb_mk_stdChart_one_eq_zero C _
-      · erw [projFirst_true (B := fun _ ↦ monoidAlg ℚ≥0) c t, freeAb.map_of]
-        rfl
+      · refine Eq.trans (relFreeAb_mk_stdChart_one_eq_zero C _) ?_
+        symm
+        refine (congrArg descend
+          (projFirst_false (B := fun _ ↦ monoidAlg ℚ≥0) c t)).trans ?_
+        exact map_zero descend
+      · refine Eq.trans ?_ (congrArg
+          descend
+          (projFirst_true (B := fun _ ↦ monoidAlg ℚ≥0) c t)).symm
+        have h_map : ((freeAb.map a).app c).hom (.of t) =
+            FreeAddCommGroup.of (a c t) := freeAb.map_of ..
+        exact (congrArg (fun x ↦ (r.app C).hom ((s.app C).hom (J.hom x))) h_map).symm
   -- `T` is a section of the coordinate map.
   have h_section : s ≫ relFreeAb.map _ cutsOutLocus_stdChart_zero_X.preimage_fieldLocus_not.le = 𝟙
     _ :=
@@ -815,25 +822,25 @@ private lemma teichmullerCoordinate_cancel_twist (c : PadicTest)
   let s : AddMonoidAlgebra OFlat ℚ≥0 := AddMonoidAlgebra.single 1 1
   have h_disc : (discToTorus NNRat.coeHom).hom s = q := by
     change AddMonoidAlgebra.mapDomain NNRat.coeHom s = q
-    erw [AddMonoidAlgebra.mapDomain_single]
+    rw [AddMonoidAlgebra.mapDomain_single]
     rfl
   have h_twist : (charTwist epsPow (AddMonoidHom.id ℚ)).hom q =
       algebraMap OFlat (AddMonoidAlgebra OFlat ℚ) epsTilt * q := by
     change AddMonoidAlgebra.lift OFlat (AddMonoidAlgebra OFlat ℚ) ℚ
       (((algebraMap OFlat (AddMonoidAlgebra OFlat ℚ)).toMonoidHom.comp epsPow) *
         AddMonoidAlgebra.of OFlat ℚ) (AddMonoidAlgebra.of OFlat ℚ (.ofAdd 1)) = _
-    erw [AddMonoidAlgebra.lift_of, MonoidHom.mul_apply, MonoidHom.comp_apply, epsPow_one]
+    rw [AddMonoidAlgebra.lift_of, MonoidHom.mul_apply, MonoidHom.comp_apply, epsPow_one]
     rfl
   change (1 - mulMu c _) * teichmullerLift c
       (t.hom ((charTwist epsPow (AddMonoidHom.id ℚ)).hom ((discToTorus NNRat.coeHom).hom s))) =
     teichmullerLift c (t.hom ((discToTorus NNRat.coeHom).hom s))
-  erw [h_disc, h_twist, _root_.map_mul, t.hom.commutes, _root_.map_mul, teichmullerLift_epsTilt]
+  rw [h_disc, h_twist, _root_.map_mul, t.hom.commutes, _root_.map_mul, teichmullerLift_epsTilt]
   let μ : thickeningOver (k := k) |>.obj c := mulMu c 1
   let u : thickeningOver (k := k) |>.obj c := teichmullerLift c (t.hom q)
   change (1 - μ) * ((1 + μ) * u) = u
   have h_sq : μ * μ = 0 := by
     change mulMu c 1 * mulMu c 1 = 0
-    erw [← mulMu_proj_mul, proj_mulMu, zero_mul, map_zero]
+    rw [← mulMu_proj_mul, proj_mulMu, zero_mul, map_zero]
   have h_cancel : (1 - μ) * (1 + μ) = 1 := by
     calc
       _ = 1 - μ * μ := by ring

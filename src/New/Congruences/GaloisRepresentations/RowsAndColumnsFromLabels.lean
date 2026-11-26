@@ -783,7 +783,8 @@ lemma isFiniteTypeAt_and_polyKillsAt_of_mem_conjClosure [DecidableEq n] [Nonempt
         Fintype.card_eq_zero, AddMonoidAlgebra.coeff_one_zero, ne_eq, one_ne_zero,
         not_false_eq_true, and_self, ↓reduceIte, Hall.evalGL, Units.val_one, toLin'_one, map_one,
         Hall.one_apply, dim_simClassOf, Module.finrank_fintype_fun_eq_card,
-        Nat.card_eq_fintype_card, card_unique, Nat.cast_one, div_self, mul_one, asAlgebraHom_eq_sum,
+        Nat.card_eq_fintype_card, card_unique, Nat.cast_one, div_self, mul_one,
+        Representation.asAlgebraHom_eq_sum,
         Finset.univ_unique, coeff_groupAlgElem, Finsupp.equivFunOnFinite_symm_apply_apply,
         MonoidHom.one_apply, one_smul, Finset.sum_const, Finset.card_singleton, one_apply_eq_self,
         he.1]

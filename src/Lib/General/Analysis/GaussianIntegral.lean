@@ -27,8 +27,8 @@ Nonvanishing of accretive determinants follows from Tau Ceti's Ostrowski–Tauss
 
 ## Main definitions and results
 
-* `New.norm_apply_le_l2_opNorm`, `New.l2_opNorm_le_of_apply`: the operator norm bounds the entries,
-  and for an `m × n` matrix it is at most `|m| |n|` times a bound for the entries.
+* `New.l2_opNorm_le_of_apply`: for an `m × n` matrix the operator norm is at most `|m| |n|` times
+  a bound for the entries.
 * `Matrix.IsAccretive`: the matrices `A` with `A + Aᴴ` positive definite. Positive definite matrices
   are accretive (`Matrix.PosDef.isAccretive`), and accretive matrices have nonzero determinant
   (`Matrix.IsAccretive.det_ne_zero`).
@@ -65,9 +65,6 @@ lemma l2_opNorm_le_of_apply {M : ℝ} (h_apply : ∀ (i : m) (j : n), ‖A i j�
   -- `A` is the sum of `card m * card n` matrices with one entry each.
   grw [A.matrix_eq_sum_single, norm_sum_le, norm_sum_le, l2_opNorm_single.le, h_apply]
   simp [field]
-
-lemma norm_apply_le_l2_opNorm (i : m) (j : n) : ‖A i j‖ ≤ ‖A‖ :=
-  Matrix.norm_apply_le_l2_opNorm A i j
 
 end New
 

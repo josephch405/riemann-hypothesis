@@ -310,7 +310,7 @@ theorem exists_tsum_enorm_kernelTerm_le_of_notMem {B : ℕ} {k : GInf E s → �
     (hB : 13 * card n ^ 3 ≤ B) (φ : TestFunction (Gf E n))
     (hk : ∃ C : ℝ, ∀ g : GInf E s,
       ‖k g‖ * (∏ w : InfinitePlace E, ‖((g w : GL n ℂ) : Matrix n n ℂ)‖) ^ B ≤ C) :
-    ∃ C ≥ (0 : ℝ), ∀ (x : G E s), ∀ δ ≥ (0 : ℝ), ∀ (A : (V.move x).CuspFrame δ) (Z : Set (U V.J)),
+    ∃ C ≥ (0 : ℝ), ∀ (x : G E s) (δ : ℝ) (A : (V.move x).CuspFrame δ) (Z : Set (U V.J)),
       (∀ γ ∈ Z, γ ∉ spanStabilizer V.J A.isotropicCols) →
       ∑' γ : U V.J, ‖V.kernelTerm k φ (Z.indicator 1) x γ x‖ₑ ≤
         ENNReal.ofReal
@@ -323,7 +323,11 @@ theorem exists_tsum_enorm_kernelTerm_le_of_notMem {B : ℕ} {k : GInf E s → �
   -- If `⟨y', γ y⟩ ≠ 0` for short lattice vectors, then `x⁻¹ γ x` is large at infinity, provided
   -- that its finite component lies in the support of `φ`.
   obtain ⟨c, hc, h_large⟩ := V.exists_one_le_pow_mul_prod_norm h_compact.isCompact
-  refine ⟨C * (c ^ card n) ^ d, by positivity, fun x δ hδ A Z hZ ↦ ?_⟩
+  refine ⟨C * (c ^ card n) ^ d, by positivity, fun x δ A Z hZ ↦ ?_⟩
+  have hδ : 0 ≤ δ := by
+    let j : n := Classical.choice inferInstance
+    have hX : 0 ≤ A.lengthX := (norm_nonneg _).trans (A.col_isotropicCols_mem j).2
+    exact (mul_nonneg hX (hX.trans A.lengthX_le)).trans A.length_mul_le
   have h_norm (γ : U V.J) (hγ : γ ∈ Z) (hφ : (φ : Gf E n → ℂ) (x⁻¹ * V.ratEmbed γ * x).2 ≠ 0) :
       1 ≤ (c * δ) ^ f * ∏ w : InfinitePlace E,
         ‖(((x⁻¹ * V.ratEmbed γ * x).1 w : GL n ℂ) : Matrix n n ℂ)‖ := by
@@ -366,7 +370,7 @@ theorem exists_tsum_enorm_irreducibleTerm_le {B : ℕ} {k : GInf E s → ℂ}
   refine ⟨max (C₀ * κ ^ d) (C₁ * κ ^ d), fun x ↦ ?_⟩
   have h_height : 0 < V.height x := V.height_pos x
   -- The equation `δ ^ card n * V.height x = κ` eliminates `κ`.
-  obtain ⟨δ, hδ, rfl, h_frame⟩ := h_cusp V x
+  obtain ⟨δ, -, rfl, h_frame⟩ := h_cusp V x
   simp only [irreducibleTerm, polyTerm_eq_kernelTerm_indicator]
   obtain h_one | h_one := le_total 1 δ
   · -- The height is bounded, so the bound by a power of the height suffices.
@@ -375,7 +379,7 @@ theorem exists_tsum_enorm_irreducibleTerm_le {B : ℕ} {k : GInf E s → ℂ}
     exact V.height_le_pow_mul_height h_one x
   -- High in a cusp, a point with irreducible polynomial moves the isotropic subspace.
   obtain ⟨A, -⟩ := h_frame h_one
-  exact (h_moves x δ hδ.le A _ fun γ hγ h_keeps ↦
+  exact (h_moves x δ A _ fun γ hγ h_keeps ↦
     A.isIsotropicFrame.not_irreducible_charpoly A.ne_zero h_keeps hγ).trans
       (ENNReal.ofReal_le_ofReal (le_max_right _ _))
 
@@ -394,7 +398,7 @@ theorem exists_norm_partialKernel_spanStabilizer_le {B : ℕ} {k : GInf E s → 
     (hB : 13 * card n ^ 3 ≤ B) (φ : TestFunction (Gf E n)) (he : IsCuspKernel B k)
     {J : Subgroup (Gf E n)} [hJ : IsLevel J]
     (h_level : ∀ u ∈ J, ∀ y : Gf E n, (φ : Gf E n → ℂ) (u⁻¹ * y) = (φ : Gf E n → ℂ) y) :
-    ∃ C : ℝ, ∀ (x : G E s), ∀ δ ≥ (0 : ℝ), ∀ A : (V.move x).CuspFrame δ,
+    ∃ C : ℝ, ∀ (x : G E s) (δ : ℝ) (A : (V.move x).CuspFrame δ),
       (V.move x).RadicalCovered A.isotropicCols δ J → ∀ S : Set E[X],
       ‖V.partialKernel k φ {γ : U V.J | γ ∈ spanStabilizer V.J A.isotropicCols ∧
           ((γ : GL n E) : Matrix n n E).charpoly ∈ S} x x‖ ≤
@@ -405,7 +409,7 @@ theorem exists_norm_partialKernel_spanStabilizer_le {B : ℕ} {k : GInf E s → 
   -- In a cusp of size `δ`, a bounded continuous function of level `J` that is fixed by `k` and
   -- invariant under the rational radical is at most `(δ / δ₀) ^ (card n * d)` times its bound.
   obtain ⟨δ₀, hδ₀, h_decay⟩ := exists_norm_le_of_radicalCovered (s := s) he (card n * d)
-  refine ⟨C / δ₀ ^ (card n * d), fun x δ hδ A h_cover S ↦ ?_⟩
+  refine ⟨C / δ₀ ^ (card n * d), fun x δ A h_cover S ↦ ?_⟩
   set Z : Set (U V.J) :=
     {γ | γ ∈ spanStabilizer V.J A.isotropicCols ∧ ((γ : GL n E) : Matrix n n E).charpoly ∈ S}
   have hk : Measurable k := he.continuous.measurable
@@ -431,7 +435,7 @@ theorem exists_norm_partialKernel_spanStabilizer_le {B : ℕ} {k : GInf E s → 
     exact continuous_realConv ⟨J, hJ.isOpen⟩ ⟨hF_meas.stronglyMeasurable, _, hF_bound⟩ hF_level
       he.integrable
   calc ‖F x‖ ≤ (δ / δ₀) ^ (card n * d) * (C * V.height x ^ d) :=
-        h_decay J V x δ A.isotropicCols hδ A.ne_zero A.isotropic h_cover F _ hF_cont hF_bound hF_fix
+        h_decay J V x δ A.isotropicCols A.ne_zero A.isotropic h_cover F _ hF_cont hF_bound hF_fix
           hF_level
           fun ν hν g ↦ V.partialKernel_ratEmbed_mul φ (h_keeps ν hν) g x
     _ = C / δ₀ ^ (card n * d) * (δ ^ card n * V.height x) ^ d := by ring
@@ -472,8 +476,8 @@ theorem exists_norm_tsum_polyTerm_le {B : ℕ} {k : GInf E s → ℂ} (hB : 13 *
     simp only [partialKernel, ← (V.summable_kernelTerm hB φ he.decay _ x x).tsum_add
       (V.summable_kernelTerm hB φ he.decay _ x x)]
     exact tsum_congr fun γ ↦ by by_cases hγ : γ ∈ stab <;> simp [kernelTerm, Set.indicator, hγ]]
-  exact le_max_of_le_right <| norm_add_le_of_le (h_keeps x δ hδ.le A h_cover S)
-    (norm_tsum_le_of_tsum_enorm_le (by positivity) (h_moves x δ hδ.le A _ fun _ hγ ↦ hγ.2))
+  exact le_max_of_le_right <| norm_add_le_of_le (h_keeps x δ A h_cover S)
+    (norm_tsum_le_of_tsum_enorm_le (by positivity) (h_moves x δ A _ fun _ hγ ↦ hγ.2))
 
 end Space
 

@@ -525,7 +525,8 @@ private lemma range_aeval_thetaCoord_eq_normBall
     (c : D.dualTorsion) (j : ℕ) :
     ((aeval x.thetaCoord).toLinearMap.domRestrict
       (homogeneousSubmodule D.dualTorsion v.valuationSubring (D.paddedNorm ^ j))).range =
-      (h_good.pow j).normBall (x.thetaCoord c ^ D.paddedNorm ^ j) := by
+      HasGoodReduction.normBall (D.paddedNorm ^ j • x.automorphyForm) (x.multiplier ^ D.paddedNorm ^ j) v
+        (x.thetaCoord c ^ D.paddedNorm ^ j) := by
   rw [LinearMap.range_domRestrict, map_homogeneousSubmodule_eq_formSpan,
     x.formSpan_eq_normBall v h_good]
 
@@ -558,7 +559,9 @@ private lemma isSmallForm_iff_forall_eval_map_eq_zero [Field k] {φ : v.valuatio
     refine ⟨s ^ D.paddedNorm ^ j, fun g ↦ ?_, ⟨_, isHomogeneous_X_pow i _⟩, by simp [hi_unit]⟩
     simpa [ev, eval_eq, aeval_def, eval₂_eq, hs_eq, div_eq_inv_mul] using
       g.property.eval₂_const_mul (algebraMap ..) _ s⁻¹
-  have h_ball : ev.range = (h_good.pow j).normBall (x.thetaCoord c ^ D.paddedNorm ^ j) :=
+  have h_ball : ev.range =
+      HasGoodReduction.normBall (D.paddedNorm ^ j • x.automorphyForm) (x.multiplier ^ D.paddedNorm ^ j) v
+        (x.thetaCoord c ^ D.paddedNorm ^ j) :=
     x.range_aeval_thetaCoord_eq_normBall h_good c j
   change (D.paddedNorm ^ j • x.automorphyForm).thetaNorm v (ev f) < x.automorphyForm.thetaNorm v
     (x.thetaCoord c) ^ D.paddedNorm ^ j ↔ _
@@ -594,7 +597,8 @@ private lemma isSmallForm_iff_forall_eval_map_eq_zero_of_ne_zero [Field k]
       (D.paddedNorm ^ j • x.automorphyForm).thetaNorm v (aeval x.thetaCoord f.val) *
         x.automorphyForm.thetaNorm v (x.thetaCoord c) ^ e := by
     have h_mem_ball : aeval x.thetaCoord f.val ∈
-        (h_good.pow j).normBall (x.thetaCoord c ^ D.paddedNorm ^ j) :=
+        HasGoodReduction.normBall (D.paddedNorm ^ j • x.automorphyForm) (x.multiplier ^ D.paddedNorm ^ j) v
+        (x.thetaCoord c ^ D.paddedNorm ^ j) :=
       (x.range_aeval_thetaCoord_eq_normBall h_good c j).le ⟨f, rfl⟩
     rw [map_mul, map_pow, aeval_X, h_deg, add_smul, ← thetaNorm_pow, LatticeForm.thetaNorm,
       sizeAt_mul]
@@ -674,7 +678,8 @@ lemma isCutOutAt_reduction [Field k] {φ : v.valuationSubring →+* k} (hφ : Su
     -- The rank is the dimension of the theta space of degree `r ^ j` ...
     have h_ball : ((aeval x.thetaCoord).toLinearMap.domRestrict
           (homogeneousSubmodule D.dualTorsion v.valuationSubring (D.paddedNorm ^ j))).range =
-        (h_good.pow j).normBall (x.thetaCoord c ^ D.paddedNorm ^ j) :=
+        HasGoodReduction.normBall (D.paddedNorm ^ j • x.automorphyForm) (x.multiplier ^ D.paddedNorm ^ j) v
+        (x.thetaCoord c ^ D.paddedNorm ^ j) :=
       x.range_aeval_thetaCoord_eq_normBall h_good c j
     change finrank k (imageMod J (homogeneousSubmodule D.dualTorsion k (D.paddedNorm ^ j))) =
       thetaRanks D.dualTorsion D.paddedNorm j

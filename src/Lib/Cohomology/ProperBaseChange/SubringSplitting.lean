@@ -162,7 +162,7 @@ equation `ε + r * ε ^ 2 = 1` has a solution `ε ∈ S` for every `r ∈ I` (`I
 `S` is local (`IsAbsIntegrallyClosedLocal S`).
 
 These are the two cases that `exists_eq_locConstSpec_map_sub_map` allows. -/
-lemma IsAbsIntegrallyClosed.exists_notMem_and_inv_notMem [IsAlgClosed K]
+lemma IsAbsIntegrallyClosed.exists_notMem_and_inv_notMem
     (hS : IsAbsIntegrallyClosed S) (I : Ideal S) (h_not_val : ¬∀ x : K, x ∈ S ∨ x⁻¹ ∈ S) :
     ∃ t : K, t ∉ S ∧ t⁻¹ ∉ S ∧
       ((∃ b : S, b * (1 - t) = 1 ∧ IsLineChartCase I b) ∨ IsAbsIntegrallyClosedLocal S) := by
@@ -356,7 +356,7 @@ lemma absIntegrallyClosedSubrings.IsSplitting.right_le (h_split : IsSplitting B 
   Subtype.coe_le_coe.mp (le_sup_right.trans h_split.eq_sup.ge)
 
 /-- If `B` splits into `B₁` and `B₂` (`IsSplitting`), then `B₁ ⊓ B₂ = B`. -/
-lemma absIntegrallyClosedSubrings.IsSplitting.inf_eq [IsAlgClosed K]
+lemma absIntegrallyClosedSubrings.IsSplitting.inf_eq
     (h_split : IsSplitting B B₁ B₂ B₃) :
     B₁.val ⊓ B₂.val = B.val := by
   -- `B` is integrally closed, so it is the intersection of the valuation rings that contain it.

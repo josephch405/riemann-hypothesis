@@ -239,7 +239,7 @@ theorem measurable_contentIndex {i : ι} : Measurable (P.contentIndex i) := by
   -- Where `p i` is a unit, the value is the volume of a fibre of the set of `(c, p)` with `c • p`
   -- integral; elsewhere it is constant.
   have h_units : MeasurableSet {p : ι → A | IsUnit (p i)} :=
-    measurableEmbedding_units_val.measurableSet_range.preimage (by fun_prop)
+    Units.measurableEmbedding_val.measurableSet_range.preimage (by fun_prop)
   have h_integral : MeasurableSet {q : A × (ι → A) | ∀ j, q.1 * q.2 j ∈ integers} :=
     measurable_smul isOpen_isCompact_volume_intVectors.1.measurableSet
   exact .ite h_units (measurable_measure_prodMk_right h_integral) measurable_const

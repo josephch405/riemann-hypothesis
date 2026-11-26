@@ -324,12 +324,14 @@ lemma GaugeLe.restrictToY_of_diag {d : Gf D.E (D.X D.m)}
     simp [s, ← map_inv, ← ext_iff, borderU, GL.blockScalar, map_inv _ d.val, hd]
   let a : ℂ := ∏ τ : D.Φ, Φ τ (star (D.piN : D.E)) ^ (-D.branchExponent τ)
   have h_restrict : (D.restrictToY φ).val g = a • D.branching.map (↑) *ᵥ φ.val (D.borderU g) := rfl
-  have h_intertwine : D.branching.map (↑) * weylRep D.columnCount (D.lastEntry D.m) (fun τ ↦
-        GeneralLinearGroup.map (adeleExtension (weightEmbedding ιₚ τ)) (D.borderU g * d)⁻¹.val) =
+  have h_intertwine : D.branching.map (↑) *ᵥ weylRep D.columnCount (D.lastEntry D.m) (fun τ ↦
+        GeneralLinearGroup.map (adeleExtension (weightEmbedding ιₚ τ)) (D.borderU g * d)⁻¹.val) *ᵥ
+        (ιₚ ∘ φ.val (D.borderU g)) =
       (∏ τ, s τ ^ D.branchExponent τ) • (weylRep D.columnsY (D.lastEntry D.m) (fun τ ↦
-          GeneralLinearGroup.map (adeleExtension (weightEmbedding ιₚ τ)) (g * 1)⁻¹.val) *
-        D.branching.map (↑)) :=
-    D.isBranchingMap_branching.mul_weylRep _ _ s _ h_block
+          GeneralLinearGroup.map (adeleExtension (weightEmbedding ιₚ τ)) (g * 1)⁻¹.val) *ᵥ
+        D.branching.map (↑) *ᵥ (ιₚ ∘ φ.val (D.borderU g))) := by
+    rw [mulVec_mulVec, D.isBranchingMap_branching.mul_weylRep _ _ s _ h_block, smul_mulVec,
+      ← mulVec_mulVec]
   -- The scalars: `weightEmbedding ιₚ τ π = ιₚ (Φ τ π̄)` has the absolute value of `N` if
   -- `star (inducedPlace τ)` divides `π`, and is a unit if not.
   have h_norm (τ : D.Φ) : NormedField.valuation.comap (weightEmbedding ιₚ τ) D.piN =
@@ -346,10 +348,8 @@ lemma GaugeLe.restrictToY_of_diag {d : Gf D.E (D.X D.m)}
     simpa [a, s, hd, apply_ite, starRingEnd_apply (R := D.E)] using h_prod
   have h_comp : ιₚ ∘ (D.branching.map (↑) *ᵥ φ.val (D.borderU g)) =
       D.branching.map (↑) *ᵥ (ιₚ ∘ φ.val (D.borderU g)) := funext (by simp [mulVec_eq_sum])
-  rw [h_restrict, weylGauge_smul, mulVec_mulVec]
-  -- `erw`, as `D.X D.m` and `InitIndex ⊕ Unit` agree only after unfolding
-  erw [h_intertwine, smul_mulVec, ← mulVec_mulVec, Units.smul_def, norm_smul]
-  rw [h_scalar, weylGauge, h_comp]
+  rw [h_restrict, weylGauge_smul, h_intertwine, Units.smul_def, norm_smul, h_scalar, weylGauge,
+    h_comp]
 
 /-- For `p ≠ N`, a form that has gauge at most `c` at every point has a restriction to `Y_m` with
 the same bound. -/

@@ -150,7 +150,10 @@ lemma invHeckeIsogeny_inv_mulVec_of_ne {u : FinPlace E} (hu : u ≠ w.val)
   -- Both factors of `invHeckeIsogeny` have component `1` at `u`: the central one lives above the
   -- conjugate of the place below `w`, the local one at `w` and its conjugate.
   refine ((evalAt u).map_mulVec (invHeckeIsogeny w C)⁻¹.val v i).trans ?_
-  have h_star_ne : star u ≠ w.val := by grind [below_star, star_star]
+  have h_star_ne : star u ≠ w.val := by
+    intro h
+    apply h_below
+    rw [← h, below_star, star_star]
   rw [← val_map_apply, invHeckeIsogeny, map_inv, map_mul, map_inv, map_pow, map_inv, map_pow,
     evalAt_centralScalar_of_ne h_below, evalAt_conjAtSplit_of_ne _ hu h_star_ne]
   simp
@@ -191,8 +194,8 @@ lemma torsionClass_inv_mulVec_eq_of_mem_levelTorsion
   refine torsionClass_eq_iff.mpr fun i ↦ mem_Ô.mpr fun (u : FinPlace E) ↦ ?_
   by_cases h𝔑 : D.level ∈ u.asIdeal
   · -- At a place dividing the level the matrix acts trivially, since `w` is safe.
-    have hu_ne : u ≠ w.val := by grind [IsSafe]
-    obtain ⟨-, -, h_level_conj⟩ := hw
+    obtain ⟨-, h_level, h_level_conj⟩ := hw
+    have hu_ne : u ≠ w.val := fun h_eq ↦ h_level (h_eq ▸ h𝔑)
     have h_below : u.below (QuadField d₀) ≠ star (w.val.below (QuadField d₀)) :=
       fun h_eq ↦ h_level_conj u h_eq h𝔑
     simp [-coe_units_inv, invHeckeIsogeny_inv_mulVec_of_ne hu_ne h_below]

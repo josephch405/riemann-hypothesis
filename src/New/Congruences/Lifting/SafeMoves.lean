@@ -806,16 +806,6 @@ lemma _root_.New.Lift.FitsWindows.abs_add_of_opposite {η b W : ℕ} {ε : ℤˣ
   rcases hV v hv with h | ⟨h, hv⟩ | ⟨h, hv⟩ <;>
     rcases hV' v' hv' with h' | ⟨h', hv'⟩ | ⟨h', hv'⟩ <;> simp only [abs_eq_max_neg] <;> omega
 
-/-- For opposite far windows, the negative sum is bounded by the larger of the
-near-near bound and the near-far bound. -/
-lemma _root_.New.Lift.FitsWindows.neg_add_le_of_opposite {η b W : ℕ} {ε : ℤˣ} {V V' : Finset ℤ}
-    (hV : FitsWindows η (-ε) b W V) (hV' : FitsWindows η ε b W V')
-    {v v' : ℤ} (hv : v ∈ V) (hv' : v' ∈ V') :
-    -(v + v') ≤ max (2 * (η : ℤ)) (b + W + η : ℤ) := by
-  have h := hV.abs_add_of_opposite hV' hv hv'
-  simp only [abs_eq_max_neg] at h
-  omega
-
 /-- Let the jumps of `T` and `S` at a letter `i` lie in `[-η, η]` or in far windows `∓σ [β, β + W]`
 of opposite signs. Then each jump `u` of the Tate dual side of a pairing of `T` and `S` lies near
 `0`, `β` or `-β`: such a jump is `0` or `-(v + w) - 1` for jumps `v` of `T` and `w` of `S`. -/

@@ -115,14 +115,14 @@ lemma norm_sq_add_re_trace_le (g : USign ε) (a C : ℝ) (v w : n → ℤ)
     simp only [← h_row]
     simp [trace, re_sum, mul_sum, mul_left_comm]
   have h_norm : ‖intDiagonal v * x‖ ^ 2 = ∑ i : n, v i ^ 2 * ∑ j : n, ‖x i j‖ ^ 2 := by
-    simp [frobenius_norm_sq_eq_sum, diagonal_mul, mul_pow, sq_abs, mul_sum]
+    simp [frobenius_norm_sq_eq_sum_norm_sq, diagonal_mul, mul_pow, sq_abs, mul_sum]
   have h_noncompact (i : n) : w i * ∑ j : n, ‖y i j‖ ^ 2 ≤ C * ∑ j : n, ‖y i j‖ ^ 2 := by
     rw [mul_sum, mul_sum]
     refine sum_le_sum fun j _ ↦ ?_
     rcases eq_or_ne (ε i) (ε j) with hij | hij
     · simp [hy, noncompactPart, blockDiagPart, hij]
     · exact mul_le_mul_of_nonneg_right (h_upper i j hij) (sq_nonneg _)
-  rw [h_trace, h_norm, frobenius_norm_sq_eq_sum, mul_sum, mul_sum, ← sum_add_distrib]
+  rw [h_trace, h_norm, frobenius_norm_sq_eq_sum_norm_sq, mul_sum, mul_sum, ← sum_add_distrib]
   refine sum_le_sum fun i _ ↦ ?_
   have h_weight : a * v i ^ 2 * ∑ j : n, ‖x i j‖ ^ 2 ≤ w i * ∑ j : n, ‖x i j‖ ^ 2 :=
     mul_le_mul_of_nonneg_right (h_lower i) (by positivity)
@@ -138,10 +138,10 @@ lemma norm_sub_one_sq (g : USign ε) :
   set y : Matrix n n ℂ := noncompactPart ε g
   have h_row (i : n) : ∑ j : n, ‖x i j‖ ^ 2 = 2 * ∑ j : n, ‖y i j‖ ^ 2 - 2 * (x i i).re := by
     linarith only [two_mul_re_sub_one_apply g i]
-  calc ‖x‖ ^ 2 = ∑ i : n, ∑ j : n, ‖x i j‖ ^ 2 := frobenius_norm_sq_eq_sum
+  calc ‖x‖ ^ 2 = ∑ i : n, ∑ j : n, ‖x i j‖ ^ 2 := frobenius_norm_sq_eq_sum_norm_sq x
     _ = ∑ i : n, (2 * ∑ j : n, ‖y i j‖ ^ 2 - 2 * (x i i).re) := sum_congr rfl fun i _ ↦ h_row i
     _ = 2 * ‖y‖ ^ 2 - 2 * x.trace.re := by
-      simp [frobenius_norm_sq_eq_sum, trace, re_sum, mul_sum, sum_sub_distrib]
+      simp [frobenius_norm_sq_eq_sum_norm_sq, trace, re_sum, mul_sum, sum_sub_distrib]
 
 lemma norm_signMatrix_mul (A : Matrix n n ℂ) : ‖signMatrix ε * A‖ = ‖A‖ :=
   frobenius_norm_mul_of_unitary (by rw [conjTranspose_signMatrix, signMatrix_mul_self]) A
@@ -189,7 +189,7 @@ abbrev onBlock (e : X ⊕ Fin M ≃ n) (A : Matrix n n ℂ) : Matrix X X ℂ :=
 
 lemma norm_onBlock_le (e : X ⊕ Fin M ≃ n) (A : Matrix n n ℂ) : ‖onBlock e A‖ ≤ ‖A‖ := by
   rw [← sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)]
-  simp only [frobenius_norm_sq_eq_sum, submatrix_apply, Function.comp_apply, ← e.sum_comp,
+  simp only [frobenius_norm_sq_eq_sum_norm_sq, submatrix_apply, Function.comp_apply, ← e.sum_comp,
     Fintype.sum_sum_type, sum_add_distrib, add_assoc, le_add_iff_nonneg_right]
   positivity
 
@@ -205,7 +205,7 @@ lemma norm_sq_le_rows_add_columns_add_block (e : X ⊕ Fin M ≃ n) (A : Matrix 
       ‖intDiagonal (offBlockIndicator e) * A‖ ^ 2 + ‖A * intDiagonal (offBlockIndicator e)‖ ^ 2 +
           ‖onBlock e A‖ ^ 2 =
         ‖A‖ ^ 2 + ∑ a : Fin M, ∑ b : Fin M, ‖A (e (.inr a)) (e (.inr b))‖ ^ 2 := by
-    simp [frobenius_norm_sq_eq_sum, ← e.sum_comp, offBlockIndicator, sum_add_distrib]
+    simp [frobenius_norm_sq_eq_sum_norm_sq, ← e.sum_comp, offBlockIndicator, sum_add_distrib]
     ring
   rw [h_count, le_add_iff_nonneg_right]
   positivity

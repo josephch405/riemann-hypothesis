@@ -408,16 +408,35 @@ lemma lineBasis_naturality (T : TotalH ((restrictAlong φ).obj M.functor) M'.fun
           x) := by
   -- Both sides are products of three factors, and the two restrictions of `x` agree; it remains
   -- to commute the restriction of `T` with the member of the family.
-  -- (erw: `mapThenComp` unfolds to these products only up to definitional equality)
-  erw [map_comp_assoc, map_comp_assoc, map_restrictAlong_restrictAlong,
+  let π := elementsProj (projLineAlong g)
+  let π' := elementsProj (projLineAlong (φ ⋙ g))
+  let ψ := precomp φ (projLineAlong g)
+  change comp (map (restrictAlong π') (comp (map (restrictAlong φ) x) T))
+        (M'.lineBasis i).toTotalH =
+      comp (map (restrictAlong ψ) (comp (map (restrictAlong π) x) (M.lineBasis i).toTotalH))
+        (map (restrictAlong π') T)
+  rw [map_comp_assoc, map_comp_assoc, map_restrictAlong_restrictAlong,
     map_restrictAlong_restrictAlong]
   cases i
   · -- `T` commutes with the class η by naturality of `TorsionCoeff.etaAt`.
-    erw [M.onElements.etaAt_naturality (precomp φ _) M'.onElements, TorsionCoeff.lineBasis_false]
-    rfl
+    rw [TorsionCoeff.lineBasis_false, TorsionCoeff.lineBasis_false]
+    refine congrArg (comp (map (restrictAlong (elementsProj (projLineAlong (φ ⋙ g)) ⋙ φ)) x)) ?_
+    exact (M.onElements.etaAt_naturality (precomp φ (projLineAlong g)) M'.onElements
+      (map (restrictAlong (elementsProj (projLineAlong (φ ⋙ g)))) T)
+      (freeAb.map (tautologicalSection (X := projLineAlong g)))).symm
   · -- the class `1` is the identity, so the products with it drop out
-    erw [map_homClass, comp_id, pullbackAlong_id]
-    rfl
+    have h_id : (M.lineBasis true).toTotalH =
+        homClass (𝟙 (elementsProj (projLineAlong g) ⋙ M.functor)) := rfl
+    have h_id' : (M'.lineBasis true).toTotalH =
+        homClass (𝟙 (elementsProj (projLineAlong (φ ⋙ g)) ⋙ M'.functor)) := rfl
+    rw [h_id, h_id', map_homClass]
+    have h_map := (restrictAlong (precomp φ (projLineAlong g))).map_id
+      (elementsProj (projLineAlong g) ⋙ M.functor)
+    rw [h_map]
+    exact (congrArg (comp (map (restrictAlong (elementsProj (projLineAlong (φ ⋙ g)) ⋙ φ)) x))
+      comp_id).trans
+      (congrArg (comp (map (restrictAlong (precomp φ (projLineAlong g) ⋙
+        elementsProj (projLineAlong g))) x)) pullbackAlong_id).symm
 
 namespace TorsionCoeff.HasLineFormula
 
@@ -484,12 +503,19 @@ lemma integrate_mul_cupClass (y : TotalH S M.functor) (ξ : TotalH M.functor M.f
       (comp (TotalH.map (restrictAlong (elementsProj (projLineAlong g))) y)
         (.of _ 2 M.cupClass +
           TotalH.map (restrictAlong (elementsProj (projLineAlong g))) ξ) :) = y := by
-  -- Expand the product: `y · cupClass` is `lerayHirsch` of `y` placed at the index of `cupClass`,
-  -- and the second term is restricted from the base, so it is `lerayHirsch` of a class placed at
-  -- the index of `1`. (erw: `lineBasis` unfolds to `cupClass` and `1` only definitionally)
-  erw [map_add, ← map_comp, ← lerayHirsch_single M.lineBasis false,
-    ← (lerayHirsch_single M.lineBasis true _).trans comp_id]
-  -- `integrate` reads off the coefficient of η: `y` for the first term, zero for the second.
+  let Φ : AbFunctor C ⥤ AbFunctor (projLineAlong g).Elements :=
+    restrictAlong (elementsProj (projLineAlong g))
+  have h_eta : lerayHirsch M.lineBasis S (.single false y) =
+      comp (TotalH.map Φ y) (.of _ 2 M.cupClass) :=
+    lerayHirsch_single M.lineBasis false y
+  have h_one : lerayHirsch M.lineBasis S (.single true (comp y ξ)) =
+      comp (TotalH.map Φ y) (TotalH.map Φ ξ) :=
+    ((lerayHirsch_single M.lineBasis true (comp y ξ)).trans comp_id).trans (map_comp ..)
+  have h_product := (map_add (comp (TotalH.map Φ y)) _ _).trans
+    (congrArg₂ (· + ·) h_eta.symm h_one.symm)
+  refine (congrArg (h.integrate (S := S)) h_product).trans ?_
+  refine (congrArg (h.integrate (S := S))
+    (map_add (lerayHirsch M.lineBasis S) (single false y) (single true (comp y ξ))).symm).trans ?_
   simp [integrate]
 
 end TorsionCoeff.HasLineFormula
@@ -757,11 +783,8 @@ lemma isFiniteLerayHirsch_of_retract [HasFlatValues N] (r : ι → NaturalOp 0 (
           b N' ((u.mapRange δ δ.map_zero).mapRange ((r i).app stL) ((r i).app stL).map_zero) =
             b N' (w.mapRange ((r i).app stL) ((r i).app stL).map_zero) := by
         rw [h_nat, h_nat, h_cob]
-      have h_eq : (u.mapRange δ δ.map_zero).mapRange ((r i).app stL) ((r i).app stL).map_zero =
-          w.mapRange ((r i).app stL) ((r i).app stL).map_zero :=
-        hN'_inj h_image
-      -- Evaluate at `m`; `Finsupp.mapRange_apply` holds by definition.
-      exact DFunLike.congr_fun h_eq m
+      -- Evaluate the equality of finitely supported functions at `m`.
+      exact DFunLike.congr_fun (hN'_inj h_image) m
     rw [Finsupp.mapRange_apply, Finsupp.zero_apply, ← hπ_sum (w m),
       ← h_exact.apply_apply_eq_zero (u m), ← hπ_sum (δ (u m))]
     simp only [h_r]
@@ -859,8 +882,10 @@ lemma isFiniteLerayHirsch_of_integrate_params (β : ι → TotalH (relFreeAb I.t
               (comp (map (restrictAlong (elementsProj (projLineAlong t.toTestOver))) ξ) x) :=
       t.line_formula.integrate_naturality (φ := 𝟭 _) t.line_formula
         (lerayHirsch_mapRange_comp _ rfl)
-    -- `erw`: the summands match `comp_int` only after unfolding `NaturalOp.integrate`.
-    erw [Finset.sum_congr rfl fun i _ ↦ comp_int .., ← map_sum, comp_int]
+    -- `change`: the summands match `comp_int` only after unfolding `NaturalOp.integrate`.
+    change pullbackAlong _ (∑ i, comp (map (restrictAlong t.toTestOver) (β i))
+      (t.line_formula.integrate _)) = _
+    rw [Finset.sum_congr rfl fun i _ ↦ comp_int .., ← map_sum, comp_int]
     -- Push restriction into the products, split off the first factor in `h_sum_eq_foldr`, and
     -- write the remaining products as folds over lists.
     simp only [map_comp_assoc, map_restrictAlong_restrictAlong, map_homClass,

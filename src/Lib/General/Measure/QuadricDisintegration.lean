@@ -1,5 +1,6 @@
 module
 
+public import TauCeti.MeasureTheory.Constructions.Polish.Units
 import TauCeti.MeasureTheory.Measure.Disintegration.Continuous
 public import Aesop.BuiltinRules
 public import Mathlib.Order.CompletePartialOrder
@@ -140,12 +141,9 @@ variable [P : Place A] {ι : Type} [Fintype ι] [DecidableEq ι] (u : Aˣ) (T : 
 
 /-! ### Lemmas on measures, and the hyperbolic plane plus a form -/
 
-lemma measurableEmbedding_units_val : MeasurableEmbedding (val : Aˣ → A) :=
-  continuous_val.measurableEmbedding val_injective
-
 @[fun_prop]
 lemma measurable_inverse : Measurable (inverse : A → A) :=
-  measurableEmbedding_units_val.measurable_extend continuous_coe_inv.measurable measurable_const
+  Units.measurableEmbedding_val.measurable_extend continuous_coe_inv.measurable measurable_const
 
 /-- For a map f : Z → Z, a measure ζ on Z with ζ.map f = c⁻¹ • ζ, and c neither zero nor infinite,
 the integral of g against ζ is c times the integral of g against the image ζ.map f. -/

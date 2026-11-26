@@ -1,5 +1,6 @@
 module
 
+import TauCeti.LinearAlgebra.Matrix.Determinant.FromBlocks
 public import Mathlib.Analysis.CStarAlgebra.Module.Constructions
 import Mathlib.Algebra.Order.Star.Real
 import Mathlib.Analysis.LocallyConvex.AbsConvexOpen
@@ -631,7 +632,15 @@ lemma fromBlocks_scaleAt_mul_eq_one {a a' c c' : R} (ha : a * a' = 1) (hc : c * 
       fromBlocks (scaleAt a' 𝔰.k₀) 0 (of fun (_ : Unit) (j : 𝔰.κ) ↦ if j = 𝔰.k₀ then c' else 0)
         (1 : Matrix Unit Unit R) = 1 := by
   rw [fromBlocks_multiply, ← fromBlocks_one]
-  congr 1 <;> ext i j <;> simp [Matrix.mul_apply, diagonal, Matrix.one_apply] <;> grind
+  simp only [Matrix.mul_zero, Matrix.zero_mul, zero_add, add_zero, mul_one]
+  congr 1
+  · ext i j
+    by_cases hij : i = j
+    · subst j
+      by_cases hi : i = 𝔰.k₀ <;> simp [scaleAt, hi, ha]
+    · simp [scaleAt, hij]
+  · ext i j
+    by_cases hj : j = 𝔰.k₀ <;> simp [scaleAt, hj, hc]
 
 omit [StarRing R] in
 /-- Two matrices that are the identity outside the middle block, where they are inverse to each
@@ -700,53 +709,6 @@ abbrev isotropicFramePair : Matrix 𝔰.BesselIndex (Fin 𝔰.ϱ ⊕ Fin 𝔰.ϱ
 
 /-! ### The Gram determinant of two frames -/
 
-/-- The determinant of a square matrix whose row `i` is the sum of the rows `i` of two matrices
-that agree with it in all other rows is the sum of their determinants. -/
-lemma det_eq_add_of_row_eq_add {R m : Type*} [CommRing R] [Fintype m] [DecidableEq m]
-    {A B C : Matrix m m R} (i : m) (h_row : A i = B i + C i) (hB : ∀ j ≠ i, B j = A j)
-    (hC : ∀ j ≠ i, C j = A j) : A.det = B.det + C.det := by
-  have h_update (X : Matrix m m R) (hX : ∀ j ≠ i, X j = A j) : A.updateRow i (X i) = X := by
-    ext j k
-    by_cases hj : j = i <;> simp [updateRow_apply, hj, hX]
-  conv_lhs => rw [← updateRow_eq_self A i, h_row, det_updateRow_add, h_update B hB, h_update C hC]
-
-omit [StarRing R] in
-/-- For square matrices `Z`, `W` and a scalar `c`, the block matrix
-`fromBlocks Z (single i i c) (single i i c) W` (off-diagonal blocks have the single entry `c` at
-`(i, i)`) has determinant `Z.det * W.det - c ^ 2 * (Z.adjugate i i * W.adjugate i i)`. -/
-lemma det_fromBlocks_single {n : Type*} [Fintype n] [DecidableEq n] (Z W : Matrix n n R) (i : n)
-    (c : R) :
-    (fromBlocks Z (single i i c) (single i i c) W).det =
-      Z.det * W.det - c ^ 2 * (Z.adjugate i i * W.adjugate i i) := by
-  let C : Matrix n n R := single i i c
-  have h_zero (X : Matrix n n R) : (X.updateRow i 0).det = 0 :=
-    det_eq_zero_of_row_eq_zero i (by simp)
-  have h_minor (X : Matrix n n R) : (X.updateRow i (Pi.single i c)).det = c * X.adjugate i i := by
-    simp [adjugate_apply, ← det_updateRow_smul, ← Pi.single_smul']
-  -- split the row `inl i`, and then the row `inr i`
-  have h_split_inl : (fromBlocks Z C C W).det =
-      (fromBlocks Z 0 C W).det + (fromBlocks (Z.updateRow i 0) C C W).det := by
-    refine det_eq_add_of_row_eq_add (.inl i) (by ext (b | b) <;> simp [C, updateRow_apply]) ?_ ?_
-    all_goals rintro (a | a) ha <;> ext (b | b) <;>
-      simp_all [C, updateRow_apply, single_apply, eq_comm]
-  have h_split_inr : (fromBlocks (Z.updateRow i 0) C C W).det =
-      (fromBlocks (Z.updateRow i 0) C 0 W).det +
-        (fromBlocks (Z.updateRow i 0) C C (W.updateRow i 0)).det := by
-    refine det_eq_add_of_row_eq_add (.inr i) (by ext (b | b) <;> simp [C, updateRow_apply]) ?_ ?_
-    all_goals rintro (a | a) ha <;> ext (b | b) <;>
-      simp_all [C, updateRow_apply, single_apply, eq_comm]
-  -- in the last term exchange the two rows
-  have h_swap : fromBlocks (Z.updateRow i 0) C C (W.updateRow i 0) =
-      (fromBlocks (Z.updateRow i (Pi.single i c)) 0 0 (W.updateRow i (Pi.single i c))).submatrix
-        (Equiv.swap (.inl i) (.inr i)) id := by
-    ext (a | a) (b | b) <;> by_cases ha : a = i <;>
-      simp [C, updateRow_apply, single_apply, Pi.single_apply, ha, eq_comm (a := i),
-        Equiv.swap_apply_of_ne_of_ne]
-  rw [h_split_inl, h_split_inr, h_swap, det_permute, Equiv.Perm.sign_swap Sum.inl_ne_inr,
-    det_fromBlocks_zero₁₂, det_fromBlocks_zero₂₁, det_fromBlocks_zero₂₁, h_zero, h_minor, h_minor]
-  push_cast
-  ring
-
 /-- Let `N` be self-adjoint in the commutative star ring `R`, let h be the form of ϱ hyperbolic
 planes and the middle block diag(1, …, 1, −N), and let `γ` be an isometry of h. The Gram matrix of
 the frame f = (e₁, …, e_ϱ, z) and its image γf, side by side in `framePair γ`, has both diagonal
@@ -782,23 +744,9 @@ Z|² − N²|D_ϱ|². -/
 theorem det_gram_framePair (N : R) (hN : star N = N) (γ : (𝔰.middleGram N).G) :
     ((framePair γ)ᴴ * (𝔰.middleGram N).splitGram * framePair γ).det =
       (-1) ^ 𝔰.n * frameDisc N ((𝔰.middleGram N).frameGram γ) := by
-  -- The Gram matrix is a block matrix with off-diagonal blocks `single top top (-N)`, times the
-  -- exchange of the two frames: apply `det_fromBlocks_single`.
-  set Z : Matrix (Fin (𝔰.ϱ + 1)) (Fin (𝔰.ϱ + 1)) R := (𝔰.middleGram N).frameGram γ
-  let C : Matrix (Fin (𝔰.ϱ + 1)) (Fin (𝔰.ϱ + 1)) R := single 𝔰.top 𝔰.top (-N)
-  have h_gram : (framePair γ)ᴴ * (𝔰.middleGram N).splitGram * framePair γ =
-      fromBlocks Z C C Zᴴ * fromBlocks 0 1 1 0 := by
-    simp [gram_framePair N hN, fromBlocks_multiply, Z, C]
-  have h_sign : (fromBlocks 0 1 1 0 : Matrix (Fin 𝔰.n ⊕ Fin 𝔰.n) (Fin 𝔰.n ⊕ Fin 𝔰.n) R).det =
-      (-1) ^ 𝔰.n := by
-    rw [show (fromBlocks 0 1 1 0 : Matrix (Fin 𝔰.n ⊕ Fin 𝔰.n) _ R) =
-      fromBlocks 1 (-1) 0 1 * fromBlocks 1 1 1 0 by simp [fromBlocks_multiply]]
-    simp [det_mul, det_fromBlocks_one₁₁, det_neg]
-  have h_corner : Z.adjugate 𝔰.top 𝔰.top = leadingMinor Z 𝔰.top.castSucc := by
-    simp [adjugate_fin_succ_eq_det_submatrix, leadingMinor,
-      show castLE (Nat.le_succ 𝔰.ϱ) = castSucc from rfl]
-  rw [h_gram, det_mul, h_sign, det_fromBlocks_single, ← adjugate_conjTranspose, conjTranspose_apply,
-    h_corner, det_conjTranspose, frameDisc, neg_sq, mul_comm]
+  rw [gram_framePair N hN, det_fromBlocks_single₁₁_single₂₂,
+    det_conjTranspose, ← conjTranspose_submatrix, det_conjTranspose, neg_mul_neg, ← pow_two]
+  rfl
 
 /-! ### The map to pairs of middle coordinates, and the link -/
 
@@ -1018,6 +966,7 @@ structure BesselSystem (b : ℝ) (f : ℕ) where
   Index : Type
   /-- π is finite-dimensional. -/
   [fintype : Fintype Index]
+  /-- Equality of indices is decidable. -/
   [decEq : DecidableEq Index]
   /-- π is not zero. -/
   [nonempty : Nonempty Index]

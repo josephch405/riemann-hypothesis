@@ -1,5 +1,6 @@
 module
 
+import TauCeti.Analysis.Matrix.IndefiniteUnitaryGroup
 import TauCeti.Analysis.Matrix.LDL
 import TauCeti.Analysis.Matrix.PosSemidef.Determinant
 import TauCeti.LinearAlgebra.Matrix.Determinant.ComplementaryMinor
@@ -361,22 +362,13 @@ theorem U.norm_det : ‖g.val.val.det‖ = 1 :=
 
 /-- For a hermitian involution `J` and `g` in `U J`, the group of `g` with `gᴴ * J * g = J`, the
 inverse of `g` has the operator norm of `g`. -/
-theorem U.norm_inv : ‖g⁻¹.val.val‖ = ‖g.val.val‖ := by
-  -- `g⁻¹ = J * gᴴ * J` with `J` unitary, and the conjugate transpose keeps the operator norm
-  have hJ : J ∈ unitary (Matrix n n ℂ) := IsHermitianInvolution.mem_unitary
-  calc
-    ‖g⁻¹.val.val‖ = ‖J * g.val.valᴴ * J‖ := by rw [coe_inv mul_self]
-    _ = ‖J * g.val.valᴴ‖ := norm_mul_mem_unitary (J * g.val.valᴴ) hJ
-    _ = ‖g.val.valᴴ‖ := norm_mem_unitary_mul g.val.valᴴ hJ
-    _ = ‖g.val.val‖ := l2_opNorm_conjTranspose g.val.val
+theorem U.norm_inv : ‖g⁻¹.val.val‖ = ‖g.val.val‖ :=
+  Matrix.norm_val_inv_of_mem_unitaryGroupOf IsHermitianInvolution.mem_unitary g.property
 
 /-- For a hermitian involution `J` in positive dimension, every element of `U J`, the group of `g`
 with `gᴴ * J * g = J`, has operator norm at least `1`. -/
-theorem U.one_le_norm [Nonempty n] : 1 ≤ ‖g.val.val‖ := by
-  refine (one_le_sq_iff₀ (norm_nonneg _)).1 ?_
-  calc
-    (1 : ℝ) = ‖g⁻¹.val.val * g.val.val‖ := by simp
-    _ ≤ ‖g.val.val‖ ^ 2 := (norm_mul_le _ _).trans_eq (by rw [norm_inv g, pow_two])
+theorem U.one_le_norm [Nonempty n] : 1 ≤ ‖g.val.val‖ :=
+  Matrix.one_le_norm_val_of_mem_unitaryGroupOf IsHermitianInvolution.mem_unitary g.property
 
 end UnitaryNorm
 

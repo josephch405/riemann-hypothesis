@@ -115,7 +115,7 @@ lemma sum_norm_lie_coordProj_sq (hw : ∀ i : n, a ≤ w i ∧ w i ≤ b) (X : M
   have h_entry (t : ℤ) (i j : n) :
       ‖⁅coordProj (t ≤ w ·), X⁆ i j‖ ^ 2 = if t ≤ w i ↔ t ≤ w j then 0 else ‖X i j‖ ^ 2 := by
     simp [norm_lie_coordProj_apply, ite_pow]
-  simp only [frobenius_norm_sq_eq_sum, h_entry, (Ioc a b).sum_comm]
+  simp only [frobenius_norm_sq_eq_sum_norm_sq, h_entry, (Ioc a b).sum_comm]
   exact sum_congr rfl fun i _ ↦ sum_congr rfl fun j _ ↦ by simp [sum_ite, ← h_card]
 
 /-- If the entries of `w` lie in `[a, b]`, the projections `coordProj (t ≤ w ·)` to the coordinates
@@ -183,7 +183,8 @@ lemma gapWeightedNormSq_neg_paramAddRho_le (l : HCParam ε) (k : maxCompactU ε)
         sum_le_sum fun i _ ↦ sum_le_sum fun j _ ↦
           mul_le_mul_of_nonneg_right (mod_cast h_diff i j) (sq_nonneg _)
     _ = gapWeightedNormSq l.lowestKType k + 2 * card n * ‖(k : Matrix n n ℂ)‖ ^ 2 := by
-        simp [gapWeightedNormSq, frobenius_norm_sq_eq_sum, add_mul, mul_sum, sum_add_distrib]
+        simp [gapWeightedNormSq, frobenius_norm_sq_eq_sum_norm_sq, add_mul, mul_sum,
+          sum_add_distrib]
     _ = gapWeightedNormSq l.lowestKType k + 2 * card n ^ 2 := by rw [h_norm, mul_assoc, ← sq]
 
 /-- Let `l = 2λ` be a parameter of gap `h` and let `g` in `USign ε` satisfy

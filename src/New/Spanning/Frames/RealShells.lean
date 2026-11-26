@@ -1,5 +1,6 @@
 module
 
+import TauCeti.Analysis.Matrix.L2OpNorm
 import Mathlib.Algebra.Order.Star.Int
 import Mathlib.Algebra.Order.Star.Real
 import Mathlib.RingTheory.PiTensorProduct
@@ -106,7 +107,7 @@ def dyadicShell (𝔰 : Shape) (i : ℕ) : Set 𝔰.G₁ :=
 lemma exists_mem_dyadicShell (x : 𝔰.G₁) : ∃ i : ℕ, x ∈ dyadicShell 𝔰 i := by
   let X : Matrix 𝔰.BesselIndex 𝔰.BesselIndex ℂ := x - 1
   obtain ⟨B, hB⟩ : ∃ B : ℝ, ∀ a c : 𝔰.BesselIndex, ‖X a c‖ ≤ B :=
-    ⟨_, fun a c ↦ norm_apply_le_l2_opNorm ..⟩
+    ⟨_, fun a c ↦ Matrix.norm_apply_le_l2_opNorm ..⟩
   obtain ⟨l, hl⟩ : ∃ l : ℕ, B < 2 ^ l := pow_unbounded_of_one_lt B _root_.one_lt_two
   have h_bound : ∃ l : ℕ, ∀ a c : 𝔰.BesselIndex, ‖X a c‖ ≤ 2 ^ l :=
     ⟨l, fun a c ↦ (hB a c).trans hl.le⟩
@@ -569,9 +570,8 @@ lemma lintegral_formMajorant_ne_top [Nonempty I]
   have h_factor : card I * ‖(hF.formConst : ℂ)‖ₑ * hF.complexData.headDensity j p q ≠ 0 := by
     simp [headDensity, formConst, prod_eq_zero_iff, toReal_ne_zero, ne_of_gt,
       haarRatio_ne_zero_and_groupMeasure_eq_smul]
-  intro h_top
-  rw [h_top, ← mul_assoc, ← mul_assoc, ENNReal.mul_top h_factor] at h_finite
-  exact h_finite rfl
+  rw [← mul_assoc, ← mul_assoc] at h_finite
+  exact (ENNReal.lt_top_of_mul_ne_top_right h_finite h_factor).ne
 
 /-- Let `ρ`, `s`, `b` be the sizes of a cut Bessel function, `0 < r` and `1 ≤ L`, and let `H ≥ 0`
 satisfy `L ^ n ^ 6 ≤ ρ ^ n ^ 6 * H`. At `t = max 1 (ρ ^ 24 * r)`, the bound for the sum over all

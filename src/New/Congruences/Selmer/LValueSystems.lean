@@ -345,9 +345,8 @@ theorem exists_stickelbergerSystem_β_le_and_norm_eq {w : FinPlace D.E} (hw : D.
           · exact ellVal_stickelbergerChar_tameGenerator_sub_one_le hw hℓ hp δ
       _ = 4 * ellVal (w.q - 1 : PadicAlgCl ℓ) := by ring
   · -- The norms at twists.
-    have h_exp : (if p.z = 1 then 1 else 0) + 1 = if p.z = 1 then 2 else 1 := by
-      split_ifs <;> rfl
-    simp only [hΘ_one, hΘ ξ.Q hξ ξ ξ.tamePart_eq_one hψ, norm_apply_twist hF δ ξ hξ, h_exp]
+    simp only [hΘ_one, hΘ ξ.Q hξ ξ ξ.tamePart_eq_one hψ, norm_apply_twist hF δ ξ hξ]
+    split_ifs <;> rfl
 
 omit [PadicIso ℓ] in
 /-- Let `‖x‖ = ‖x₀‖ ‖r‖ ^ i` with `x₀ ≠ 0` integral and `i ≥ 1`. If `v(x) ≤ v(x₀) + c`, then

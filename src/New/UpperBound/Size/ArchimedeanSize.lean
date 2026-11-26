@@ -493,8 +493,8 @@ lemma lowerChain_goodProjTranslate_apply {P : Parameters} {D : Data P} (ϑ : D.T
         (g * firstBlockLift ϑ (t * s)) := by
   -- Expand the action of `e₀` as a sum over `𝖦`; the lift turns the action of `t * s` into right
   -- translation by `firstBlockLift ϑ (t * s)` (`lowerChain_principalRep`).
-  simp [asAlgebraHom_eq_sum, ← mul_apply_eq_comp, ← map_mul, lowerChain_principalRep, smul_sum,
-    mul_smul]
+  simp [Representation.asAlgebraHom_eq_sum, ← mul_apply_eq_comp, ← map_mul, lowerChain_principalRep,
+    smul_sum, mul_smul]
 
 /-- Passage to the good part keeps integrality. Let `j : ℂ → ℂ_l` be a ring homomorphism; a form is
 integral at `j` if each value `φ(g)`, mapped by `j` and moved by `g⁻¹`, has coordinates of `l`-adic

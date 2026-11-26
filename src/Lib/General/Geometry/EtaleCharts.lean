@@ -113,7 +113,10 @@ abbrev structureMap : of k k ⟶ A := ofHom (Algebra.ofId k A)
 field K. -/
 def fieldLocus : Subfunctor X where
   obj _ := {x | ∀ (K : CommAlg k) φ, IsField K.carrier → P K (X.map φ x)}
-  map := by grind [=_ X.map_comp_apply]
+  map := by
+    intro A B f x hx K φ hK
+    rw [← X.map_comp_apply]
+    exact hx K (f ≫ φ) hK
 
 /-- A point `x` of `X(K)` comes from `s` if it is the image of some `k`-point `z` in `s` under the
 structure map `k → K`. -/

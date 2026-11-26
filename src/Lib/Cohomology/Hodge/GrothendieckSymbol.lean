@@ -956,7 +956,11 @@ lemma exists_isOpenSubfunctor_le_offPoints (hz : z ∈ U.obj (CommAlgCat.of k k)
     ∃ O : Subfunctor X, IsOpenSubfunctor O ∧ x ∈ O K ∧ O ≤ offPoints {z} := by
   -- The image of `z` lies in `U K`, so it is not `x`; take `O = offPoints {z}`.
   have hz_mem : X.map structureMap z ∈ U K := U.map structureMap hz
-  have hx_off : x ∈ offPoints {z} K := by aesop (add simp [mem_offPoints_iff, ComesFromPoints])
+  have hx_off : x ∈ offPoints {z} K := by
+    apply (mem_offPoints_iff hK).2
+    rintro ⟨w, hw, rfl⟩
+    obtain rfl := Set.mem_singleton_iff.mp hw
+    exact hx hz_mem
   exact ⟨offPoints {z}, isOpenSubfunctor_offPoints, hx_off, le_rfl⟩
 
 /-- Let `X` be separated, `a` a chart of dimension `e` that contains `z`, and `g` functions on `a`

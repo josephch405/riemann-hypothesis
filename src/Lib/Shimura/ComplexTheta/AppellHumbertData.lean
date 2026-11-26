@@ -7,6 +7,7 @@ import Mathlib.RingTheory.PiTensorProduct
 public import Lib.General.Analysis.FourierTransforms
 import Lib.Adelic.Adeles.AdditiveCharacter
 import Lib.General.Topology
+public import TauCeti.Algebra.Module.ZLattice.Quotient
 
 /-!
 # Theta functions on complex tori: Appell–Humbert data and factors of automorphy
@@ -224,14 +225,18 @@ instance [h : IsPosRiemann B] [NeZero n] : IsPosRiemann (n • B) := h.nsmul NeZ
 variable {B B' : ThetaTori.LatticeForm L} {χ} {χ' : V → ℂ} {l : V} {m : ℕ}
   {a : V} [hB : IsAppellHumbert B χ]
 
+omit hB in
+variable (B χ) in
 /-- The term exp(B(x, y − x + l) − B(l,y) − B(l,l)/2)/χ(l) of the Poincaré series at (x, y), for
-l in L. The unnamed argument is the Appell–Humbert data (B, χ), for dot notation. -/
-def IsAppellHumbert.poincareTerm (_ : IsAppellHumbert B χ) (x y : V) (l : L) : ℂ :=
+l in L. -/
+def ThetaTori.LatticeForm.poincareTerm (x y : V) (l : L) : ℂ :=
   Complex.exp (B x (y - x + l) - B l y - B l l / 2) / χ l
 
+omit hB in
+variable (B χ) in
 /-- The Poincaré series K(x, y) = ∑_{l ∈ L} exp(B(x, y − x + l) − B(l,y) − B(l,l)/2)/χ(l) of
 Appell–Humbert data (B, χ). -/
-def IsAppellHumbert.poincareSeries (x y : V) : ℂ := tsum (hB.poincareTerm x y)
+def ThetaTori.LatticeForm.poincareSeries (x y : V) : ℂ := tsum (B.poincareTerm χ x y)
 
 omit hB in
 lemma differentiable_of_mem_thetaSpace (hf : f ∈ B.thetaSpace χ) : Differentiable ℂ f := hf.1
@@ -505,12 +510,6 @@ lemma exists_factor_of_automorphy (hf_ne : ∀ z : V, f z ≠ 0)
       simpa [mul_comm, mul_left_comm, field, hf_ne] using h_two
     simpa [norm_exp] using congrArg (‖·‖) exp_eq
   | _ => simp [*]
-
-/-- The torus `V ⧸ L` is compact, as `L` is a full lattice. -/
-instance : CompactSpace (V ⧸ L.toAddSubgroup) where
-  isCompact_univ := by
-    rw [← range_mk]
-    exact isCompact_range_of_periodic L _ continuous_mk (by simp)
 
 /-! ### Positive Riemann forms and the dual lattice -/
 

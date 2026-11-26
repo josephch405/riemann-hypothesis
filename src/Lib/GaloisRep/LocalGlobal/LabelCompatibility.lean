@@ -300,12 +300,9 @@ private lemma New.GaloisRep.Attached.isLabelledAt_one (hf : f ∈ (stdSpace E n)
   have h_act (g : GL n (LocField w)) : (ρ (reindexGL (Fintype.equivFin n) g) ⟨f, hf⟩).val =
       rightRegular ℂ (Gf E n) (WeylIndex n κ.1 → ℂ) (ofSplitPlace hw g) f := by
     simp [ρ, Patching.localFormRep, Patching.embedAtSplit]
-  let red := intGL.map (n := n) (IsLocalRing.residue (Valued.integer (LocField w)))
-  have h_red (k : intGL n (Valued.integer (LocField w))) : red k = reduceGL k := rfl
-  have h_fix : ∀ k, red k = 1 → ρ (reindexGL (Fintype.equivFin n) k.val) ⟨f, hf⟩ = ⟨f, hf⟩ :=
-    fun k hk ↦ Subtype.ext ((h_act k.val).trans (h_has.1 k (h_red k ▸ hk)))
-  have h_lift : ∀ g : GL n (ResField w), red (surjInv reduceGL_surjective g) = g :=
-    fun g ↦ (h_red _).trans (surjInv_eq reduceGL_surjective g)
+  have h_fix : ∀ k, reduceGL (w := w) k = 1 →
+      ρ (reindexGL (Fintype.equivFin n) k.val) ⟨f, hf⟩ = ⟨f, hf⟩ :=
+    fun k hk ↦ Subtype.ext ((h_act k.val).trans (h_has.1 k hk))
   have h_sum : ∑ᶠ g : GL n (ResField w),
       star ((∏ b, (detChar (append ψ χ b)).rankPart (append 1 t b)).evalGL g) •
         ρ (reindexGL (Fintype.equivFin n) (surjInv reduceGL_surjective g).val) ⟨f, hf⟩ ≠ 0 := by
@@ -315,7 +312,8 @@ private lemma New.GaloisRep.Attached.isLabelledAt_one (hf : f ∈ (stdSpace E n)
     exact h_has.2 (by simpa [h_act, prod_univ_add, labelChar_X_sub_C] using h1)
   obtain ⟨z, hz, ξ, h_z⟩ := exists_sorted_of_detChar (ρ := ρ) (x := ⟨f, hf⟩) (v_uniformizer w)
     isUnitary_localFormRep (Fintype.equivFin n) h_inj (m := append 1 t)
-    (by simpa [sum_univ_add] using h_deg) h_fix h_lift h_sum
+    (by simpa [sum_univ_add] using h_deg) h_fix (s := surjInv (reduceGL_surjective (w := w)))
+    (surjInv_eq (reduceGL_surjective (w := w))) h_sum
   obtain ⟨lab, h_eig, h_sorted, h_lab⟩ := h_z
   have hez : IsEigenform z.val P := he.of_mem_cyclicSpan hz h_eig.ne_zero
   obtain ⟨h_fin, h_jump, -⟩ := hr.local_global_of_eigencharacter h_eig hez h_sorted hA 1 1 0

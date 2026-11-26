@@ -197,7 +197,7 @@ private lemma sum_heckePolyCoeff_mul_ite_integral_eq {ι₁ ι₂ : Type} [Finty
   have h_binom : ∑ U : Submodule (ResField w) (ι₂ → ResField w) with U ≤ residueKer y,
       heckePolyCoeff (X * c) U =
         qPochhammer w.q (card ι₂ - (y.map residueOrZero).rank) (X * c) := by
-    rw [q_binomial_submodule, card_ResField, card_sub_rank_eq_finrank_ker]
+    rw [q_binomial_submodule, card_ResField, ← finrank_ker_mulVecLin]
   conv_rhs => rw [← mul_boole]
   simp only [h_integral, ← mul_assoc, heckePolyCoeff_mul_pow]
   by_cases hy : ∀ (i : ι₁) (j : ι₂), v (y i j) ≤ 1

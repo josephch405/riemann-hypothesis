@@ -141,11 +141,6 @@ lemma mk_mem_stdChart_iff {hv : span (Set.range v) = ⊤} :
     refine ⟨⟨φ⟩, mk_eq_mk_iff_exists_unit.mpr ⟨u, ?_⟩⟩
     simp [φ, i.forall_iff_succAbove, ← hu, Units.smul_def, _root_.funext_iff]
 
-/-- The image of the point `[v]` under a map `f` of `k`-algebras is `[f ∘ v]`. -/
-private lemma map_mk {B : CommAlg k} (f : A ⟶ B) (hv : span (Set.range v) = ⊤) :
-    (projSpace k d).map f (mk v hv) = mk (f ∘ v) (unimodular.map f (a := ⟨v⟩) hv) :=
-  rfl
-
 /-! ### The map `ℙ^d × ℙ¹ → ℙ^(d+1)` -/
 
 /-- Let `v`, `u` be unimodular vectors over a local algebra over a field of characteristic `0`, with
@@ -201,12 +196,10 @@ lemma exists_eq_map_affinePoint_of_mul_eq_zero [CharZero k] [IsLocalRing A] {u :
   refine ⟨j, Prod.ext ?_ ?_⟩
   · -- `v` is `v j` times the `j`-th coordinate vector, as its other entries vanish.
     change mk v hv = (projSpace k d).map structureMap (affinePoint j 0)
-    rw [map_mk]
     refine (mk_eq_mk_iff_exists_unit.mpr ⟨hj.unit, ?_⟩).symm
     simp [_root_.funext_iff, j.forall_iff_succAbove, h_zero]
   · -- `u` is `u 0` times `(1, j)`.
     change mk u hu = (projSpace k 1).map structureMap (affinePoint 0 ![j])
-    rw [map_mk]
     refine (mk_eq_mk_iff_exists_unit.mpr ⟨hu0.unit, ?_⟩).symm
     simp [_root_.funext_iff, ← hu1, mul_comm]
 

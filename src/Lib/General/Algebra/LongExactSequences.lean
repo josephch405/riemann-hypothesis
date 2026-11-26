@@ -192,7 +192,8 @@ Ext^n(S₁,F) → Ext^{n+1}(S₃,F) of abelian groups. -/
 noncomputable def contravariant (hS : S.ShortExact) (F : AbFunctor C) : LongExactSeq :=
   -- The groups `H S.X₃ F n`, `H S.X₂ F n`, `H S.X₁ F n` and the connecting map, composition with
   -- `hS.extClass`, are read off the exactness statements; `f` and `g` are then named as pull-backs.
-  { mk _ _ _ (injective_f := precomp_mk₀_injective_of_epi F (hg := hS.epi_g))
+  { mk _ _ _
+    (injective_f := fun _ _ h ↦ by exact precomp_mk₀_injective_of_epi F S.g (hg := hS.epi_g) h)
     (exact_f_g := fun n ↦ exact_of_shortComplex_exact (contravariant_sequence_exact₂' hS F n))
     (exact_g_delta :=
       fun n ↦ exact_of_shortComplex_exact (contravariant_sequence_exact₁' hS F n (n + 1) (by lia)))
@@ -205,7 +206,8 @@ Ext^n(N,S₃) → Ext^{n+1}(N,S₁) of abelian groups. -/
 noncomputable def covariant (hS : S.ShortExact) (N : AbFunctor C) : LongExactSeq :=
   -- The groups `H N S.X₁ n`, `H N S.X₂ n`, `H N S.X₃ n` and the maps, composition with `S.f`, `S.g`
   -- and `hS.extClass`, are read off the exactness statements.
-  mk _ _ _ (injective_f := postcomp_mk₀_injective_of_mono N (hf := hS.mono_f))
+  mk _ _ _
+    (injective_f := fun _ _ h ↦ by exact postcomp_mk₀_injective_of_mono N S.f (hf := hS.mono_f) h)
     (exact_f_g := fun n ↦ exact_of_shortComplex_exact (covariant_sequence_exact₂' N hS n))
     (exact_g_delta :=
       fun n ↦ exact_of_shortComplex_exact (covariant_sequence_exact₃' N hS n (n + 1) rfl))
@@ -354,7 +356,8 @@ x∘φ is the restriction of x along φ. -/
 lemma Comparison.pull_apply {F : AbFunctor C} {F' : AbFunctor C'} (c : Comparison F F')
     (α : N' ⟶ c.functor ⋙ N) (x : H N F n) :
     c.pull α n x = (mk₀ α).comp
-      ((x.mapExactFunctor (restrictAlong c.functor)).comp (mk₀ c.coeffHom) (add_zero n))
+      ((x.mapExactFunctor (C := AbFunctor C) (D := AbFunctor C') (restrictAlong c.functor)).comp
+        (mk₀ c.coeffHom) (add_zero n))
         (zero_add n) :=
   rfl
 
@@ -372,7 +375,8 @@ lemma Comparison.pull_hom_contravariant (hS : S.ShortExact) (hS' : S'.ShortExact
     intro n (x : H S.X₁ F n)
     change c.pull (N := S.X₃) τ.τ₃ (n + 1) (hS.extClass.precomp F (add_comm 1 n) x) =
       hS'.extClass.precomp F' (add_comm 1 n) (c.pull (N := S.X₁) τ.τ₁ n x)
-    simp [pull_apply, mapExactFunctor_comp, mapExactFunctor_extClass,
+    rw [pull_apply, pull_apply]
+    simp [mapExactFunctor_comp, mapExactFunctor_extClass,
       ← comp_assoc (h₁₂ := zero_add 1), add_comm, ← hS'.extClass_naturality]
 
 /-- For short exact complexes S and S', a morphism τ from the restriction of S along φ to S' and a
@@ -382,15 +386,14 @@ lemma Comparison.pull_hom_covariant (hS : S.ShortExact) (hS' : S'.ShortExact) {�
     (τ : S.map (restrictAlong φ) ⟶ S') (α : N' ⟶ φ ⋙ N) :
     LongExactSeq.Hom (LongExactSeq.covariant hS N) (LongExactSeq.covariant hS' N')
       (pull ⟨φ, τ.τ₁⟩ α) (pull ⟨φ, τ.τ₂⟩ α) (pull ⟨φ, τ.τ₃⟩ α) := by
-  constructor
-  · exact fun _ x ↦ pull_push ⟨φ, τ.τ₁⟩ τ.τ₂ S.f S'.f τ.comm₁₂.symm α x
-  · exact fun _ x ↦ pull_push ⟨φ, τ.τ₂⟩ τ.τ₃ S.g S'.g τ.comm₂₃.symm α x
-  · -- the extension class is natural
-    intro n (x : H N S.X₃ n)
-    change pull (N := N) ⟨φ, τ.τ₁⟩ α (n + 1) (hS.extClass.postcomp N (by lia) x) =
-      hS'.extClass.postcomp N' (by lia) (pull ⟨φ, τ.τ₃⟩ α n x)
-    simp [pull_apply, mapExactFunctor_comp, mapExactFunctor_extClass, comp_assoc (h₂₃ := rfl),
-      ShortExact.extClass_naturality (h₂ := hS')]
+  refine ⟨fun _ x ↦ pull_push ⟨φ, τ.τ₁⟩ τ.τ₂ S.f S'.f τ.comm₁₂.symm α x,
+    fun _ x ↦ pull_push ⟨φ, τ.τ₂⟩ τ.τ₃ S.g S'.g τ.comm₂₃.symm α x, fun n (x : H N S.X₃ n) ↦ ?_⟩
+  -- the extension class is natural
+  change pull (N := N) ⟨φ, τ.τ₁⟩ α (n + 1) (hS.extClass.postcomp N rfl x) =
+    hS'.extClass.postcomp N' rfl (pull ⟨φ, τ.τ₃⟩ α n x)
+  rw [pull_apply, pull_apply]
+  simp [mapExactFunctor_comp, mapExactFunctor_extClass, comp_assoc (h₂₃ := rfl),
+    ShortExact.extClass_naturality (h₂ := hS')]
 
 /-- For 0 → X₁ → X₂ → X₃ → 0 short exact, X₁ → X₂ induces bijections on Extⁿ(-, F) for all n (it is
 a cohomological equivalence for F) exactly when Extⁿ(X₃, F) = 0 for all n. -/
@@ -407,9 +410,11 @@ lemma isCohomEquiv_iff_subsingleton (hS : S.ShortExact) :
       ((contravariant hS F).exact_f_g n).apply_apply_eq_zero x
     exact ⟨fun x y ↦ hf_inj ((h n).injective ((h_comp x).trans (h_comp y).symm))⟩
   · -- injective: the kernel is the image of Hⁿ(X₃) = 0
-    refine (injective_iff_map_eq_zero _).2 fun (x : H S.X₂ F n) (hx : H.map F S.f n x = 0) ↦ ?_
-    obtain ⟨z, rfl⟩ := ((contravariant hS F).exact_f_g n x).1 hx
-    exact (congrArg _ ((h n).elim z 0)).trans (map_zero _)
+    have h_inj (L : LongExactSeq) (hA : Subsingleton (L.A n)) : Function.Injective (L.g n) := by
+      refine (injective_iff_map_eq_zero _).2 fun x hx ↦ ?_
+      obtain ⟨z, rfl⟩ := (L.exact_f_g n x).1 hx
+      exact (congrArg _ (hA.elim z 0)).trans (map_zero _)
+    exact fun x y hxy ↦ h_inj (contravariant hS F) (h n) hxy
   · -- onto: the connecting map lands in Hⁿ⁺¹(X₃) = 0
     exact ((contravariant hS F).exact_g_delta n y).1 ((h (n + 1)).allEq _ _)
 
@@ -419,10 +424,11 @@ lemma isCohomEquiv_quotient_of_acyclic (hS : S.ShortExact)
     (hX₁ : ∀ (n : ℕ) (x : H S.X₁ F n), x = 0) : IsCohomEquiv F S.g := by
   -- the pull-back along `S.g` is the first map of `contravariant hS F`, whose third terms vanish
   intro n
-  have hg_surj (m : ℕ) : Surjective ((contravariant hS F).g m) :=
-    fun z ↦ ⟨0, (map_zero _).trans (hX₁ m z).symm⟩
-  exact ⟨(contravariant hS F).f_injective_of_g_surjective fun m _ ↦ hg_surj m,
-    fun y ↦ ((contravariant hS F).exact_f_g n y).1 (hX₁ n _)⟩
+  have h_bij (L : LongExactSeq) (hC : ∀ m : ℕ, Subsingleton (L.C m)) : Bijective (L.f n) :=
+    ⟨L.f_injective_of_g_surjective fun m _ z ↦ ⟨0, (hC m).elim _ _⟩,
+      fun y ↦ (L.exact_f_g n y).1 ((hC n).elim _ _)⟩
+  have hb := h_bij (contravariant hS F) fun m ↦ ⟨fun x y ↦ (hX₁ m x).trans (hX₁ m y).symm⟩
+  exact ⟨fun x y hxy ↦ hb.1 hxy, fun y ↦ hb.2 y⟩
 
 end New.Variety
 
@@ -445,7 +451,7 @@ lemma New.Variety.H.sigma_bijective {C : Type 1} [Category C] {ι : Type 1} (X :
   | zero =>
     -- In degree zero, `H (freeAb.obj Y) F 0` is the set of maps from `Y` to `F ⋙ forget _`.
     let e (Y : C ⥤ Type 1) : (Y ⟶ F ⋙ forget _) ≃ H (freeAb.obj Y) F 0 :=
-      (homEquiv₀.trans (freeAb.homEquiv Y F)).symm
+      ((homEquiv₀ (C := AbFunctor C)).trans (freeAb.homEquiv Y F)).symm
     -- A map out of the disjoint union is the same as a family of maps out of the `X i`.
     have h_bij : Bijective fun (f : sigma X ⟶ F ⋙ forget Ab) (i : ι) ↦ sigma.ι X i ≫ f :=
       (Equiv.mk (fun f (i : ι) ↦ sigma.ι X i ≫ f) sigma.desc (fun f ↦ rfl) fun f ↦ rfl).bijective
@@ -549,7 +555,8 @@ lemma H.pi_bijective (n : ℕ) :
       (mk₀_bijective N (piAbFunctor F)) (.piMap fun i ↦ mk₀_bijective N (F i))).1 h_hom
     -- pushing forward a class of degree 0 is composition with the projection
     change pull (⟨𝟭 C, π F i⟩ : Comparison (piAbFunctor F) (F i)) (𝟙 N) 0 (mk₀ x) = mk₀ (x ≫ π F i)
-    simp [pull_apply, mapExactFunctor_mk₀, show (𝟭 C).whiskerLeft x = x from rfl]
+    rw [pull_id_eq_push]
+    exact mk₀_comp_mk₀ x (π F i)
   | succ n ih =>
     -- for 0 → K → ℤ[⊔ h_c] → N → 0 with onto connecting maps, degree n + 1 for N follows from
     -- degree n for the two other terms (`bijective_succ_family`, a five lemma for families)

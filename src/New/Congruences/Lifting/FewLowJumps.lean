@@ -237,8 +237,8 @@ lemma exists_isOperatorOfCost_mem_deepElements_raiseOrder (a : ℕ) (u : ℤ) :
   obtain ⟨rfl, rfl, rfl⟩ : l = a ∧ v = u ∧ n = c l v := by
     simp only [raiseOrder] at hn_lt
     split_ifs at hn_lt with h
-    · rcases h with ⟨rfl, rfl⟩; exact ⟨rfl, rfl, by omega⟩
-    · omega
+    · exact ⟨h.1, h.2, (Int.le_of_lt_add_one hn_lt).antisymm hn_ge⟩
+    · exact (not_lt_of_ge hn_ge (by simpa only [add_zero] using hn_lt)).elim
   exact mem_singleton_self _
 
 /-- A primitive relation for one step. Let `S` be a side on an unramified chart `k` and `i` a

@@ -255,10 +255,22 @@ lemma testToPdReduction_theta (c : PadicTest) (x : WittVector p (PreTilt c.ProdR
   -- `θ x` is the image of `1 ⊗ₜ x` under `thetaIso`, which cancels against its inverse in
   -- `testToPdReduction`; the remaining map sends `s ⊗ₜ x` to `s` times the class of `1 ⊗ₜ x`.
   refine .trans ?_ (one_smul OC _)
-  -- `erw`: the rewrites need the irreducible `testToPdReduction` and the coercions of `thetaIso`
-  -- unfolded.
-  erw [← thetaIso_hom_one_tmul, testToPdReduction, ← NatTrans.comp_app_apply, Iso.hom_inv_id_assoc]
-  rfl
+  have h_cancel : thetaIso.inv c (fontaineTheta c.ProdRing p x) = 1 ⊗ₜ x :=
+    (congrArg (thetaIso.inv c) (thetaIso_hom_one_tmul c x).symm).trans
+      ((thetaIso.app c).hom_inv_id_apply _)
+  let toAm :=
+    baseChangeTranspose wittFunctor (periodAlg Amax)
+      (wittFunctor.whiskerLeft ((algBaseChange Amax).whiskerLeft (algCompletion.of Amax p)))
+  let β : tilt ⋙ wittFunctor ⋙ algBaseChange OC ⟶
+      crysThickening ⋙ pdReduction integersToPdQuotient :=
+    (baseChangeTranspose ..).invFun
+      (tilt.whiskerLeft toAm ≫ by exact crysThickening.whiskerLeft toPdReduction)
+  have h_comp : testToPdReduction = thetaIso.inv ≫ β := by
+    unfold testToPdReduction
+    rfl
+  rw [h_comp]
+  change β c (thetaIso.inv c (fontaineTheta c.ProdRing p x)) = _
+  exact (congrArg (β c) h_cancel).trans rfl
 
 /-- For a functor P from O_C-algebras to types, `HasCrysComparison P` says that restriction along
 `New.Variety.crysThickening` and `New.Variety.testToPdReduction` is bijective in every degree. It
@@ -394,13 +406,16 @@ private lemma exists_isCompletionBijective_witt_tensor (G : Type) [AddCommMonoid
         RingHom.ker (constantCoeff : WittVector p b →+* b) = span {(p : WittVector p b)} ∧ _ :=
     isReductionMod_constantCoeff_and_isCompleteTorsionFree OFlat b
   -- `W(b)` is a `W`-algebra, the elements of `G` going to Teichmüller representatives.
-  let wittAlgebra : Algebra (WittVector p OFlat)[G] (WittVector p b) :=
-    (liftNCRingHom (map (algebraMap OFlat b)) ((teichmuller p).comp
-      (includeLeftRingHom.toMonoidHom.comp (of OFlat G))) fun _ _ ↦ .all ..).toAlgebra
+  let wittCoeff : WittVector p OFlat →+* WittVector p b := map (algebraMap OFlat b)
+  let wittTeich : Multiplicative G →* WittVector p b :=
+    (teichmuller p).comp (includeLeftRingHom.toMonoidHom.comp (of OFlat G))
+  let wittMap : W →+* WittVector p b :=
+    liftNCRingHom wittCoeff wittTeich fun _ _ ↦ .all ..
+  let wittAlgebra : Algebra W (WittVector p b) := wittMap.toAlgebra
   have h_constantCoeff_comp :
       constantCoeff.comp (algebraMap W (WittVector p b)) = algebraMap W b := by
     -- on `Ainf`, and on the elements of `G`, sent to Teichmüller representatives
-    ext <;> simp [b, W, algebraMap_toAlgebra, ← AddMonoidAlgebra.one_def,
+    ext <;> simp [b, W, wittMap, wittCoeff, wittTeich, algebraMap_toAlgebra, ← AddMonoidAlgebra.one_def,
       ← Algebra.TensorProduct.one_def]
   let coeff₀ : WittVector p b →ₐ[W] b :=
     ⟨constantCoeff, fun a ↦ RingHom.congr_fun h_constantCoeff_comp a⟩
@@ -418,8 +433,11 @@ private lemma exists_isCompletionBijective_witt_tensor (G : Type) [AddCommMonoid
   have hκ_algebraMap (a : Ainf) :
       κ (algebraMap Ainf T a) = WittVector.map (algebraMap OFlat b) a := by
     rw [IsScalarTower.algebraMap_apply Ainf W T, κ.commutes]
-    -- `erw`: the `W`-algebra structure on `W(b)` is `wittAlgebra`, which `rw` does not unfold.
-    erw [liftNC_single, map_one, mul_one, Algebra.algebraMap_self_apply]
+    have h_single : algebraMap Ainf W a = single (0 : G) a := rfl
+    have h_eval : wittMap (single (0 : G) a) = wittCoeff a * wittTeich 1 :=
+      liftNCRingHom_single ..
+    exact (congrArg wittMap h_single).trans (h_eval.trans
+      ((congrArg (wittCoeff a * ·) (map_one wittTeich)).trans (mul_one _)))
   let k : .of Ainf T ⟶ wittFunctor.obj b := CommAlg.homOfRingHom κ.toRingHom hκ_algebraMap
   refine ⟨k, ?_⟩
   -- `T → b` is onto with kernel `p T`, being a base change of `Ainf → OFlat`. Hence `κ` is

@@ -642,22 +642,14 @@ lemma exists_ellVal_le_and_diagOp_mem_ellIntegralForms {P : Parameters} {D : Dat
         (Q.place j).q (algebraMap EllAdicIntegers ℂ (a (Q.frobData j).frob))⁻¹ O.rankDiff :=
     h_string j ⟨x, hx⟩ h_cong (not_not.1 (mt (h_factor ⟨x, hx⟩) h_ne))
   have h_rankDiff : O.rankDiff ≠ 0 := by simpa [Nat.sub_eq_zero_iff_le] using O.rank_lt
-  have h_ribet
-      (S : Subalgebra EllAdicIntegers (B.Eigensystem Q.place → MvPolynomial J (PadicAlgCl ℓ)))
-      (𝒥 : Submodule S (B.Eigensystem Q.place → MvPolynomial J (PadicAlgCl ℓ)))
-      (h𝒥 : IsTraceIdeal 𝒥 (fun x g ↦ (N x.val g).val) (ℓ ^ (ν + 1) : EllAdicIntegers)
-        (fun j ↦ (Q.frobData j).isPlaceOver.tameGenerator) (fun j ↦ (Q.frobData j).frob)
-        (fun j ↦ j) e) :
-      ∃ d : PadicAlgCl ℓ, IsCommonRibetElement 𝒥
-          (fun (g : Gal(Ω/D.E)) (x : B.Eigensystem Q.place) ↦ (1 - (N x.val g).val).det) x₁ d ∧
-        ellVal (ℓ := ℓ) (D.chosenGroupOrder ^ 2 * d) ≤ liftValuationBound ℓ O ram sel :=
-    exists_isCommonRibetElement_ellVal_le hc hϑ h_le h_tri (𝓧 := 𝓧)
-      (sys := fun x : B.Eigensystem Q.place ↦ x.val)
-      (fun x ↦ h_isRepOfType J Q.place h_good x x.prop) (fun x ↦ h_quad J Q.place h_good x x.prop)
-      x₁ h_lift h_sel_ne_top h𝒥 he
-  refine (B.exists_diagOp_mem_ellIntegralForms Q h_offLevel h_twist h_tame
+  obtain ⟨s, h_val, h_op⟩ := B.exists_diagOp_mem_ellIntegralForms Q h_offLevel h_twist h_tame
     (fun (g : Gal(Ω/D.E)) (x : B.Eigensystem Q.place) ↦ (1 - (N x.val g).val).det) elt value 𝓨 x₁ e
-    h_rankDiff (h_int h_good) h_string' h_dvd h_ribet).elim fun s ⟨h_val, h_op⟩ ↦ ?_
+    h_rankDiff (h_int h_good) h_string' h_dvd
+    (m := D.chosenGroupOrder ^ 2) (bound := liftValuationBound ℓ O ram sel) fun _ _ h𝒥 ↦
+      exists_isCommonRibetElement_ellVal_le hc hϑ h_le h_tri (𝓧 := 𝓧)
+        (sys := fun x : B.Eigensystem Q.place ↦ x.val)
+        (fun x ↦ h_isRepOfType J Q.place h_good x x.prop)
+        (fun x ↦ h_quad J Q.place h_good x x.prop) x₁ h_lift h_sel_ne_top h𝒥 he
   refine ⟨J, inferInstance, Q.place, s, fun x hx ↦ ?_, fun l hl hl_int y hy h_supp h_agree ↦ ?_⟩
   · obtain rfl : x = x₁ := Subtype.ext hx
     exact h_val

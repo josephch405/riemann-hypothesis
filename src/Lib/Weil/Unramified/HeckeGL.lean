@@ -1,5 +1,6 @@
 module
 
+public import TauCeti.LinearAlgebra.Matrix.Rank
 import Mathlib.LinearAlgebra.Matrix.Module
 import Mathlib.LinearAlgebra.Projectivization.Cardinality
 import Mathlib.RingTheory.Coalgebra.IsFrobenius
@@ -223,13 +224,6 @@ lemma map_residueOrZero_mul {y : Matrix n n (LocField w)} (hz : ∀ (i : m) (j :
   rw [map_mul, Matrix.map_apply, Matrix.map_apply, ← residueOrZero_coe ⟨z a k, hz a k⟩,
     ← residueOrZero_coe ⟨y k b, hy k b⟩]
 
-omit [DecidableEq n] in
-/-- For a matrix x over a field k with columns indexed by n, the number of columns minus the rank
-of x is the dimension of the kernel of x acting on column vectors. -/
-lemma card_sub_rank_eq_finrank_ker {k : Type*} [Field k] (x : Matrix m n k) :
-    Fintype.card n - x.rank = finrank k x.mulVecLin.ker := by
-  grind [finrank_pi, finrank_range_mulVecLin, x.mulVecLin.finrank_range_add_finrank_ker]
-
 /-- Over a field with q elements, the subgroup H of GL_n of matrices whose i-th column vanishes
 off the diagonal (the stabiliser of a line) has index 1 + q + ⋯ + q^(n − 1). -/
 lemma index_stabilizer_line {F : Type*} [Field F] [Finite F] (i : n) {H : Subgroup (GL n F)}
@@ -265,7 +259,7 @@ lemma finrank_residueKer_diagGL (hϖ : v ϖ.val = exp (-1)) (s : Finset n) :
     finrank (ResField w) (residueKer (diagGL fun i : n ↦ if i ∈ s then ϖ else 1).val) = #s := by
   classical
   -- The reduction is diagonal with `0` on `s` and `1` off `s`, so its rank is `#sᶜ`.
-  rw [residueKer, ← card_sub_rank_eq_finrank_ker]
+  rw [residueKer, finrank_ker_mulVecLin]
   simp +decide [apply_ite, hϖ, ite_apply, rank_diagonal, ← card_compl]
 
 /-- The set `New.basicDoubleCoset` n w j is stable under multiplication on both sides by elements
@@ -420,7 +414,7 @@ lemma basicDoubleCoset_eq (hg : g ∈ basicDoubleCoset n w j) :
 
 lemma le_card_of_mem_basicDoubleCoset (hg : g ∈ basicDoubleCoset n w j) :
     j ≤ Fintype.card n := by
-  simp [← finrank_residueKer hg, ← card_sub_rank_eq_finrank_ker]
+  simp [← finrank_residueKer hg, finrank_ker_mulVecLin]
 
 /-- The space k_w^n over the finite residue field has finitely many subspaces. -/
 instance : Fintype (Submodule (ResField w) (n → ResField w)) := .ofFinite _

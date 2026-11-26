@@ -1,5 +1,6 @@
 module
 
+public import TauCeti.Analysis.Matrix.MeasurableSpace
 public import Mathlib.Data.Matrix.ColumnRowPartitioned
 import Mathlib.Algebra.Order.Archimedean.Real.Hom
 import Mathlib.Analysis.Calculus.FDeriv.Star
@@ -171,11 +172,6 @@ theorem _root_.Measurable.matrix_mul [Fintype n] {X : Type} [MeasurableSpace X] 
 @[fun_prop]
 theorem measurable_matrix_det [Fintype n] : Measurable fun Z : Matrix n n ℂ ↦ Z.det :=
   continuous_id.matrix_det.measurable
-
-@[fun_prop]
-theorem measurable_matrix_inv [Fintype n] : Measurable fun Z : Matrix n n ℂ ↦ Z⁻¹ := by
-  simp only [Matrix.inv_def, Ring.inverse_eq_inv']
-  fun_prop
 
 /-- Substitution by an invertible real linear map `T` in an integral against an additive Haar
 measure: the Jacobian is `|det T|`. -/

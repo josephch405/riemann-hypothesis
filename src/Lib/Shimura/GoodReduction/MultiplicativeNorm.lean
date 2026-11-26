@@ -130,9 +130,9 @@ end
 variable [Module.Finite ℤ R]
 
 /-- A point `a` of `c⁻¹ L` (the vectors that `F c` maps into `L`) has finite order modulo `L`. -/
-lemma mem_torsionPoints (a : h.divLattice c) : (a : V) ∈ torsionPoints L := by
+lemma mem_torsionPoints (a : divLattice L F c) : (a : V) ∈ torsionPoints L := by
   -- the index of `L` in `c⁻¹ L` is the order of the finite group `c⁻¹ L / L`
-  exact ⟨L.toAddSubgroup.relIndex (h.divLattice c), (Nat.card_pos (α := h.MulKernel c)).ne',
+  exact ⟨L.toAddSubgroup.relIndex (divLattice L F c), (Nat.card_pos (α := h.MulKernel c)).ne',
     L.toAddSubgroup.nsmul_relIndex_mem a.prop⟩
 
 /-- For `c ≠ 0`, multiplication by `c` maps the points of finite order modulo `L` onto
@@ -141,7 +141,7 @@ lemma torsionAction_surjective (c : R) [NeZero c] : Surjective (h.torsionAction 
   rintro ⟨y, n, hn, hy⟩
   -- The preimage is `x = (F c).inverse y`. Since `F c (n • x) = n • y ∈ L`, the point `n • x` is
   -- torsion by `mem_torsionPoints`, and hence so is `x`.
-  have hnx : n • (F c).inverse y ∈ h.divLattice c := by simp_all [divLattice]
+  have hnx : n • (F c).inverse y ∈ divLattice L F c := by simp_all [divLattice]
   obtain ⟨m, hm, hmx⟩ : ∃ m ≠ (0 : ℕ), m • n • (F c).inverse y ∈ L :=
     h.mem_torsionPoints ⟨n • (F c).inverse y, hnx⟩
   have hmnx : (m * n) • (F c).inverse y ∈ L := by rwa [mul_smul]
@@ -216,7 +216,7 @@ private lemma averagedPullback_normShift_of_mem_dualLattice (hd : star c = d)
   have phase_one (z : h.MulKernel d) : B.riemannPhase (F d a) (F d z.out) = 1 := by
     refine h.riemannPhase_eq_one ha ?_
     rw [star_eq_iff_star_eq.mp hd]
-    exact h.map_mem c _ (h.map_divLattice_mem d z.out)
+    exact h.map_mem c _ (map_divLattice_mem (L := L) (F := F) d z.out)
   set s : V → ℂ := t ∘ F c ∘ (F d).inverse
   have pull : h.normShift (F c a) t ∘ F c ∘ (F d).inverse = h.normShift (F d a) s :=
     (h.normShift_comp_inverse_eq hd a t).symm
@@ -272,7 +272,7 @@ lemma exists_sum_normShift_eq_smul (hd : star c = d)
     (hc_dual : ∀ a ∈ B.dualLattice, F c a - a ∈ L) (hd_dual : ∀ a ∈ B.dualLattice, F d a - a ∈ L) :
     ∃ μ : ℂ,
       (Nat.card (h.MulKernel d) : ℂ) *
-          quotMean L.toAddSubgroup (fun x : V ↦ h.isAppellHumbert.poincareSeries (F d x) (F c x)) =
+          quotMean L.toAddSubgroup (fun x : V ↦ B.poincareSeries h.multiplier (F d x) (F c x)) =
           μ ∧
       ∀ t ∈ B.thetaSpace h.multiplier,
         (∑ z : h.MulKernel d, h.normShift (F d z.out)) (t ∘ F c ∘ (F d).inverse) = μ • t := by
@@ -288,7 +288,7 @@ lemma exists_sum_normShift_eq_smul (hd : star c = d)
   -- diagonal
   obtain ⟨-, -, kern_mem, kern_mean, -⟩ :=
     h.isAppellHumbert.poincareSeries_mem_thetaSpace_and_quotMean h.pos
-  set K : V → V → ℂ := h.isAppellHumbert.poincareSeries
+  set K : V → V → ℂ := B.poincareSeries h.multiplier
   let G : V → ℂ := fun x ↦ K (F (star c) x) (F c x)
   -- for `t = K (d x)`, at the point `d x`, the term `z` of the sum is `G (x + z)`
   have sum_G (x : V) :
@@ -370,22 +370,22 @@ lemma sum_normShift_eq_zero (hd : star c = d) (hd_dual : ∀ a ∈ B.dualLattice
   -- `z = a (c z) + b (star c z)` lies in `L`
   obtain ⟨a, b, hab⟩ : ∃ a b : R, a * c + b * star c = 1 := hc
   have comb : F (a * c + b * star c) z.out ∈ L := by
-    simpa using add_mem (h.map_mem a _ cz_mem) (h.map_mem b _ (h.map_divLattice_mem _ z.out))
+    simpa using add_mem (h.map_mem a _ cz_mem) (h.map_mem b _ (map_divLattice_mem (L := L) (F := F) _ z.out))
   have z_mem : (z.out : V) ∈ L := by simpa [hab] using comb
   exact hz ((h.out_mem_iff_eq_zero _ z).mp z_mem)
 
 omit [IsDomain R] [IsFullRankLattice L] [Module.Finite ℤ R] in
-/-- The Poincaré kernel `K` of the canonical multiplier (`poincareSeries`, a sum of `poincareTerm`
+/-- The Poincaré kernel `K` of the canonical multiplier (`ThetaTori.LatticeForm.poincareSeries`, a sum of `ThetaTori.LatticeForm.poincareTerm`
 over the lattice) at `(c x, star c x)` is the complex conjugate of its value at
 `(star c x, c x)`. -/
 lemma poincareSeries_eq_conj_poincareSeries_star (c : R) (x : V) :
-    h.isAppellHumbert.poincareSeries (F c x) (F (star c) x) =
-      starRingEnd ℂ (h.isAppellHumbert.poincareSeries (F (star c) x) (F c x)) := by
+    B.poincareSeries h.multiplier (F c x) (F (star c) x) =
+      starRingEnd ℂ (B.poincareSeries h.multiplier (F (star c) x) (F c x)) := by
   -- Conjugate term by term and substitute `l ↦ -l` in the sum over the lattice.
-  simp only [IsAppellHumbert.poincareSeries, conj_tsum]
+  simp only [ThetaTori.LatticeForm.poincareSeries, conj_tsum]
   rw [← tsum_comp_neg]
   refine tsum_congr fun l ↦ ?_
-  rw [IsAppellHumbert.poincareTerm, IsAppellHumbert.poincareTerm, h.multiplier_eq_exp,
+  rw [ThetaTori.LatticeForm.poincareTerm, ThetaTori.LatticeForm.poincareTerm, h.multiplier_eq_exp,
     h.multiplier_eq_exp]
   simp [← exp_sub, ← exp_conj]
   -- the exponents differ by `B x y - B y x` for lattice vectors, by adjointness and symmetry
@@ -410,7 +410,7 @@ lemma exists_theta_identity (hd : star c = d)
   subst hd
   obtain ⟨μ, hμ, identity⟩ := h.exists_sum_normShift_eq_smul rfl hc_dual hd_dual
   obtain ⟨ν, hν, identity_star⟩ := h.exists_sum_normShift_eq_smul (star_star c) hd_dual hc_dual
-  set K : V → V → ℂ := h.isAppellHumbert.poincareSeries with hK
+  set K : V → V → ℂ := B.poincareSeries h.multiplier with hK
   set m : ℂ := quotMean L.toAddSubgroup fun x ↦ K (F (star c) x) (F c x) with hm
   set δ : ℂ := (F (star c)).det
   refine ⟨μ, ?_, identity⟩
@@ -654,7 +654,7 @@ lemma hasShiftBound_of_torsionAction
     · simp only [normShift, normalizedShift, canonicalMultiplier, LinearMap.smul_apply, s]
       fun_prop
     -- translation by `l ∈ L` multiplies `s ξ` by `ξ (c⁻¹ l)`
-    let y : h.divLattice c := ⟨(F c).inverse l, by simpa [divLattice]⟩
+    let y : divLattice L F c := ⟨(F c).inverse l, by simpa [divLattice]⟩
     have h_eigen_z : h.normShift (F c y) (s ξ) z = ξ y * s ξ z :=
       congrFun (h.normShift_sum_eq_char_smul c h_fixed ξ y rfl) z
     simpa [y, χ, normalizedShift, ← neg_add_rev, exp_neg, field, mul_right_comm _ (ξ _), hl,
