@@ -220,22 +220,8 @@ lemma pairWeil_schrodingerOp_of_mem_supportedOn (hA : A.IsConjDisjoint) {Ψ : (n
           Ψ (matrixToVec (h⁻¹.val.val * vecToMatrix x * g.val.val))) f := by
   let u : Gf E (n' × n) := (onHom ((1, g), 1, h) : G E (homSigns s s')).2
   -- the matrix of `u` is the Kronecker product `h ⊗ₖ g⁻¹ᵀ`
-  have h_det : detOn A u.val = detOn A h.val ^ card n / detOn A g.val ^ card n' := by
-    refine eq_div_of_mul_eq' (Units.ext (Prod.ext ?_ (RestrictedProduct.ext _ _ fun w ↦ ?_)))
-    · have h1 (x : (𝔸f E)ˣ) : (finIdeleIncl x).val.1 = 1 := rfl
-      simp only [detOn, MonoidHom.coe_comp, Function.comp_apply, ← map_pow, ← map_mul, h1]
-    · let π : 𝔸 E →+* LocField w := (evalAt w).comp (RingHom.snd _ _)
-      change π (detOn A u.val * detOn A g.val ^ card n').val = π (detOn A h.val ^ card n).val
-      simp only [Units.val_mul, Units.val_pow_eq_pow_val, map_mul, map_pow, π, RingHom.coe_comp,
-        Function.comp_apply, RingHom.coe_snd, evalAt_apply, detOn_apply]
-      by_cases hw : w ∈ A
-      · have hu : (u.atPlace w).val = (h.atPlace w).val ⊗ₖ (g.atPlace w)⁻¹.valᵀ := by
-          simpa only [← map_inv] using G.onHom_atPlace (p := ((1, g), (1, h))) (w := w)
-        simp only [hw, ↓reduceIte, hu, det_kronecker, det_transpose, coe_units_inv,
-          det_nonsing_inv, Ring.inverse_eq_inv, inv_pow, mul_assoc]
-        rw [inv_mul_cancel₀ (pow_ne_zero _ (GeneralLinearGroup.det_ne_zero (g.atPlace w))),
-          mul_one]
-      · simp only [hw, ↓reduceIte, one_pow, mul_one]
+  have h_det : detOn A u.val = detOn A h.val ^ card n / detOn A g.val ^ card n' :=
+    eq_div_of_mul_eq' (by aesop (add simp [u, det_kronecker, det_ne_zero]))
   -- `a (det h)` and `b (det g)` are values of the base changes at `detOn A h` and `detOn A g`
   have h_scalar : pairChar (s := s) (s' := s') a b ((1, g), 1, h) *
         (starRingEnd ℂ) (chiAdelic (detOn A u.val)) =
@@ -376,11 +362,8 @@ lemma pairWeil_boxProd_source (h : G E s') (f : 𝒮 (V₁.hom T)) (f' : 𝒮 (V
       boxProd homSigns_sum_source ((V₁.hom T).ω (onHom (g₁, h)) f)
         ((V₂.hom T).ω (onHom (g₂, h)) f') :=
     omega_boxProd _ (by simp [adeleMatrix_inv, stdForm, ← ext_iff]) f f'
-  rw [pairWeil_apply, pairWeil_apply, pairWeil_apply, h_ω, map_smul, map_smul,
-    _root_.smul_apply, smul_smul]
-  congr 1
-  simp [det_eq]
-  ring
+  simp [pairWeil_apply, det_eq, h_ω]
+  module
 
 /-- Let e split the coordinates of V compatibly with the signs, and let g be block diagonal along e
 with blocks g₁, g₂. Then on Hom(T,V), ω_{a,bb'}(h,g)(f ⊠ f') = ω_{a,b}(h,g₁)f ⊠ ω_{a,b'}(h,g₂)f' for
@@ -398,11 +381,8 @@ lemma pairWeil_boxProd_target (hs : s ∘ e = s₁ ⊕ᵥ s₂) (T : Space E n' 
       boxProd (homSigns_sum_target hs) ((T.hom V₁).ω (G.onHom (h, g₁)) f)
         ((T.hom V₂).ω (G.onHom (h, g₂)) f') :=
     omega_boxProd _ (by simp_all [← ext_iff]) f f'
-  rw [pairWeil_apply, pairWeil_apply, pairWeil_apply, h_omega, map_smul, map_smul,
-    _root_.smul_apply, smul_smul]
-  congr 1
-  simp [det_eq]
-  ring
+  simp [pairWeil_apply, det_eq, h_omega]
+  module
 
 end Sums
 
@@ -481,11 +461,7 @@ lemma pairWeil_negSource (h : G E s') (f : 𝒮 (S.hom T)) :
   have ω_eq : negSource.map ((S.hom T).ω (onHom (g, h)) f) =
       (upsilonU1.val (onHom (g, h)).det : ℂ) •
         (S.neg.hom T).ω (onHom (g.neg, h)) (negSource.map f) :=
-    negSource.map_omega
-      (fun x ↦ by
-        change (normNegOneIdele E)⁻¹ • ((onHom (g.neg, h)).adeleMatrix *ᵥ x) =
-          (onHom (g, h)).adeleMatrix *ᵥ ((normNegOneIdele E)⁻¹ • x)
-        rw [h_mat, mulVec_smul])
+    negSource.map_omega (by simp [negSource, h_mat, ContinuousAddEquiv.mk', mulVec_smul])
       (conj_weilMultiplier_of_eq_neg h_signs h_mat) f
   -- `det (onHom (g, h)) = det h ^ n * (det g)⁻¹ ^ n'`, so the powers of `upsilonU1` in the new
   -- characters give the factor in `ω_eq`; conjugation inverts the values of `a` and `b`.
@@ -536,10 +512,7 @@ lemma Space.pairTheta_move (S : Space E n s) (T : Space E n' s') (a b : AutChar 
       (S.hom T).θ ((S.hom T).ω (G.onHom (γ, γ')) f') :=
     (congrArg (fun V : Space E (n' × n) (homSigns s s') ↦ V.θ f') h_hom).trans (theta_move ..)
   have h_char : pairChar a b (g, h) =
-      b.val γ.det * (a.val γ'.det : ℂ)⁻¹ * pairChar a b (γ * g, γ' * h) := by
-    rw [← Prod.mk_mul_mk, map_mul]
-    simp only [pairChar_apply]
-    field_simp
+      b.val γ.det * (a.val γ'.det : ℂ)⁻¹ * pairChar a b (γ * g, γ' * h) := by simp [field]
   calc pairTheta (S.move γ) (T.move γ') a b f (g, h)
       = (S.hom T).θ ((S.hom T).ω (G.onHom (γ, γ')) (pairWeil S T a b (g, h) f)) := h_theta _
     _ = pairChar a b (g, h) * (S.hom T).θ ((S.hom T).ω (G.onHom (γ * g, γ' * h)) f) := by
