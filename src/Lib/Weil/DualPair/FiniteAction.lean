@@ -174,9 +174,7 @@ lemma finMultiplier_onHom_left {g : G E s} :
       aesop (add simp Matrix.one_apply)
   have h_transpose : (G.onHom (s' := s') (g, 1)).2.val.val = (φ g.2⁻¹.val.val)ᵀ := by
     refine Matrix.ext fun ⟨i₁, j₁⟩ ⟨i₂, j₂⟩ ↦ ?_
-    simp only [onHom_snd, φ, RingHom.coe_mk, MonoidHom.coe_mk, OneHom.coe_mk,
-      kroneckerMap_apply, transpose_apply, Matrix.one_apply, Prod.snd_one, OneMemClass.coe_one,
-      Units.val_one, ite_mul, one_mul, zero_mul, eq_comm]
+    simp [onHom_snd, φ, Matrix.one_apply, eq_comm]
   have h_det : (Φ u).det = u.det ^ card n' := by simp [Φ, φ, Units.ext_iff, det_kronecker]
   rw [finMultiplier, h_sat.glMultiplier_transpose h_transpose, h_det, map_pow]
   rfl
@@ -244,12 +242,9 @@ lemma pairWeil_schrodingerOp_of_mem_supportedOn (hA : A.IsConjDisjoint) {Ψ : (n
       (a.spaceChar (card n)).val (detOn A h.val) / (b.spaceChar (card n')).val (detOn A g.val) *
         √(ideleAbs (detOn A g.val)) ^ card n' / √(ideleAbs (detOn A h.val)) ^ card n := by
     rw [h_det, map_div, map_pow, map_pow]
-    simp only [pairChar_apply, detFin_of_mem_supportedOn hA, hg, hh, AutChar.spaceChar,
-      AutChar.baseChange_apply_coe_toFun, chiAdelic, MonoidHom.coe_mk, OneHom.coe_mk,
-      Subgroup.coe_mul, Subgroup.coe_inv, Subgroup.coe_pow, ContinuousMonoidHom.mul_apply,
-      ContinuousMonoidHom.pow_apply, circleChar_inv_apply, Circle.coe_mul, Circle.coe_inv,
-      Circle.coe_pow, map_div₀, map_pow, map_mul, Complex.conj_ofReal, map_inv₀,
-      ← Complex.inv_eq_conj, Circle.norm_coe, mul_pow, inv_pow]
+    simp [detFin_of_mem_supportedOn hA, AutChar.spaceChar,
+      AutChar.baseChange_apply_coe_toFun, hg, hh, chiAdelic, mul_pow,
+      ← Complex.inv_eq_conj, Circle.norm_coe]
     field_simp
   -- `ω u` moves `Ψ` to `Ψ (u⁻¹ ·)`, with the factor `conj (chiAdelic (detOn A u))`
   rw [pairWeil_apply, onHom_fin, omega_schrodingerOp_of_mem_supportedOn hA _
@@ -381,11 +376,10 @@ lemma pairWeil_boxProd_source (h : G E s') (f : 𝒮 (V₁.hom T)) (f' : 𝒮 (V
       boxProd homSigns_sum_source ((V₁.hom T).ω (onHom (g₁, h)) f)
         ((V₂.hom T).ω (onHom (g₂, h)) f') :=
     omega_boxProd _ (by simp [adeleMatrix_inv, stdForm, ← ext_iff]) f f'
-  rw [pairWeil_apply, pairWeil_apply, pairWeil_apply, h_ω, map_smul, map_smul, _root_.smul_apply,
-    smul_smul]
+  rw [pairWeil_apply, pairWeil_apply, pairWeil_apply, h_ω, map_smul, map_smul,
+    _root_.smul_apply, smul_smul]
   congr 1
-  simp only [pairChar_apply, det_eq, Subgroup.coe_mul, ContinuousMonoidHom.mul_apply,
-    Circle.coe_mul, map_mul, mul_inv]
+  simp [det_eq]
   ring
 
 /-- Let e split the coordinates of V compatibly with the signs, and let g be block diagonal along e
@@ -407,8 +401,7 @@ lemma pairWeil_boxProd_target (hs : s ∘ e = s₁ ⊕ᵥ s₂) (T : Space E n' 
   rw [pairWeil_apply, pairWeil_apply, pairWeil_apply, h_omega, map_smul, map_smul,
     _root_.smul_apply, smul_smul]
   congr 1
-  simp only [pairChar_apply, det_eq, Subgroup.coe_mul, ContinuousMonoidHom.mul_apply,
-    Circle.coe_mul, map_mul, mul_inv]
+  simp [det_eq]
   ring
 
 end Sums
@@ -488,16 +481,17 @@ lemma pairWeil_negSource (h : G E s') (f : 𝒮 (S.hom T)) :
   have ω_eq : negSource.map ((S.hom T).ω (onHom (g, h)) f) =
       (upsilonU1.val (onHom (g, h)).det : ℂ) •
         (S.neg.hom T).ω (onHom (g.neg, h)) (negSource.map f) :=
-    negSource.map_omega (by simp [negSource, h_mat, ContinuousAddEquiv.mk', mulVec_smul])
+    negSource.map_omega
+      (fun x ↦ by
+        change (normNegOneIdele E)⁻¹ • ((onHom (g.neg, h)).adeleMatrix *ᵥ x) =
+          (onHom (g, h)).adeleMatrix *ᵥ ((normNegOneIdele E)⁻¹ • x)
+        rw [h_mat, mulVec_smul])
       (conj_weilMultiplier_of_eq_neg h_signs h_mat) f
   -- `det (onHom (g, h)) = det h ^ n * (det g)⁻¹ ^ n'`, so the powers of `upsilonU1` in the new
   -- characters give the factor in `ω_eq`; conjugation inverts the values of `a` and `b`.
   have h_char : conj (pairChar a b (g, h)) * (upsilonU1.val (onHom (g, h)).det : ℂ) =
       pairChar (a⁻¹ * upsilonU1 ^ card n) (b⁻¹ * upsilonU1 ^ card n') (g.neg, h) := by
-    simp only [pairChar_apply, det_onHom, G.det_neg, Subgroup.coe_mul, Subgroup.coe_inv,
-      Subgroup.coe_pow, ContinuousMonoidHom.mul_apply, circleChar_inv_apply,
-      ContinuousMonoidHom.pow_apply, map_mul, map_inv, map_inv₀, map_pow, Circle.coe_mul,
-      Circle.coe_inv, Circle.coe_pow, ← Complex.inv_eq_conj, Circle.norm_coe, inv_pow]
+    simp [det_onHom, Circle.norm_coe, ← Complex.inv_eq_conj]
     field_simp
   rw [pairWeil_apply, pairWeil_apply, map_smulₛₗ, ω_eq, smul_smul, h_char]
 
@@ -519,9 +513,7 @@ lemma exists_theta_negSource :
       Units.val_smul, Matrix.mul_smul] at hx ⊢
     rwa [← smul_mul, ← T.x.val.mul_smul]
   obtain ⟨c, hc, hθ⟩ := negSource.exists_theta_omega_map (S.hom T) (S.neg.hom T) 1 h_rat
-  refine ⟨conj c, by simpa using hc, fun f ↦ ?_⟩
-  rw [map_smul, smul_eq_mul, hθ f, map_mul, RingHomCompTriple.comp_apply, RingHom.id_apply,
-    map_one, one_apply_eq_self]
+  exact ⟨conj c, by simpa using hc, fun f ↦ by simp [hθ f]⟩
 
 /-! ### Change of point -/
 
