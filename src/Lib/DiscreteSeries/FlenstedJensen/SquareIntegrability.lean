@@ -92,8 +92,7 @@ noncomputable def New.rightRegularL2 :
     USign ε →* (USign ε →₂[volume] ℂ) →L[ℂ] USign ε →₂[volume] ℂ where
   -- Mathlib's action of `(USign ε)ᵐᵒᵖᵈᵐᵃ` on `L²`, as a bounded operator.
   toFun x := (DomMulAct.mk ∘ MulOpposite.op) x • 1
-  map_one' := by
-    simp only [Function.comp_apply, MulOpposite.op_one, DomMulAct.mk_one, one_smul]
+  map_one' := by simp
   map_mul' x y := ContinuousLinearMap.ext fun f ↦
     (inferInstance : MulAction (USign ε)ᵐᵒᵖᵈᵐᵃ _).mul_smul ⟨⟨x⟩⟩ ⟨⟨y⟩⟩ f
 
@@ -106,20 +105,13 @@ theorem New.isUnitaryRep_rightRegularL2 :
   let translate : C(USign ε, C(USign ε, USign ε)) :=
     .curry ⟨fun p ↦ p.2 * p.1, continuous_snd.mul continuous_fst⟩
   have h_norm (g : USign ε) (f : USign ε →₂[volume] ℂ) : ‖rightRegularL2 g f‖ = ‖f‖ := by
-    simp only [rightRegularL2, Function.comp_apply, MonoidHom.coe_mk, OneHom.coe_mk, smul_apply,
-      one_apply_eq_self, DomMulAct.norm_smul_Lp]
+    simp [rightRegularL2]
   exact
     { continuous f := continuous_const.compMeasurePreservingLp translate.2 _ (by simp)
       invariant g := inner_map_map ⟨(rightRegularL2 g).toLinearMap, h_norm g⟩
-      conj_symm := by
-        simp only [coe_innerSL_apply, inner_conj_symm, implies_true]
-      pos := by
-        simp only [ne_eq, coe_innerSL_apply, inner_self_eq_norm_sq_to_K, Complex.coe_algebraMap, sq,
-          Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im, mul_zero, sub_zero, mul_self_pos,
-          norm_eq_zero, imp_self, implies_true]
-      growth := ⟨1, by
-        simp only [pow_zero, mul_one, zero_le_one, opNorm_le_iff, h_norm, one_mul, Std.le_refl,
-          implies_true]⟩ }
+      conj_symm := by simp
+      pos := by simp [sq]
+      growth := ⟨1, by simp [h_norm, opNorm_le_iff]⟩ }
 
 end RegularRepL2
 
@@ -147,26 +139,22 @@ theorem norm_det_blockDiagPart (σ : ℤˣ) (g : USign ε) :
   -- `blockDiagPart ε g` is block diagonal with the two principal blocks of `g`, whose minors have
   -- equal norm.
   have h_zero : ∀ i : n, ¬ε i = σ → ∀ j : n, ε j = σ → blockDiagPart ε g i j = 0 := by
-    exact fun i hi j hj ↦ ite_eq_right_iff.2 fun h ↦ absurd (h.trans hj) hi
+    aesop (add simp blockDiagPart)
   -- there are only two signs, so `ε` is constant on the complement of `{i | ε i = σ}` as well
   have h_block (p : n → Prop) (hp : ∀ i j : n, p i → p j → ε i = ε j) :
       (blockDiagPart ε g).toSquareBlockProp p = g.val.val.toSquareBlockProp p :=
     ext fun i j ↦ ite_eq_left (hp i j i.prop j.prop)
   calc
     _ = ‖principalMinor g (ε · = σ)‖ * ‖principalMinor g (¬ε · = σ)‖ := by
-      simp only [twoBlockTriangular_det _ _ h_zero,
-        h_block (ε · = σ) fun _ _ ha hb ↦ ha.trans hb.symm,
-        h_block (¬ε · = σ) (by simp +contextual only [Int.units_ne_iff_eq_neg, implies_true]),
-        Complex.norm_mul, principalMinor, ne_eq]
-    _ = ‖principalMinor g (ε · = σ)‖ ^ 2 := by
-      simp only [principalMinor_compl, Complex.norm_mul, norm_det, RCLike.norm_conj, one_mul, sq]
+      simp [twoBlockTriangular_det _ _ h_zero, principalMinor, h_block (ε · = σ) (by grind),
+        h_block (¬ε · = σ) (by simp +contextual [Int.units_ne_iff_eq_neg])]
+    _ = ‖principalMinor g (ε · = σ)‖ ^ 2 := by simp [principalMinor_compl, sq]
 
 @[simp]
 theorem U.principalMinor_sign_ne_zero (σ : ℤˣ) (g : USign ε) : principalMinor g (ε · = σ) ≠ 0 := by
   -- if the minor vanished, so would the determinant of the invertible matrix `blockDiagPart ε g`
   intro h_zero
-  simpa only [h_zero, norm_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
-    norm_eq_zero, isAccretive_blockDiagPart_inv_mul] using norm_det_blockDiagPart σ g
+  simpa [h_zero] using norm_det_blockDiagPart σ g
 
 -- Keeps definitional checks from unfolding the finite sums.
 seal Finset.sum in
@@ -183,19 +171,13 @@ theorem sq_le_norm_det_blockDiagPart (g : USign ε) [Nonempty n] :
   have h_block : blockDiagPart ε z = hz_herm.cfc fun x : ℝ ↦ 2⁻¹ * (x + x⁻¹) := by
     rw [← hz_herm.cfc_eq, cfc_const_mul .., cfc_add .., cfc_id' .., cfc_inv_id _]
     -- with `J = signMatrix ε`: the left side is `(z + J z J) / 2`, and `z⁻¹ = J zᴴ J = J z J`
-    simp only [blockDiagPart_eq, smul_add, coe_units_inv, inv_coe_eq_mul_conjTranspose_mul,
-      hz_herm.eq, ← ext_iff, Matrix.add_apply, Matrix.smul_apply, smul_eq_mul, real_smul,
-      ofReal_inv, ofReal_ofNat, implies_true]
+    simp [blockDiagPart_eq, inv_coe_eq_mul_conjTranspose_mul, hz_herm.eq, ← ext_iff]
   -- the unitary factor `k` changes neither side
   have h_norm : ‖(k * z : USign ε).val.val‖ = ‖z.val.val‖ := by
-    simp only [Subgroup.coe_mul, Units.val_mul, mem_iff, star, ← maxCompactU.coe_inv,
-      inv_mul_of_invertible, mul_inv_of_invertible, and_self, norm_mem_unitary_mul]
+    simp [norm_mem_unitary_mul, mem_iff, ← maxCompactU.coe_inv, star]
   have h_det : ‖(blockDiagPart ε (k * z : USign ε)).det‖ = ∏ x : n, 2⁻¹ * |ev x + (ev x)⁻¹| := by
     -- the excluded simp lemmas would rewrite the conjugation and casts before `det` is evaluated
-    simp only [Subgroup.coe_mul, Units.val_mul, ← mem_maxCompactU, SetLike.coe_mem,
-      blockDiagPart_mul_left, h_block, IsHermitian.cfc, coe_algebraMap, det_mul, det_map,
-      det_diagonal, Function.comp_apply, norm_det, norm_prod, norm_real, norm_mul,
-      _root_.norm_inv, Real.norm_ofNat, norm_eq_abs, one_mul, ev]
+    simp [← mem_maxCompactU, h_block, IsHermitian.cfc, -conjStarAlgAut_apply, -ofReal_mul, ev]
   have h_spec : spectrum ℝ z.val.val = Set.range ev := hz_herm.spectrum_real_eq_range_eigenvalues
   -- stated once, so that the default `cfc_tac` does not search for it twice below
   have hz_nonneg : (0 : Matrix n n ℂ) ≤ z.val.val := by
@@ -211,24 +193,13 @@ theorem sq_le_norm_det_blockDiagPart (g : USign ε) [Nonempty n] :
     -- `(x + x⁻¹) / 2 = cosh (log x) ≥ 1` for the positive eigenvalue `x`
     have h_cosh := one_le_cosh (log (ev x))
     rw [cosh_log (hz.eigenvalues_pos x)] at h_cosh
-    rwa [abs_of_nonneg (add_nonneg (hz.eigenvalues_pos x).le
-      (inv_nonneg.2 (hz.eigenvalues_pos x).le)), inv_mul_eq_div]
+    rwa [abs_of_nonneg (by linarith), inv_mul_eq_div]
   rw [h_norm, h_det]
   calc
-    (‖z.val.val‖ / 2) ^ 2 ≤ ((‖z.val.val‖ + ‖z.val.val‖⁻¹) / 2) ^ 2 := by
-      gcongr; linarith [inv_nonneg.2 (norm_nonneg z.val.val)]
+    (‖z.val.val‖ / 2) ^ 2 ≤ ((‖z.val.val‖ + ‖z.val.val‖⁻¹) / 2) ^ 2 := by bound
     _ = ∏ x ∈ {i, j}, 2⁻¹ * |ev x + (ev x)⁻¹| := by
       -- if `i = j`, then `‖z‖ = ‖z‖⁻¹` and both sides are `1`
-      rcases eq_or_ne i j with rfl | h_ne
-      · have hz_pos : 0 < ‖z.val.val‖ := hi ▸ hz.eigenvalues_pos i
-        have hz1 : ‖z.val.val‖ ^ 2 = 1 := by
-          rw [sq, mul_eq_one_iff_eq_inv₀ hz_pos.ne']; exact hi.symm.trans hj
-        have hz_eq1 : ‖z.val.val‖ = 1 := by nlinarith
-        simp only [Finset.pair_eq_singleton, Finset.prod_singleton, hi, hz_eq1]
-        norm_num
-      · rw [Finset.prod_pair h_ne, hi, hj, inv_inv, add_comm ‖z.val.val‖⁻¹,
-          abs_of_nonneg (add_nonneg (norm_nonneg _) (inv_nonneg.2 (norm_nonneg _)))]
-        ring
+      rcases eq_or_ne i j with rfl | h_ne <;> grind [Finset.prod_pair]
     _ ≤ ∏ x, 2⁻¹ * |ev x + (ev x)⁻¹| :=
       Finset.prod_le_prod_of_subset_of_one_le₀ (Finset.subset_univ _)
         (fun x _ ↦ zero_le_one.trans (h_factor x)) fun x _ _ ↦ h_factor x
@@ -253,8 +224,7 @@ principal minors of z (divided by powers of det z) is positive. -/
 theorem weightMinors_pos {z : Matrix n n ℂ} (hz : z.PosDef) (w : n → ℤ) : 0 < weightMinors w z := by
   -- Each factor is a principal minor of `z`, possibly divided by `det z`; all are positive.
   refine finprod_induction _ one_pos (fun _ _ ↦ mul_pos) fun t ↦ ?_
-  simp only [principalMinor, toSquareBlockProp, toBlock, apply_ite, div_one, hz, det_pos,
-    div_pos_iff_of_pos_right, Subtype.val_injective, hz.submatrix, ite_self]
+  simp [principalMinor, toSquareBlockProp, toBlock, det_pos, hz, hz.submatrix, apply_ite]
 
 /-- Let `g` in U(diag ε) be positive definite with positive definite block diagonal part `a`, and
 let `μ ≤ v` be integer vectors such that, for an integer `t`, the indices `i` with `μ i < t ≤ v i`
@@ -276,8 +246,7 @@ theorem norm_principalMinor_blockDiagPart_le {μ v : n → ℤ} (h_le : ∀ i : 
           ‖principalMinor (blockDiagPart ε g) (¬p ·)‖ :=
       fischer_inequality ha_pos.posSemidef _ _ (by grind) (by grind)
     _ = ‖principalMinor (blockDiagPart ε g) (t ≤ μ ·)‖ * ‖principalMinor g p‖ := by
-      simp only [h_block, principalMinor_compl, Complex.norm_mul, norm_det, RCLike.norm_conj,
-        one_mul]
+      simp [h_block, principalMinor_compl]
     _ ≤ _ := by grw [fischer_inequality hg_pos.posSemidef _ _ (by grind) fun _ ↦ .rfl]
 
 /-- Let `l = 2λ` be a parameter of gap h (entries distinct and congruent to `card n - 1` mod 2, with
@@ -298,50 +267,27 @@ theorem norm_det_blockDiagPart_pow_le {h : ℕ} (hg : l.HasGap h) {c : ℕ} (hc 
   -- `a` is the mean of the positive definite matrices `g` and `g⁻¹`.
   have ha_pos : (blockDiagPart ε g).PosDef := by
     rw [← hg_pos.isHermitian]
-    simp only [blockDiagPart_eq, ← inv_coe_eq_mul_conjTranspose_mul, smul_add,
-      posDef_conjTranspose_iff, hg_pos, inv_pos, Nat.ofNat_pos, PosDef.smul, posDef_inv_iff,
-      PosDef.add]
+    simp [blockDiagPart_eq, ← inv_coe_eq_mul_conjTranspose_mul, hg_pos, PosDef.add, PosDef.smul]
   suffices ‖weightMinors v a‖ ≤ ‖weightMinors μ a * weightMinors μ g * weightMinors v g⁻¹‖ by
     -- cancel `|m_μ(a)|`, using `m_v = m_μ · det ^ c` and `m_μ(g⁻¹) = m_{-μ}(g) = conj m_μ(g)`
-    simpa only [ne_eq, GeneralLinearGroup.det_ne_zero, not_false_eq_true, weightMinors_neg,
-      mul_le_mul_iff_right₀ (norm_pos_iff.2 (weightMinors_pos ha_pos μ).ne'),
-      weightMinors_unitary_inv, RCLike.norm_conj, field, ge_iff_le,
-      isAccretive_blockDiagPart_inv_mul, Nat.cast_nonneg, not_true_eq_false, IsEmpty.forall_iff,
-      imp_self, implies_true, ↓weightMinors_add_ite, principalMinor_of_forall, zpow_natCast,
-      Complex.norm_mul, norm_pow, det_nonsing_inv, Ring.inverse_eq_inv', inv_eq_zero, inv_pow,
-      _root_.norm_inv, norm_det, one_pow, inv_one, mul_one, a, μ, v]
+    simpa [a, μ, v, principalMinor_of_forall, ↓weightMinors_add_ite, weightMinors_neg,
+      weightMinors_unitary_inv, ha_pos.isAccretive, field, GeneralLinearGroup.det_ne_zero]
   -- Write each `weightMinors` as a product of minors over `-B < t ≤ B`; by
   -- `jacobi_complementary_minor` and `|det g| = 1`, a minor of `g⁻¹` has the norm of the
   -- complementary minor of `g`.
   obtain ⟨B, h_bounds⟩ : ∃ B : ℤ, ∀ i : n, (-B ≤ μ i ∧ μ i ≤ B) ∧ (-B ≤ v i ∧ v i ≤ B) := by
-    simpa only [Pi.sup_apply, Pi.abs_apply, sup_le_iff, abs_le] using Finite.exists_le (|μ| ⊔ |v|)
+    simpa [abs_le] using Finite.exists_le (|μ| ⊔ |v|)
   have h_prod : (∏ t ∈ Ioc (-B) B, ‖principalMinor a (t ≤ v ·)‖) ≤
       ∏ t ∈ Ioc (-B) B, ‖principalMinor a (t ≤ μ ·)‖ *
         (‖principalMinor g (t ≤ μ ·)‖ * ‖principalMinor g (v · < t)‖) := by
     refine prod_le_prod₀ (fun t _ ↦ norm_nonneg _) fun t _ ↦
-      norm_principalMinor_blockDiagPart_le (fun i ↦ by
-        simp only [↓reduceIte, le_add_iff_nonneg_right, Nat.cast_nonneg, v]) t ?_ hg_pos ha_pos
+      norm_principalMinor_blockDiagPart_le (fun i ↦ by simp [v]) t ?_ hg_pos ha_pos
     -- Where `μ < t ≤ μ + c` all signs agree, by the gap.
-    intro i j hi1 hi2 hj1 hj2
-    by_contra hne
-    have hgap := hg.gap i j hne
-    dsimp only [μ, v, paramAddRho] at hi1 hi2 hj1 hj2
-    simp only [↓reduceIte] at hi2 hj2
-    rcases lt_trichotomy (l i) (l j) with hlt | heq | hgt
-    · have hrho := twoRho_lt_twoRho hlt
-      rw [abs_of_neg (sub_neg.2 hlt)] at hgap; omega
-    · exact hne (congrArg ε (hg.injective heq))
-    · have hrho := twoRho_lt_twoRho hgt
-      rw [abs_of_pos (sub_pos.2 hgt)] at hgap; omega
+    grind [paramAddRho, HasGap, hg.mono hc]
   -- both sides of the goal are now `(|det a| ^ B)⁻¹` times the two sides of `h_prod`
-  simpa only [a, ne_eq, isAccretive_blockDiagPart_inv_mul, not_false_eq_true, h_bounds, and_self,
-    implies_true, weightMinors_eq_det_zpow_mul_prod _ (-B) B, _root_.zpow_neg, Complex.norm_mul,
-    _root_.norm_inv, norm_zpow, norm_prod, GeneralLinearGroup.det_ne_zero, mul_assoc,
-    det_nonsing_inv, Ring.inverse_eq_inv', inv_eq_zero, _root_.inv_zpow', inv_inv,
-    jacobi_complementary_minor, not_le, prod_div_distrib, prod_const, Int.card_Ioc, sub_neg_eq_add,
-    norm_det, _root_.one_zpow, inv_one, Complex.norm_div, norm_pow, one_pow, div_one, one_mul,
-    ← prod_mul_distrib,
-    ge_iff_le] using mul_le_mul_of_nonneg_left h_prod (show (0 : ℝ) ≤ (‖a.det‖ ^ B)⁻¹ by positivity)
+  simpa [a, h_bounds, jacobi_complementary_minor, weightMinors_eq_det_zpow_mul_prod _ (-B) B,
+    mul_assoc, ← prod_mul_distrib, GeneralLinearGroup.det_ne_zero] using
+    mul_le_mul_of_nonneg_left h_prod (show (0 : ℝ) ≤ (‖a.det‖ ^ B)⁻¹ by positivity)
 
 /-- For a parameter l = 2λ of gap h (entries of λ with different signs are at least h apart), a
 natural number c ≤ h, and g in U(diag ε): |c_λ(g)|²·|det a_g|^c ≤ 1, where c_λ = `l.dsCoeff` is the
@@ -352,45 +298,33 @@ theorem norm_dsCoeff_sq_mul_det_pow_le_one {h : ℕ} (hg : l.HasGap h) {c : ℕ}
   -- numerator by `2 |a b| ≤ |a|² + |b|²`; both squares integrate to `kTypeNormSq`.
   obtain ⟨k, z, hz, h_polar, -⟩ := exists_polar g
   set D : ℝ := ‖(blockDiagPart ε g).det‖ ^ c with hD
-  have hD_pos : 0 < D := by
-    simp only [hD, norm_pos_iff, ne_eq, isAccretive_blockDiagPart_inv_mul, not_false_eq_true,
-      pow_pos]
+  have hD_pos : 0 < D := by simp [hD]
   let f (u : maxCompactU ε) : ℝ := ‖weightMinors l.lowestKType u.val‖ ^ 2
   have h_int : Integrable f (haarK ε) :=
     DiscreteSeries.integrable_of_compactSpace
-      (by fun_prop (disch :=
-        simp only [ne_eq, GeneralLinearGroup.det_ne_zero, not_false_eq_true, implies_true]))
+      (by fun_prop (disch := simp [GeneralLinearGroup.det_ne_zero]))
   -- Factors from `K` on either side do not change `|det a|`, `a` the block diagonal part; so
   -- `g = k * z` and `u⁻¹ * z * u` have the same `D`.
   have h_denom (u : maxCompactU ε) :
       √D ≤ ‖weightMinors (-paramAddRho l) (u.val.val.valᴴ * z * u)‖ := by
     have h_conj_pos : (u⁻¹ * z * u : USign ε).val.val.PosDef := by
-      simp only [InvMemClass.coe_inv, Subgroup.coe_mul, Units.val_mul, coe_units_inv,
-        maxCompactU.coe_inv, Units.isUnit, mulVec_injective_of_isUnit,
-        hz.conjTranspose_mul_mul_same]
-    simpa only [hD, h_polar, Subgroup.coe_mul, Units.val_mul, ← mem_maxCompactU, SetLike.coe_mem,
-      blockDiagPart_mul_left, det_mul, Complex.norm_mul, norm_det, one_mul, ← maxCompactU.coe_inv,
-      sqrt_le_iff, norm_nonneg, true_and, ge_iff_le, InvMemClass.coe_inv, coe_units_inv,
-      blockDiagPart_mul_right, blockDiagAlg.inv_mem, det_nonsing_inv, Ring.inverse_eq_inv',
-      _root_.norm_inv, inv_one,
-      mul_one] using norm_det_blockDiagPart_pow_le hg hc (u⁻¹ * z * u) h_conj_pos
+      simp [maxCompactU.coe_inv, hz.conjTranspose_mul_mul_same, mulVec_injective_of_isUnit]
+    simpa [← mem_maxCompactU, sqrt_le_iff, hD, h_polar, ← maxCompactU.coe_inv] using
+      norm_det_blockDiagPart_pow_le hg hc (u⁻¹ * z * u) h_conj_pos
   let F (u : maxCompactU ε) : ℂ :=
     weightMinors l.lowestKType (k * u.val) * starRingEnd ℂ (weightMinors l.lowestKType u) /
       weightMinors (-paramAddRho l) (u.val.val.valᴴ * z * u)
   have h_point (u : maxCompactU ε) : ‖F u‖ ≤ (f (k * u) + f u) / 2 / √D := by
     grw [norm_div, norm_mul, RCLike.norm_conj, ← h_denom u, ← two_mul_le_add_sq]
-    simp only [Subgroup.coe_mul, Units.val_mul, mul_assoc, ne_eq, OfNat.ofNat_ne_zero,
-      not_false_eq_true, mul_div_cancel_left₀, Std.le_refl]
+    simp [mul_assoc]
   have h_psi : ‖l.dsCoeff g‖ ≤ 1 / √D := by
     have h_formula : l.dsCoeff g = (∫ u, F u ∂haarK ε) / l.lowestKType.kTypeNormSq := by
-      simpa only [← h_polar, inv_one, OneMemClass.coe_one, mul_one, Units.val_one,
-        one_mul] using dsCoeff_polar hg k 1 hz
+      simpa [F, ← h_polar] using dsCoeff_polar hg k 1 hz
     grw [h_formula, norm_div, norm_integral_le_of_norm_le _ (.of_forall h_point)]
     · -- the two squares have the same integral `kTypeNormSq`, by invariance of `haarK`
       simp only [integral_div, integral_add (h_int.comp_mul_left k) h_int, add_self_div_two,
         integral_mul_left_eq_self f k, f]
-      simp only [Complex.norm_real, norm_eq_abs, abs_of_pos (kTypeNormSq_pos ..), one_div, field,
-        div_self_le_one]
+      simp [field, abs_of_pos (kTypeNormSq_pos ..), div_self_le_one]
     · exact (((h_int.comp_mul_left k).add h_int).div_const 2).div_const _
   grw [h_psi, div_pow, sq_sqrt hD_pos.le, one_pow, one_div_mul_cancel hD_pos.ne']
 
@@ -402,8 +336,7 @@ theorem DiscreteSeries.norm_dsCoeff_le_pow {h : ℕ} (hg : l.HasGap h) {c : ℕ}
   have h_sq : (‖l.dsCoeff g‖ * (‖g.val.val‖ / 2) ^ c) ^ 2 ≤ 1 := by
     grw [mul_pow, pow_right_comm, sq_le_norm_det_blockDiagPart,
       norm_dsCoeff_sq_mul_det_pow_le_one hg hc]
-  rwa [← inv_div, inv_pow, ← one_div, le_div_iff₀ (by norm_num),
-    ← sq_le_one_iff₀ (by positivity)]
+  rwa [← inv_div, inv_pow, ← one_div, le_div_iff₀ (by simp), ← sq_le_one_iff₀ (by positivity)]
 
 end PsiDecay
 
@@ -450,18 +383,13 @@ theorem dsCoeff_neg_mul_borel_inv (hg : l.HasGap h) (g : USign ε) {x : Matrix n
       diagChar l.lowestKType x * (-l).dsCoeff (g : Matrix n n ℂ)⁻¹ := by
   have hx_det : x.det ≠ 0 := hx_borel.2
   have h_det : (blockDiagPart ε (g : Matrix n n ℂ)⁻¹).det ≠ 0 := by
-    simpa only [ne_eq, InvMemClass.coe_inv,
-      coe_units_inv] using (isAccretive_blockDiagPart_inv_mul g⁻¹).1
+    simpa using (isAccretive_blockDiagPart_inv_mul g⁻¹).1
   -- `x` cancels in the denominator of the integrand and stays only as a right factor in the
   -- argument of `weightMinors`, which it multiplies by the character; the sides then differ only
   -- in the order of the factors.
-  simp only [dsCoeff, flenstedJensen, lowestKType_neg, Matrix.mul_inv_rev, hx_mem,
-    blockDiagAlg.inv_mem, blockDiagPart_mul_left, det_mul, det_nonsing_inv, Ring.inverse_eq_inv',
-    ne_eq, mul_eq_zero, inv_eq_zero, hx_det, h_det, or_self, GeneralLinearGroup.det_ne_zero,
-    not_false_eq_true, weightMinors_neg, isUnit_iff_ne_zero, nonsing_inv_nonsing_inv, ← mul_assoc,
-    hx_borel, hg.isKDominant_lowestKType.weightMinors_mul_borel hg.neg.injective,
-    mul_nonsing_inv_cancel_right, det_conjTranspose, star_def, map_eq_zero,
-    mul_div, ← integral_const_mul, ofReal_eq_zero, kTypeNormSq_pos, ne_of_gt, div_left_inj₀]
+  simp [hx_mem, hx_borel, hx_det, h_det, dsCoeff, flenstedJensen, ← mul_assoc, weightMinors_neg,
+    hg.isKDominant_lowestKType.weightMinors_mul_borel hg.neg.injective, ← integral_const_mul,
+    mul_div, Matrix.mul_inv_rev, GeneralLinearGroup.det_ne_zero, ne_of_gt]
   ac_rfl
 
 /-- Let `l = 2λ` have gap h (entries distinct and congruent to `card n - 1` mod 2, with |λ i - λ
@@ -481,28 +409,23 @@ theorem isKHighest_dsGenerator (hg : l.HasGap h) :
   change (rightDeriv ε ℂ (single a b 1) l.dsCoeffSmooth).val g =
     (if a = b then (l.lowestKType a : ℂ) else 0) * l.dsCoeff g
   let F (y : Matrix n n ℂ) : ℂ := (-l).dsCoeff y⁻¹
-  have h_ext (u : USign ε) : F u = l.dsCoeff u := by
-    simpa only [InvMemClass.coe_inv, coe_units_inv, dsCoeff_neg, RingHomCompTriple.comp_apply,
-      RingHom.id_apply] using dsCoeff_inv hg.neg u
+  have h_ext (u : USign ε) : F u = l.dsCoeff u := by simpa [F] using dsCoeff_inv hg.neg u
   have h_diff : DifferentiableAt ℂ F g :=
     (((-l).analyticAt_dsCoeff g⁻¹).comp_of_eq (analyticAt_matrix_inv g.val.det_ne_zero)
       (by simp)).differentiableAt
   have h_equiv : ∀ᶠ y in nhds (g : Matrix n n ℂ), ∀ x ∈ blockDiagAlg ε, IsBorelMatrix (-l) x →
       y = g * x → F y = diagChar l.lowestKType x * F g :=
-    .of_forall <| by
-      simp +contextual only [dsCoeff_neg_mul_borel_inv hg g, implies_true, F]
+    .of_forall <| by simp +contextual [F, dsCoeff_neg_mul_borel_inv hg g]
   rw [rightDeriv_apply_eq_of_hasFDerivAt h_diff.hasFDerivAt h_ext, ← h_ext]
   exact fderiv_eq_of_borel_equivariant ε h_diff.hasFDerivAt h_le h_sign (g * ·) h_equiv
-    fun t ↦ by
-      simp only [mul_add, mul_one, Algebra.mul_smul_comm]
+    fun t ↦ by simp [mul_add, -smul_single]
 
 /-- Let `l = 2λ` be a parameter of gap `h` for the signs `ε`: its entries are distinct and of the
 parity of `card n - 1`, and `|λ i - λ j| ≥ h` when `ε i ≠ ε j`. Then the function `c_λ = l.dsCoeff`
 satisfies `‖c_λ(g)‖ ≤ 1` for every `g` in `U(diag ε)`. -/
 theorem DiscreteSeries.norm_dsCoeff_le_one (hg : l.HasGap h) (g : USign ε) : ‖l.dsCoeff g‖ ≤ 1 := by
   -- with exponent `0` the determinant factor is `1`
-  simpa only [pow_zero, mul_one, sq_le_one_iff_abs_le_one,
-    abs_norm] using norm_dsCoeff_sq_mul_det_pow_le_one hg (Nat.zero_le h) g
+  simpa using norm_dsCoeff_sq_mul_det_pow_le_one hg (Nat.zero_le h) g
 
 /-! ### Smearing -/
 
@@ -524,22 +447,17 @@ theorem integral_mul_dsCoeff_translate (hg : l.HasLargeGap A) {w : USign ε → 
   have h_proj (g : USign ε) : ∫ k : maxCompactU ε,
       conj (weightMinors l.lowestKType k.val) * l.dsCoeff (x * (k.val * (g * a))) ∂haarK ε =
         l.lowestKType.kTypeNormSq * (l.dsCoeff x * l.dsCoeff (g * a)) := by
-    simpa only [mul_assoc, Subgroup.coe_mul,
-      Units.val_mul] using integral_conj_weightMinors_lowestKType_mul_dsCoeff hg x (g * a)
+    simpa [mul_assoc] using integral_conj_weightMinors_lowestKType_mul_dsCoeff hg x (g * a)
   have h_eq : ∫ g : USign ε, (l.lowestKType.kTypeNormSq * w g) * l.dsCoeff (x * g * a :) =
       ∫ g : USign ε, w g * (l.lowestKType.kTypeNormSq * (l.dsCoeff x * l.dsCoeff (g * a :))) := by
     -- both sides are the double integral over `K` and the group
     obtain ⟨h_on_coeff, h_on_w⟩ :=
       integral_conv (k := fun k ↦ conj (weightMinors l.lowestKType k)) (ν := haarK ε) (↑)
-        (integrable_of_compactSpace
-          (by fun_prop (disch :=
-            simp only [ne_eq, GeneralLinearGroup.det_ne_zero, not_false_eq_true, implies_true])))
+        (integrable_of_compactSpace (by fun_prop (disch := simp [GeneralLinearGroup.det_ne_zero])))
         hw_int (.of_continuous ⟨1, fun g ↦ norm_dsCoeff_le_one hg (x * g * a)⟩)
-    simpa only [mul_assoc, Subgroup.coe_mul, Units.val_mul, hw_type, smul_eq_mul,
-      h_proj] using h_on_w.symm.trans h_on_coeff
+    simpa [hw_type, h_proj, mul_assoc] using h_on_w.symm.trans h_on_coeff
   -- cancel the constant `kTypeNormSq`
-  simpa only [mul_assoc, Subgroup.coe_mul, Units.val_mul, integral_const_mul, mul_left_comm (w _),
-    mul_eq_mul_left_iff, ofReal_eq_zero, kTypeNormSq_pos, ne_of_gt, or_false] using h_eq
+  simpa [mul_left_comm (w _), mul_assoc, integral_const_mul, ne_of_gt] using h_eq
 
 variable [Nonempty n]
 
@@ -562,54 +480,38 @@ theorem exists_smear_dsCoeffSmooth_eq (hg : l.HasLargeGap A) (f : l.DsModule) :
     exact (ofRealCLM.contDiff.comp ((b.contDiff.comp h_self_star).pow 2)).mul P.property
   have h_supp : HasCompactSupport fun g : USign ε ↦ ↑(b (g * star g.val.val) ^ 2) * l.dsCoeff g :=
     .intro (isCompact_U_norm_le √b.rOut) (by
-      simp +contextual only [Set.mem_ofPred_eq, not_le, norm_pos_iff, ne_eq, Units.ne_zero,
-        not_false_eq_true, sqrt_lt', sq, dist_zero_right, CStarRing.norm_self_mul_star, le_of_lt,
-        b.zero_of_le_dist, mul_zero, ofReal_zero, zero_mul, implies_true])
+      simp +contextual [b.zero_of_le_dist, CStarRing.norm_self_mul_star, sqrt_lt', sq, le_of_lt])
   -- as a smooth function with compact support, this is a bump `β`
   obtain ⟨β, hβ⟩ : ∃ β : Bumps ε, ∀ g : USign ε,
       β.val.val g = ↑(b (g * star g.val.val) ^ 2) * l.dsCoeff g :=
-    ⟨⟨⟨_, ⟨_, h_smooth⟩, funext fun g ↦ by
-      simp only [ofReal_pow, LinearMap.coe_comp, coe_subtype, Function.comp_apply,
-        LinearMap.funLeft_apply, ← hP_apply]⟩,
-      h_supp⟩, fun _ ↦ rfl⟩
+    ⟨⟨⟨_, ⟨_, h_smooth⟩, funext fun g ↦ by simp [← hP_apply]⟩, h_supp⟩, fun _ ↦ rfl⟩
   -- `g ↦ β g⁻¹` has the left `K`-type of `conj c_λ`, as `b (g⁻¹ g⁻¹*)` is left `K`-invariant in `g`
   have h_type (g : USign ε) :
       ∫ k : maxCompactU ε, conj (weightMinors l.lowestKType k) * β.1.1 (k.1⁻¹ * g)⁻¹ ∂haarK ε =
         l.lowestKType.kTypeNormSq * β.val.val g⁻¹ := by
     set c : ℂ := ↑(b (g⁻¹.val.val * star g⁻¹.val.val) ^ 2) with hc
     have h_translate (k : maxCompactU ε) : β.1.1 (k.1⁻¹ * g)⁻¹ = c * l.dsCoeff ↑(g⁻¹ * k) := by
-      simp only [_root_.mul_inv_rev, inv_inv, hβ, Subgroup.coe_mul, InvMemClass.coe_inv,
-        Units.val_mul, coe_units_inv, star, conjTranspose_mul, ← maxCompactU.coe_inv, mul_assoc,
-        mul_inv_cancel_left_of_invertible, ofReal_pow, hc]
+      simp [hβ, hc, star, ← maxCompactU.coe_inv, mul_assoc]
     have h_proj :
         ∫ k : maxCompactU ε, conj (weightMinors l.lowestKType k) * l.dsCoeff ↑(g⁻¹ * k) ∂haarK ε =
           l.lowestKType.kTypeNormSq * l.dsCoeff ↑g⁻¹ := by
-      simpa only [Subgroup.coe_mul, InvMemClass.coe_inv, Units.val_mul, coe_units_inv, mul_one,
-        OneMemClass.coe_one, Units.val_one,
-        dsCoeff_one] using integral_conj_weightMinors_lowestKType_mul_dsCoeff hg g⁻¹ 1
+      simpa using integral_conj_weightMinors_lowestKType_mul_dsCoeff hg g⁻¹ 1
     simp_rw [h_translate, mul_left_comm _ c]
     rw [integral_const_mul, h_proj, hβ, mul_left_comm]
   have h_smear : (smear l.dsCoeffSmooth.val) β =
       ((∫ g : USign ε, β.val.val g⁻¹ * l.dsCoeff g) • l.dsCoeffSmooth).val := by
     ext x
     have hβ_int : Integrable fun g : USign ε ↦ β.val.val g⁻¹ := by
-      simpa only [Pi.one_apply, smul_eq_mul, mul_one] using integrable_bump_inv_smul (E := ℂ) 1 β
-    simpa only [smear_apply, HCParam.dsCoeffSmooth_coe, Subgroup.coe_mul, Units.val_mul,
-      smul_eq_mul, SetLike.val_smul, Pi.smul_apply, mul_one,
-      mul_comm (dsCoeff ..)] using integral_mul_dsCoeff_translate hg hβ_int h_type x 1
+      simpa using integrable_bump_inv_smul (E := ℂ) 1 β
+    simpa [mul_comm (dsCoeff ..)] using integral_mul_dsCoeff_translate hg hβ_int h_type x 1
   -- the factor is the integral of `b(…)² |c_λ(g)|² ≥ 0`, which is positive at `g = 1`
   have h_factor : ∫ g, β.val.val g⁻¹ * l.dsCoeff g ≠ 0 := by
     have h_pos : 0 < ∫ g : USign ε, ‖β.val.val g⁻¹ • l.dsCoeff g‖ :=
       integral_pos_of_integrable_nonneg_ne_zero (x := 1) (by fun_prop)
         (integrable_bump_inv_smul _ β).norm (fun _ ↦ norm_nonneg _)
-        (by
-          simp only [inv_one, hβ, default, OneMemClass.coe_one, Units.val_one, star_one, mul_one,
-            Metric.mem_closedBall, dist_zero_right, norm_one, Std.le_refl,
-            ContDiffBump.one_of_mem_closedBall, one_pow, ofReal_one, dsCoeff_one, smul_eq_mul,
-            ne_eq, one_ne_zero, not_false_eq_true, b])
-    simpa only [hβ, InvMemClass.coe_inv, coe_units_inv, ↓dsCoeff_inv hg, mul_assoc, conj_mul',
-      ← ofReal_pow, ← ofReal_mul, integral_complex_ofReal, ne_eq, ofReal_eq_zero, smul_eq_mul,
-      norm_real, norm_mul, norm_pow, norm_eq_abs, sq_abs, norm_norm] using h_pos.ne'
+        (by simp [hβ, b, ContDiffBump.one_of_mem_closedBall, default])
+    simpa [hβ, ↓dsCoeff_inv hg, ← ofReal_pow, ← ofReal_mul, mul_assoc, conj_mul',
+      integral_complex_ofReal] using h_pos.ne'
   let S : Submodule ℂ (SmoothU ε ℂ) := (smear l.dsCoeffSmooth.val).range.submoduleOf (SmoothU ε ℂ)
   have h_generator : l.dsCoeffSmooth ∈ S := (smul_mem_iff _ h_factor).1 ⟨β, h_smear⟩
   refine mem_sInf.1 f.property S ⟨h_generator, ?_⟩
@@ -630,27 +532,19 @@ theorem exists_decay_bound (hg : l.HasLargeGap A) (f : l.DsModule) (c : ℕ)
   -- `f g = ∫ α(y⁻¹) c_λ(g y) dy`, and `‖g‖ ≤ ‖g y‖ ‖y⁻¹‖` carries the decay of `c_λ` over to `f`
   obtain ⟨α, hα⟩ := exists_smear_dsCoeffSmooth_eq hg f
   have h_int : Integrable fun y : USign ε ↦ ‖α.val.val y⁻¹‖ * ‖y⁻¹.val.val‖ ^ c := by
-    simpa only [InvMemClass.coe_inv, coe_units_inv, smul_eq_mul, Complex.norm_mul, norm_pow,
-      norm_real, norm_norm] using (integrable_bump_inv_smul (E := ℂ) (fun y ↦ ‖y⁻¹.1.1‖ ^ c) α).norm
+    simpa [← U.norm_inv] using (integrable_bump_inv_smul (E := ℂ) (fun y ↦ ‖y⁻¹.1.1‖ ^ c) α).norm
   refine ⟨∫ y : USign ε, ‖α.val.val y⁻¹‖ * ‖y⁻¹.val.val‖ ^ c, fun g ↦ ?_⟩
   rw [← hα, ← integral_mul_const]
   refine norm_integral_le_of_norm_le (h_int.mul_const _) (.of_forall fun y ↦ ?_)
   grw [norm_smul, dsCoeffSmooth, norm_dsCoeff_le_pow hg hc, mul_assoc, ← mul_pow]
   gcongr
-  have h_pos1 : 0 < ‖g.val.val‖ := norm_pos_iff.2 g.val.ne_zero
-  have h_pos2 : 0 < ‖(g * y).val.val‖ := norm_pos_iff.2 (g * y).val.ne_zero
-  have h_mul := norm_mul_le (g * y).val.val y⁻¹.val.val
-  simp only [Subgroup.coe_mul, Units.val_mul, InvMemClass.coe_inv, coe_units_inv,
-    mul_inv_cancel_right_of_invertible] at h_pos2 h_mul ⊢
-  rw [mul_div_assoc', div_le_div_iff₀ h_pos2 h_pos1]
-  linarith
+  simpa [field] using norm_mul_le (g * y).val.val y⁻¹.val.val
 
 /-- For `n ≥ 1` and a natural number `c > 8 n²`, the function `g ↦ (2 / ‖g‖) ^ c` is integrable on
 `U(diag ε)`, where `‖g‖` is the operator norm. -/
 theorem _root_.New.integrable_two_div_norm_pow {c : ℕ} (hc : 8 * Fintype.card n ^ 2 < c) :
     Integrable fun g : USign ε ↦ (2 / ‖(g : Matrix n n ℂ)‖) ^ c := by
-  simpa only [MonoidHom.id_apply,
-    mul_one] using (integral_decay_le volume (j := .id (USign ε)) .monoidHom_id hc 1).1
+  simpa using (integral_decay_le volume (j := .id (USign ε)) .monoidHom_id hc 1).1
 
 /-- For `λ` of gap `500 n³ + A`, `f` in `U(𝔤) c_λ` and a natural number `C ≤ A + 1`, the function
 `g ↦ f g * ‖g‖ ^ C` is integrable on `U(diag ε)`, where `‖g‖` is the operator norm. -/
@@ -666,22 +560,19 @@ theorem integrable_mul_norm_pow (hg : l.HasLargeGap A) (f : l.DsModule) (C : ℕ
   refine ((integrable_two_div_norm_pow (c := N) (Nat.lt_succ_self _)).const_mul (K * 2 ^ C)).mono'
     (by fun_prop) (.of_forall fun g ↦ ?_)
   grw [norm_mul, hK, pow_add]
-  simp only [div_pow, norm_pow, norm_real, norm_norm]; field_simp; exact le_rfl
+  simp [field, div_pow]
 
 /-- For `λ` of gap `500 n³ + A`, every function in `U(𝔤) c_λ` is integrable. -/
 theorem integrable (hg : l.HasLargeGap A) (f : l.DsModule) : Integrable f.val.val := by
-  simpa only [pow_zero, mul_one] using hg.integrable_mul_norm_pow f 0 (Nat.zero_le _)
+  simpa using hg.integrable_mul_norm_pow f 0 (Nat.zero_le _)
 
 /-- For `λ` of gap `500 n³ + A`, every function in `U(𝔤) c_λ` is square integrable. -/
 theorem memLp (hg : l.HasLargeGap A) (f : l.DsModule) : MemLp f.val.val 2 := by
   -- `f` is integrable and bounded (decay of order `0`), hence square integrable.
   obtain ⟨K, hK⟩ : ∃ K : ℝ, ∀ g : USign ε, ‖f.val.val g‖ ≤ K := by
-    simpa only [Subtype.forall, pow_zero, mul_one] using hg.exists_decay_bound f 0 (Nat.zero_le _)
+    simpa using hg.exists_decay_bound f 0 (Nat.zero_le _)
   rw [memLp_two_iff_integrable_sq_norm (by fun_prop)]
-  simpa only [
-    sq] using
-      (hg.integrable f).norm.mul_bdd (by fun_prop) (.of_forall (by simpa only [norm_norm,
-      Subtype.forall] using hK))
+  simpa [sq] using (hg.integrable f).norm.mul_bdd (by fun_prop) (.of_forall (by simpa using hK))
 
 /-- For signs `ε` with `n` nonempty and a parameter `l = 2λ` of gap `500 n³ + A`, the formal degree
 `deg_λ` is positive; `deg_λ` is the reciprocal of the integral of `|c_λ|²` over `U(diag ε)` for the
@@ -699,8 +590,8 @@ norm. -/
 theorem integrable_dsKernel_mul_norm_pow (hg : l.HasLargeGap A) (C : ℕ) (hC : C ≤ A + 1) :
     Integrable fun g : USign ε ↦ l.dsKernel g * (‖(g : Matrix n n ℂ)‖ : ℂ) ^ C := by
   -- `conj (l.dsCoeff g)` is `(-l).dsCoeff g`, the generator of the module for the parameter `-l`
-  simpa only [dsKernel, mul_assoc, dsGenerator_coe, dsCoeffSmooth_coe,
-    dsCoeff_neg] using (integrable_mul_norm_pow hg.neg dsGenerator C hC).const_mul l.formalDegree
+  simpa [dsKernel, mul_assoc] using (integrable_mul_norm_pow hg.neg dsGenerator C hC).const_mul
+    l.formalDegree
 
 /-- Schur orthogonality: for n ≥ 1, `l = 2λ` a parameter for ε of gap 500n³+A, and x, a in U(diag
 ε), deg_λ ∫ c_λ(xya) conj(c_λ(y)) dy = c_λ(x)c_λ(a). Here c_λ is `dsCoeff`, dy is the Haar measure
@@ -712,21 +603,14 @@ theorem _root_.New.dsCoeff_schur_orthogonality (hg : l.HasLargeGap A) (x a : USi
   have h_left (x a : USign ε) : ∫ g : USign ε, l.dsCoeff ↑g⁻¹ * l.dsCoeff (x * g * a :) =
       l.dsCoeff x * ∫ g : USign ε, l.dsCoeff ↑g⁻¹ * l.dsCoeff (g * a :) :=
     integral_mul_dsCoeff_translate hg (hg.integrable l.dsGenerator).comp_inv
-      (by
-        simpa only [dsGenerator_coe, _root_.mul_inv_rev, inv_inv, dsCoeffSmooth_coe,
-          Subgroup.coe_mul, InvMemClass.coe_inv, Units.val_mul, coe_units_inv, Subtype.forall,
-          mul_one, OneMemClass.coe_one, Units.val_one,
-          dsCoeff_one] using (integral_conj_weightMinors_lowestKType_mul_dsCoeff hg ·⁻¹ 1)) x a
+      (by simpa using (integral_conj_weightMinors_lowestKType_mul_dsCoeff hg ·⁻¹ 1)) x a
   -- substitute `g ↦ a⁻¹ / g` in `h_left a 1` to move `a` from the left to the right
   have h_right : ∫ g : USign ε, l.dsCoeff ↑g⁻¹ * l.dsCoeff (g * a :) =
       l.dsCoeff a * ∫ g : USign ε, l.dsCoeff ↑g⁻¹ * l.dsCoeff g := by
-    simpa only [InvMemClass.coe_inv, coe_units_inv, Subgroup.coe_mul, Units.val_mul, mul_comm,
-      div_eq_mul_inv, _root_.mul_inv_rev, inv_inv, mul_inv_cancel_left,
-      mul_one] using (integral_div_left_eq_self _ _ a⁻¹).trans (h_left a 1)
+    simpa [div_eq_mul_inv, mul_comm] using (integral_div_left_eq_self _ _ a⁻¹).trans (h_left a 1)
   have h_norm : l.formalDegree * ∫ g : USign ε, l.dsCoeff ↑g⁻¹ * l.dsCoeff g = 1 := by
     simp_rw [dsCoeff_inv hg, conj_mul', ← ofReal_pow, integral_complex_ofReal]
-    simpa only [formalDegree, ofReal_inv,
-      inv_inv] using mul_inv_cancel₀ (ofReal_ne_zero.2 (formalDegree_pos hg).ne')
+    simpa [formalDegree] using mul_inv_cancel₀ (ofReal_ne_zero.2 (formalDegree_pos hg).ne')
   simp_rw [mul_comm _ (conj _), ← dsCoeff_inv hg, h_left, h_right]
   linear_combination l.dsCoeff x * l.dsCoeff a * h_norm
 
@@ -755,10 +639,8 @@ theorem _root_.New.inner_toLp_rightRegularL2_toLp {w z : USign ε → ℂ}
 theorem inner_toL2_rightRegularL2 (hg : l.HasLargeGap A) (y z : l.DsModule) (x : USign ε) :
     ⟪hg.toL2 y, rightRegularL2 x (hg.toL2 z)⟫_ℂ =
       l.formalDegree * ∫ g : USign ε, z.val.val (g * x) * conj (y.val.val g) := by
-  simp only [toL2, LinearMap.smul_apply, IsLinearMap.mk'_apply,
-    ContinuousLinearMap.map_smul_of_tower, inner_smul_right_eq_smul, inner_smul_left_eq_smul,
-    inner_toLp_rightRegularL2_toLp, smul_smul, formalDegree_pos, le_of_lt, mul_self_sqrt,
-    ← real_smul]
+  simp [toL2, inner_smul_left_eq_smul, inner_toLp_rightRegularL2_toLp, smul_smul, ← real_smul,
+    inner_smul_right_eq_smul, le_of_lt]
 
 /-- The orbit map `g ↦ R(g) c_λ` of the image of the generator in `L²` is continuous, where `R` is
 right translation. -/
@@ -792,21 +674,14 @@ theorem rightRegularL2_toL2_eq_smear (hg : l.HasLargeGap A) {y : l.DsModule} {α
         ∫ u : USign ε, α.val.val u⁻¹ * l.dsCoeff (x * g * u :) =
       ∫ u : USign ε, α.val.val u⁻¹ *
         ∫ x : USign ε, conj (toSimpleFunc w x) * l.dsCoeff (x * g * u :) := by
-    simpa only [Subgroup.coe_mul, Units.val_mul, RCLike.inner_apply, one_mul, Pi.one_apply,
-      smul_eq_mul,
-      mul_one] using
-        (integral_conv (· * g) (hw.inner_const 1) (integrable_bump_inv_smul 1 α) (.of_continuous ⟨1,
-        norm_dsCoeff_le_one hg⟩)).1
+    simpa using (integral_conv (· * g) (hw.inner_const 1) (integrable_bump_inv_smul 1 α)
+      (.of_continuous ⟨1, norm_dsCoeff_le_one hg⟩)).1
   rw [hg.inner_smear_rightRegularL2_toL2_dsGenerator, ← toLp_toSimpleFunc w]
-  simp only [toL2, LinearMap.smul_apply, IsLinearMap.mk'_apply, ← hα,
-    ContinuousLinearMap.map_smul_of_tower, inner_smul_right_eq_smul, inner_toLp_rightRegularL2_toLp,
-    smear_apply, mul_assoc, dsCoeffSmooth_coe, Subgroup.coe_mul, Units.val_mul, smul_eq_mul,
-    real_smul, dsGenerator_coe]
-  simp_rw [mul_left_comm (α.val.val _) (↑√l.formalDegree), integral_const_mul,
-    mul_eq_mul_left_iff, ofReal_eq_zero, sqrt_eq_zero',
-    (formalDegree_pos hg).not_ge, or_false]
-  simpa only [Subgroup.coe_mul, Units.val_mul, mul_assoc,
-    mul_comm (conj (toSimpleFunc w _))] using h_swap
+  simp [toL2, inner_toLp_rightRegularL2_toLp, -map_mul, ← hα, inner_smul_right_eq_smul,
+    mul_assoc]
+  simp_rw [mul_left_comm (α.val.val _) (↑√l.formalDegree), integral_const_mul]
+  refine congrArg (fun x : ℂ ↦ ↑√l.formalDegree * x) ?_
+  simpa [mul_assoc, mul_comm (conj (toSimpleFunc w _))] using h_swap
 
 /-- The action `dsAction` of `gl n` on `U(𝔤) c_λ` is the derivative, along `toL2`, of right
 translation on `L²`. -/
@@ -817,10 +692,8 @@ theorem isDerivedAction_toL2 (hg : l.HasLargeGap A) :
   obtain ⟨β, hβ⟩ := exists_smear_dsCoeffSmooth_eq hg v
   have hYβ : (smear l.dsCoeffSmooth.val) (bumpDeriv Y β) = (l.dsAction Y v).val :=
     rightDeriv_smear _ _ hβ Y
-  simpa only [hg.rightRegularL2_toL2_eq_smear hβ, smear_apply, map_mul, mul_apply_eq_comp, one_mul,
-    ↓← hg.rightRegularL2_toL2_eq_smear hYβ, zero_smul, expU_zero, mul_one, map_one,
-    one_apply_eq_self] using
-      hasDerivAt_smear _ β hg.continuous_rightRegularL2_toL2_dsGenerator (hasDerivAt_expU Y 1 0)
+  simpa [hg.rightRegularL2_toL2_eq_smear hβ, ↓← hg.rightRegularL2_toL2_eq_smear hYβ] using
+    hasDerivAt_smear _ β hg.continuous_rightRegularL2_toL2_dsGenerator (hasDerivAt_expU Y 1 0)
 
 /-- For signs `ε` with `n` nonempty and a parameter `l = 2λ` of gap `500 n³ + A`, let `y` be any
 function in `U(𝔤) c_λ`, the module generated by `c_λ` under right derivatives inside the smooth
@@ -834,12 +707,9 @@ theorem inner_toL2_dsGenerator_rightRegularL2 (hg : l.HasLargeGap A) (y : l.DsMo
   obtain ⟨β, hβ⟩ := exists_smear_dsCoeffSmooth_eq hg y
   have h_schur (u : USign ε) : ⟪hg.toL2 l.dsGenerator,
       rightRegularL2 (g * u) (hg.toL2 l.dsGenerator)⟫_ℂ = l.dsCoeff (g * u) := by
-    simpa only [hg.inner_toL2_rightRegularL2, dsGenerator_coe, dsCoeffSmooth_coe, Subgroup.coe_mul,
-      Units.val_mul, one_mul, OneMemClass.coe_one, Units.val_one,
-      dsCoeff_one] using dsCoeff_schur_orthogonality hg 1 (g * u)
+    simpa [hg.inner_toL2_rightRegularL2, -map_mul] using dsCoeff_schur_orthogonality hg 1 (g * u)
   rw [hg.rightRegularL2_toL2_eq_smear hβ, hg.inner_smear_rightRegularL2_toL2_dsGenerator]
-  simp only [inner_smul_right_eq_smul, h_schur, smul_eq_mul, ← hβ, smear_apply, dsCoeffSmooth_coe,
-    Subgroup.coe_mul, Units.val_mul]
+  simp [← hβ, -map_mul, h_schur, inner_smul_right_eq_smul]
 
 /-- For signs `ε` with `n` nonempty, let `l = 2λ` be a parameter with gap `500 n³ + A`
 (`hg : l.HasLargeGap A`). Let `toL2` be the embedding f ↦ √(deg_λ)·f of the module `U(𝔤) c_λ`,
@@ -878,10 +748,7 @@ end Instances
 theorem norm_dsGenerator (hg : l.HasLargeGap A) : ‖l.dsGenerator‖ = 1 := by
   -- the inner product of the generator with itself is its value at `1`, which is `1`
   have h_sq : (‖hg.toL2 l.dsGenerator‖ : ℂ) ^ 2 = 1 := by
-    simpa only [sq_eq_one_iff, ofReal_eq_one, map_one, one_apply_eq_self,
-      inner_self_eq_norm_sq_to_K, coe_algebraMap, dsGenerator_coe, dsCoeffSmooth_coe,
-      OneMemClass.coe_one, Units.val_one,
-      dsCoeff_one] using hg.inner_toL2_dsGenerator_rightRegularL2 l.dsGenerator 1
+    simpa using hg.inner_toL2_dsGenerator_rightRegularL2 l.dsGenerator 1
   exact (pow_eq_one_iff_of_nonneg (norm_nonneg _) two_ne_zero).1 (mod_cast h_sq)
 
 /-- Each value of a function in `U(𝔤) c_λ` is bounded by the norm of the function pulled back from
@@ -894,9 +761,7 @@ theorem norm_apply_le_norm (hg : l.HasLargeGap A) (y : l.DsModule) (g : USign ε
     _ = ‖⟪hg.toL2 l.dsGenerator, rightRegularL2 g (hg.toL2 y)⟫_ℂ‖ := by
       rw [hg.inner_toL2_dsGenerator_rightRegularL2]
     _ ≤ ‖hg.toL2 l.dsGenerator‖ * ‖rightRegularL2 g (hg.toL2 y)‖ := norm_inner_le_norm _ _
-    _ = ‖hg.toL2 y‖ := by
-      simp only [h_norm, rightRegularL2, Function.comp_apply, MonoidHom.coe_mk, OneHom.coe_mk,
-        smul_apply, one_apply_eq_self, DomMulAct.norm_smul_Lp, one_mul]
+    _ = ‖hg.toL2 y‖ := by simp [h_norm, rightRegularL2]
 
 /-- The inner product that `U(𝔤) c_λ` inherits from `L²` is invariant under `𝔲(diag ε)`, and the
 Casimir operator Ω = ∑ E_ab E_ba of `gl n` is at least `l.casimirValue`, the scalar by which Ω acts
@@ -904,10 +769,7 @@ on `c_λ`, on `U(𝔤) c_λ`. -/
 theorem isUnitaryCasimirGe (hg : l.HasLargeGap A) : IsUnitaryCasimirGe l l.dsAction := by
   refine ⟨hg.isDerivedAction_toL2.form_E_eq_sign_mul isUnitaryRep_rightRegularL2, ?_⟩
   -- the Casimir operator is central, so it acts on the whole module by its eigenvalue on `c_λ`
-  simp only [sq, dsAction, casimirK_generatedModule casimir_dsCoeffSmooth, Complex.coe_smul,
-    CStarModule.inner_smul_right_real, inner_self_eq_norm_sq_to_K, coe_algebraMap, real_smul,
-    mul_re, ofReal_re, ofReal_im, mul_zero, sub_zero, mul_im, zero_mul, add_zero, Std.le_refl,
-    implies_true]
+  simp [dsAction, casimirK_generatedModule casimir_dsCoeffSmooth, sq]
 
 end HCParam.HasLargeGap
 
@@ -944,7 +806,7 @@ theorem norm_rightDeriv_dsCoeffSmooth_le [hg : l.HasLargeGap B] (hL : ∀ a : n,
     ((isKHighest_dsGenerator hg).norm_apply_le_of_mem_filtration hg.isUnitaryCasimirGe
       (abs_lowestKType_le hg hL) self_mem_filtration X).2
   refine (hg.norm_apply_le_norm (l.dsAction X l.dsGenerator) y).trans (action_le.trans_eq ?_)
-  simp only [Nat.cast_add, Nat.cast_zero, add_comm, zero_add, hg.norm_dsGenerator, mul_one]
+  simp [hg.norm_dsGenerator, add_comm]
 
 omit [Nonempty n] in
 /-- For g in U(diag ε), A = g − 1 and real t, the matrix γ = 1 + t A u⁻¹ with u = 1 − ((t − 1)/2) A
@@ -958,16 +820,12 @@ theorem conjTranspose_mul_signMatrix_mul_curve (g : USign ε) (t : ℝ) :
   intro A u
   by_cases hu : IsUnit u
   · have factor : 1 + t • A * u⁻¹ʳ = (u + t • A) * hu.unit⁻¹ := by
-      simp only [Algebra.smul_mul_assoc, ← inverse_unit, IsUnit.unit_spec, add_mul,
-        mul_inverse_cancel _ hu]
+      simp [add_mul, ← inverse_unit, mul_inverse_cancel _ hu]
     rw [factor, gram_mul, gram_inv_of_gram_eq]
-    simp only [IsUnit.unit_spec, conjTranspose_sub, conjTranspose_one, conjTranspose_smul,
-      star_mul', star_sub, star_one, star_inv₀, star_ofNat, Matrix.sub_mul, one_mul,
-      Algebra.smul_mul_assoc, Matrix.mul_sub, mul_one, Algebra.mul_smul_comm,
-      show g.val.valᴴ * _ * _ = _ from mem_unitaryGroupOf_iff.1 g.property, conjTranspose_add,
-      Matrix.add_mul, Matrix.mul_add, u, A]
+    simp [u, A, show g.val.valᴴ * _ * _ = _ from mem_unitaryGroupOf_iff.1 g.property,
+        Matrix.sub_mul, Matrix.mul_sub, Matrix.add_mul, Matrix.mul_add]
     module
-  · simp only [inverse_non_unit _ hu, mul_zero, add_zero, conjTranspose_one, one_mul, mul_one]
+  · simp [inverse_non_unit _ hu]
 
 /-- For l = 2λ a parameter of gap 500n³+B with all |l_a| ≤ L, and x, g in U(diag ε):
 |c_λ(xg) − c_λ(x)| ≤ 100(n+L+1)⁵‖g−1‖, in the operator norm. -/
@@ -988,14 +846,11 @@ theorem norm_dsCoeff_sub_le [hg : l.HasLargeGap B] (hL : ∀ a : n, |l a| ≤ L)
       HasDerivAt (fun t ↦ l.dsCoeff (x * γ t :)) D t ∧ ‖D‖ ≤ 100 * (card n + L + 1) ^ 5 * ‖A‖ := by
     rintro t ⟨ht₀, ht₁⟩
     have small : ‖((t - 1) * 2⁻¹) • A‖ ≤ 2⁻¹ := by
-      rw [norm_smul, norm_eq_abs]
-      have habs : |(t - 1) * 2⁻¹| ≤ 2⁻¹ := abs_le.2 ⟨by linarith, by linarith⟩
-      calc |(t - 1) * 2⁻¹| * ‖A‖ ≤ 2⁻¹ * 1 := mul_le_mul habs hA.le (norm_nonneg _) (by norm_num)
-        _ = 2⁻¹ := mul_one _
+      grw [norm_smul, hA, norm_eq_abs]
+      grind
     -- `u t` is a unit `w` with `‖w⁻¹‖ ≤ 2`, by the geometric series.
     let w : (Matrix n n ℂ)ˣ := Units.oneSub _ (small.trans_lt two_inv_lt_one)
-    have hγ : (γ t).val.val = 1 + t • (A * w⁻¹) := by
-      simp only [Algebra.smul_mul_assoc, val_of_coe, ← inverse_unit, Units.val_oneSub, γ, u, w]
+    have hγ : (γ t).val.val = 1 + t • (A * w⁻¹) := by simp [γ, ← inverse_unit, u, w]
     have norm_inv_le : ‖w⁻¹.val‖ ≤ 2 := by
       refine (tsum_geometric_le_of_norm_lt_one _ (small.trans_lt two_inv_lt_one)).trans ?_
       grw [small]
@@ -1003,16 +858,12 @@ theorem norm_dsCoeff_sub_le [hg : l.HasLargeGap B] (hL : ∀ a : n, |l a| ≤ L)
     -- The derivative of `γ` at `t`, from that of the inverse at the unit `w`.
     let γ' : Matrix n n ℂ := t • (2 : ℝ)⁻¹ • (A * (w⁻¹ * (A * w⁻¹))) + A * w⁻¹
     have hγ' : HasDerivAt (fun t ↦ (x * γ t).val.val) (x * γ') t := by
-      have hw : u t = w.val := by
-        simp only [Units.val_oneSub, u, w]
+      have hw : u t = w.val := by simp [u, w]
       have h_u : HasDerivAt u (-((2 : ℝ)⁻¹ • A)) t := by
-        simpa only [id_eq,
-          one_mul] using ((((hasDerivAt_id t).sub_const 1).mul_const 2⁻¹).smul_const A).const_sub 1
+        simpa [u] using ((((hasDerivAt_id t).sub_const 1).mul_const 2⁻¹).smul_const A).const_sub 1
       have h_inv : HasDerivAt (fun s ↦ (u s)⁻¹ʳ) ((2 : ℝ)⁻¹ • (w⁻¹.val * (A * w⁻¹.val))) t := by
-        simpa only [coe_units_inv, Function.comp_def, neg_apply,
-          ContinuousLinearMap.mulLeftRight_apply, mul_neg, Algebra.mul_smul_comm, neg_mul,
-          Algebra.smul_mul_assoc, mul_assoc,
-          neg_neg] using (hasFDerivAt_ringInverse (𝕜 := ℝ) w).comp_hasDerivAt_of_eq t h_u hw.symm
+        simpa [Function.comp_def, mul_assoc] using
+          (hasFDerivAt_ringInverse (𝕜 := ℝ) w).comp_hasDerivAt_of_eq t h_u hw.symm
       -- the product rule, then the derivative is rearranged into `x * γ'`
       refine
         (((((hasDerivAt_id t).smul_const A).mul h_inv).const_add 1).const_mul x.1.1).congr_deriv ?_
@@ -1025,26 +876,20 @@ theorem norm_dsCoeff_sub_le [hg : l.HasLargeGap B] (hL : ∀ a : n, |l a| ≤ L)
         norm_inv_le, norm_of_nonneg ht₀, ht₁]
       norm_num
       nlinarith [norm_nonneg A]
-    have direction : x * γ' = (x * γ t).val * ((γ t)⁻¹.val.val * γ') := by
-      simp only [Subgroup.coe_mul, Units.val_mul, InvMemClass.coe_inv, coe_units_inv, mul_assoc,
-        mul_inv_cancel_left_of_invertible]
+    have direction : x * γ' = (x * γ t).val * ((γ t)⁻¹.val.val * γ') := by simp [mul_assoc]
     refine ⟨_, hasDerivAt_curve l.dsCoeffSmooth (hγ'.congr_deriv direction), ?_⟩
     calc _ ≤ (card n + 1) ^ 4 * (card n + L + 1) * ‖(γ t)⁻¹.val.val * γ'‖ :=
            norm_rightDeriv_dsCoeffSmooth_le hL ..
       _ ≤ (card n + L + 1) ^ 4 * (card n + L + 1) * (3 * (4 * ‖A‖)) := by
         grw [norm_mul_le, U.norm_inv, norm_γ, norm_γ']
         gcongr
-        simp only [le_add_iff_nonneg_right, Nat.cast_nonneg]
+        simp
       _ = 12 * (card n + L + 1) ^ 5 * ‖A‖ := by ring
       _ ≤ 100 * (card n + L + 1) ^ 5 * ‖A‖ := by gcongr; norm_num
   -- The mean value inequality on `[0, 1]`, with `γ 0 = 1` and `γ 1 = g`.
   choose! D hD D_le using deriv_le
-  simpa only [γ, u, A, Subgroup.coe_mul, Units.val_mul, ge_iff_le, Algebra.smul_mul_assoc, sub_self,
-    zero_mul, zero_smul, sub_zero, inverse_one, mul_one, one_smul, add_sub_cancel, val_of_coe,
-    zero_sub, neg_mul, one_mul, neg_smul, sub_neg_eq_add, add_zero,
-    norm_one] using
-      (convex_Icc 0 1).norm_image_sub_le_of_norm_hasDerivWithin_le (fun t ht ↦ (hD t
-      ht).hasDerivWithinAt) D_le zero_mem one_mem
+  simpa [γ, u, A] using (convex_Icc 0 1).norm_image_sub_le_of_norm_hasDerivWithin_le
+    (fun t ht ↦ (hD t ht).hasDerivWithinAt) D_le zero_mem one_mem
 
 /-- Let `l` have gap 500n³+B, all |l_a| ≤ L, and β ≥ n + L + 1, where n = card n. If g in
 `New.USign ε` satisfies ‖g − 1‖ ≤ (200 β⁵)⁻¹ in the operator norm, then ‖c_λ(g)‖ ≥ 1/2. -/
@@ -1054,15 +899,10 @@ theorem half_le_norm_dsCoeff [hg : l.HasLargeGap B] (hL : ∀ a : n, |l a| ≤ L
   have β_pos : 0 < β := lt_of_lt_of_le (by positivity) hβ
   -- `l.dsCoeff g` is within `1 / 2` of `l.dsCoeff 1 = 1`.
   have close : ‖l.dsCoeff g - 1‖ ≤ 2⁻¹ :=
-    calc
-      _ ≤ 100 * (card n + L + 1) ^ 5 * ‖g.1.1 - 1‖ := by
-        simpa only [one_mul, OneMemClass.coe_one, Units.val_one, dsCoeff_one] using
-          norm_dsCoeff_sub_le hL 1 g
+    calc _ ≤ 100 * (card n + L + 1) ^ 5 * ‖g.1.1 - 1‖ := by simpa using norm_dsCoeff_sub_le hL 1 g
       _ ≤ 100 * β ^ 5 * (200 * β ^ 5)⁻¹ := by grw [hg_near, hβ]
       _ = 2⁻¹ := by field
-  have h1 := abs_norm_sub_norm_le (l.dsCoeff g) 1
-  rw [norm_one, abs_le] at h1
-  linarith
+  grind [abs_norm_sub_norm_le (l.dsCoeff g) 1, norm_one]
 
 /-- Let `l` have gap `500 n³ + B` and all `|l a| ≤ L`. Let `j` be a homomorphism from a group `S`
 to `USign ε` and `ν` a right invariant measure on `S` for which `l.dsCoeff ∘ j` is square
@@ -1089,8 +929,7 @@ theorem measure_ball_le_integral_dsCoeff [hg : l.HasLargeGap B] (hL : ∀ a : n,
     rw [← mul_assoc]
     gcongr <;> norm_num [add_nonneg, le_add_iff_nonneg_left]
   grw [← small_ball]
-  simpa only [δ, _root_.mul_inv_rev,
-    mul_one] using measure_ball_le_covering ν j 1 (by bound) hr const_le
+  simpa [δ] using measure_ball_le_covering ν j 1 (by bound) hr const_le
 
 /-- Let n = `card n` ≥ 1, and let `l = 2λ` be a parameter of gap `500 n³ + B`: its entries are
 distinct and congruent to n - 1 mod 2, and |λ i - λ j| ≥ 500 n³ + B whenever ε i ≠ ε j. Suppose all
@@ -1107,7 +946,7 @@ theorem integral_formalDegree_mul_two_div_norm_pow_le [hg : l.HasLargeGap B]
   have h_deg_pos : 0 < l.formalDegree := formalDegree_pos hg
   let K : ℝ := 2000 * (card n + L + 1) ^ 6
   have h_mass : ∫ g : USign ε, 4 * ‖l.dsCoeff g‖ ^ 2 = 4 / l.formalDegree := by
-    simp only [integral_const_mul, formalDegree, div_eq_mul_inv, inv_inv]
+    simp [integral_const_mul, formalDegree, div_eq_mul_inv]
   have h_ball (R : ℝ) (hR : R ≥ 1) : volume {g : USign ε | ‖(g : Matrix n n ℂ)‖ ≤ R} ≤
       .ofReal ((K * R ^ 2) ^ (2 * card n ^ 2)) * .ofReal (4 / l.formalDegree) := by
     simpa only [MonoidHom.id_apply, h_mass] using measure_ball_le_integral_dsCoeff hL volume
@@ -1121,8 +960,7 @@ theorem integral_formalDegree_mul_two_div_norm_pow_le [hg : l.HasLargeGap B]
       ENNReal.ofReal_ne_top h_ball (mod_cast by omega) h_factor
   calc ∫ g : USign ε, l.formalDegree * (2 / ‖(g : Matrix n n ℂ)‖) ^ c
       = l.formalDegree * 2 ^ c * ∫ g : USign ε, ‖(g : Matrix n n ℂ)‖ ^ (-c : ℝ) := by
-        simp only [div_eq_mul_inv, mul_pow, inv_pow, integral_const_mul, rpow_neg_natCast,
-          _root_.zpow_neg, zpow_natCast, mul_assoc]
+        simp [div_eq_mul_inv, mul_pow, mul_assoc, integral_const_mul]
     _ ≤ l.formalDegree * 2 ^ c * (K ^ (2 * card n ^ 2) * 2 * (4 / l.formalDegree)) := by
         grw [h_layers, ENNReal.toReal_ofReal (by positivity)]
     _ = 8 * K ^ (2 * card n ^ 2) * 2 ^ c := by field
