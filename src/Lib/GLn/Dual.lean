@@ -886,6 +886,9 @@ lemma mixedCartan_mulVec_cartanProduct {Φ n N m : Type} [Fintype Φ] [Decidable
           (permArray fun (_ : Φ) (a : n) ↦ (equivFin n a).val) := by
     rw [MixedCartanEmbedding.intertwines, MixedCartanEmbedding.top, ← transpose_vecMulVec,
       kronecker_mulVec_vec_transpose_vecMulVec, h_T, hy, hη]
+    -- Each coordinate is a product of minors; compare the entries of the matrices, block by block.
+    -- The columns read lie in the block of `N`, or of `m`, because `kp` and `km` are
+    -- `HasColumnsBelow`.
     have h_block {k : Type} [Fintype k] [DecidableEq k] {κ : Φ → ℕ → ℕ}
         (hκ : HasColumnsBelow n k κ) (M : Φ → Matrix n n K) (B : Φ → Matrix k k K)
         (ι : k → n) (f : Fin (card n) → ℕ) (b_n : k → n)
