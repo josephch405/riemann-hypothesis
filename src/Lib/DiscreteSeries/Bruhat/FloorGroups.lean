@@ -610,7 +610,7 @@ lemma inclMatrix_mulVec_floor_block (hl : l ≤ 𝔰.ϱ) (hs : s ∈ floorGroup 
   split_ifs with hi
   · rfl
   · rw [apply_eq_one_apply_of_mem_floorGroup hs i j (.inl (by lia)),
-      one_apply_ne (by rintro rfl; exact hi j.2)]
+      one_apply_ne (by rintro rfl; exact hi j.property)]
 
 /-- For `σ` in the fixer `H_b` of the floors below `b` and `s` in `Q_{b+1}`, the column of `σ` at
 the frame vector `f_b` vanishes in the rows of floor below `b` and is that of `σ * s` in the other
@@ -800,12 +800,20 @@ lemma weylElem_star : (weylElem l (star p) : T.G) = (weylElem l p)⁻¹ := by
   ext
   rfl
 
+lemma weylElem_left_comm (hs : s ∈ floorGroup l) :
+    weylElem l p * (s * g) = s * (weylElem l p * g) :=
+  (commute_weylElem hs).left_comm g
+
+lemma weylElem_inv_left_comm (hs : s ∈ floorGroup l) :
+    (weylElem l p)⁻¹ * (s * g) = s * ((weylElem l p)⁻¹ * g) :=
+  (commute_weylElem hs).inv_left.left_comm g
+
 /-- For `s` in the fixer `H_l` of the floors below `l`, the Weyl element `w_p` of length `l` and its
 inverse can be moved past `s` on the left. -/
 lemma weylElem_mul_left_comm (hs : s ∈ floorGroup l) :
     weylElem l p * (s * g) = s * (weylElem l p * g) ∧
     (weylElem l p)⁻¹ * (s * g) = s * ((weylElem l p)⁻¹ * g) :=
-  ⟨(commute_weylElem hs).left_comm _, (commute_weylElem hs).inv_left.left_comm _⟩
+  ⟨weylElem_left_comm hs, weylElem_inv_left_comm hs⟩
 
 /-- The diagonal entry `b` of the frame Gram matrix of `σ τ⁻¹`, that is the hermitian product of
 `f_b` and `σ τ⁻¹ f_b`, is the hermitian product of `σ⁻¹ f_b = orbitPoint b σ` and
