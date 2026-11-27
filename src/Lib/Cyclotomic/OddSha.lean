@@ -141,13 +141,7 @@ private lemma totient_add_le_pow_twenty {N l y c : ℕ} (hNy : N ≤ y) (hly : l
   have hMy : M ≤ y ^ 5 := by grw [hM, hNy, hly, ← pow_mul, ← _root_.pow_succ']
   calc φ M + c ≤ M + (M ^ 3 + 5 * M ^ 2 + M) := Nat.add_le_add (totient_le M) hc
     -- `M³ + 5 M² + 2 M ≤ M⁴` for `M ≥ 3`
-    _ ≤ M ^ 4 := by
-      have h2 : 3 * M ≤ M ^ 2 := by rw [sq]; exact Nat.mul_le_mul_right M hM_gt
-      have h3 : 3 * M ^ 2 ≤ M ^ 3 := by
-        rw [_root_.pow_succ' M 2]; exact Nat.mul_le_mul_right _ hM_gt
-      have h4 : 3 * M ^ 3 ≤ M ^ 4 := by
-        rw [_root_.pow_succ' M 3]; exact Nat.mul_le_mul_right _ hM_gt
-      omega
+    _ ≤ M ^ 4 := by nlinarith [(M ^ 3).zero_le, (M ^ 2).zero_le]
     _ ≤ (y ^ 5) ^ 4 := Nat.pow_le_pow_left hMy 4
     _ = y ^ 20 := by ring
 
@@ -466,7 +460,9 @@ lemma New.exists_character_components {N : ℕ} [NeZero N] {E : Type} [Field E] 
           (cyclotomicPowDirichlet l e ψ v).val • x (b v k) ()
         rw [hb_eq]
         simp [cyclotomicPowDirichlet, hu, h_cyc, tateTwist, cyclotomicInv, smul_smul, mul_pow]
-        congr 1; ring
+        -- Only the scalar prefactors remain, differing in factor order.
+        congr 1
+        ring
       -- Right multiplication by `g` permutes the cosets of the `σ t`.
       have h_shift : ∑ t, T ψ (σ t * g) k = ∑ t, T ψ (σ t) k := by
         refine sum_equiv (.mulRight (cyclotomicCharMod Ω N g)) _ _ fun t ↦ h_coset (σ t * g) ?_
@@ -613,7 +609,7 @@ lemma New.OddPart.length_shaOdd_le_of_sq_lt {N : ℕ} [NeZero N] {E : Type} [Fie
   · -- At most `y` values of `u`, `y` characters and `y ^ 6 + 1 ≤ y ^ 18` values of `i`.
     have h_val : X.factorization l ≤ y ^ 6 :=
       factorization_le_of_le_pow (hX_le.trans (Nat.pow_le_pow_left hl_prime.out.two_le _))
-    have h_pow : y ^ 6 < y ^ 18 := Nat.pow_lt_pow_right (by omega) (by norm_num)
+    have h_pow : y ^ 6 < y ^ 18 := Nat.pow_lt_pow_right (by lia) (by norm_num)
     have h_tot_le : φ N ≤ y := by lia
     simp only [Fintype.card_prod, ZMod.card_units_eq_totient, Fintype.card_fin]
     grw [card_eq_nat_card, card_eq_totient_of_hasEnoughRootsOfUnity, h_tot_le, h_val,
