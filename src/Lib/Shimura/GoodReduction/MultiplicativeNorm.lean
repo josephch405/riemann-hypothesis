@@ -346,21 +346,37 @@ lemma sum_normShift_eq_zero (hd : star c = d) (hd_dual : ∀ a ∈ B.dualLattice
     have sum_fixed : h.normShift l (∑ k : h.MulKernel c,
         h.normShift (F c k.out) (h.normShift (F c z.out) t)) =
           ∑ k : h.MulKernel c, h.normShift (F c k.out) (h.normShift (F c z.out) t) := by
-      simpa using h.normShift_sum_eq_char_smul c fixed 1
-        ⟨(F c).inverse l, by simpa [divLattice]⟩ rfl
+      have h_mem : (F c).inverse l ∈ divLattice L F c := by
+        change F c ((F c).inverse l) ∈ L
+        rwa [(action_isInvertible c).self_apply_inverse]
+      simpa only [(action_isInvertible c).self_apply_inverse, one_apply, one_smul]
+        using h.normShift_sum_eq_char_smul c fixed 1 ⟨(F c).inverse l, h_mem⟩ rfl
     -- every term of the sum is the phase `B.riemannPhase (c k) (c z)` times
     -- `u = normShift (c z) t`, so the sum is a multiple of `u`, and translation by `l` multiplies
     -- `u` by `B.riemannPhase l (c z)`
+    have h_sum_rw :
+        ∑ k : h.MulKernel c, h.normShift (F c k.out) (h.normShift (F c z.out) t) =
+          (∑ i : h.MulKernel c, B.riemannPhase (F c i.out) (F c z.out)) •
+            h.normShift (F c z.out) t := by
+      rw [Finset.sum_smul]
+      refine Finset.sum_congr rfl fun k _ ↦ ?_
+      rw [h.normShift_comm _ (F c z.out), t_periodic (F c k.out) k.out.prop]
     have sum_fixed' : ∀ y : V,
         B.riemannPhase l (F c z.out) * h.normShift (F c z.out) t y = h.normShift (F c z.out) t y ∨
           ∑ i : h.MulKernel c, B.riemannPhase (F c i.out) (F c z.out) = 0 := by
-      simpa [← sum_mul, funext_iff, h.normShift_comm _ (F c z.out),
-        mem_thetaSpace_iff_normalizedShift.mp ht, hl] using sum_fixed
+      intro y
+      have h_eq := congrFun sum_fixed y
+      rw [h_sum_rw, LinearMap.map_smul, h.normShift_comm l (F c z.out), t_periodic l hl] at h_eq
+      simp only [Pi.smul_apply, smul_eq_mul] at h_eq
+      exact mul_eq_mul_left_iff.mp h_eq
+    have h_rw :
+        ∑ k : h.MulKernel c, h.normShift (F c k.out) (h.normShift (F c z.out) t) x =
+          (∑ i : h.MulKernel c, B.riemannPhase (F c i.out) (F c z.out)) *
+            h.normShift (F c z.out) t x := by
+      rw [← Finset.sum_apply, h_sum_rw, Pi.smul_apply, smul_eq_mul]
     obtain ⟨h_sum_ne, h_val_ne⟩ :
         ∑ i : h.MulKernel c, B.riemannPhase (F c i.out) (F c z.out) ≠ 0 ∧
-          h.normShift (F c z.out) t x ≠ 0 := by
-      simpa [← sum_mul, mem_thetaSpace_iff_normalizedShift.mp ht, h.normShift_comm _ (F c z.out)]
-        using hne
+          h.normShift (F c z.out) t x ≠ 0 := mul_ne_zero_iff.mp (h_rw ▸ hne)
     have phase_mul : B.riemannPhase l (F c z.out) * h.normShift (F c z.out) t x =
         h.normShift (F c z.out) t x := (sum_fixed' x).resolve_right h_sum_ne
     have phase_eq_one : B.riemannPhase l (F c z.out) = 1 := (mul_eq_right₀ h_val_ne).mp phase_mul
@@ -370,8 +386,9 @@ lemma sum_normShift_eq_zero (hd : star c = d) (hd_dual : ∀ a ∈ B.dualLattice
   -- `z = a (c z) + b (star c z)` lies in `L`
   obtain ⟨a, b, hab⟩ : ∃ a b : R, a * c + b * star c = 1 := hc
   have comb : F (a * c + b * star c) z.out ∈ L := by
-    simpa using add_mem (h.map_mem a _ cz_mem)
-        (h.map_mem b _ (map_divLattice_mem (L := L) (F := F) _ z.out))
+    rw [F.map_add, F.map_mul, F.map_mul, add_apply, mul_apply_eq_comp, mul_apply_eq_comp]
+    exact L.add_mem (h.map_mem a _ cz_mem)
+      (h.map_mem b _ (map_divLattice_mem (L := L) (F := F) _ z.out))
   have z_mem : (z.out : V) ∈ L := by simpa [hab] using comb
   exact hz ((h.out_mem_iff_eq_zero _ z).mp z_mem)
 
@@ -388,9 +405,16 @@ lemma poincareSeries_eq_conj_poincareSeries_star (c : R) (x : V) :
   refine tsum_congr fun l ↦ ?_
   rw [ThetaTori.LatticeForm.poincareTerm, ThetaTori.LatticeForm.poincareTerm, h.multiplier_eq_exp,
     h.multiplier_eq_exp]
-  simp [← exp_sub, ← exp_conj]
-  -- the exponents differ by `B x y - B y x` for lattice vectors, by adjointness and symmetry
-  grind [h.exp_eq_of_mem_lattice l.prop (h.map_mem β _ l.prop), action_comm, adjoint, conj_symm]
+  rw [← exp_sub, ← exp_sub, ← exp_conj]
+  have h_diag : B (F c x) (F c x) = B (F (star c) x) (F (star c) x) := by
+    rw [h.adjoint, action_comm _ c]
+    symm
+    rw [h.adjoint, star_star]
+  have h_β : B l (F (star β) l) = B (F β l) l := (h.adjoint β l l).symm
+  refine h.exp_eq_of_mem_lattice l.prop (h.map_mem β _ l.prop) ?_
+  simp only [Submodule.coe_neg, map_add, map_sub, map_neg, map_div₀, map_ofNat, neg_apply,
+    neg_neg, ← h.conj_symm, h_diag, h_β]
+  ring
 
 /-- The theta identity. Let `d = star c` with `c` and `d` non-zero and `c ≠ d`, let `c` and `d` be
 coprime, and let both act as the identity on the dual lattice modulo `L`. Then there is `μ` with
@@ -491,15 +515,19 @@ lemma mul_normShift_eq_mul_normShift_sub_sum (hd : star c = d) {μ : ℂ}
           h.normShift (F c q) (h.normShift (F c z.out) f) 0 := by
   have plain : ∑ z : h.MulKernel d, h.normShift (F c q) (h.normShift (F c z.out) f) 0 =
       μ * h.normShift (F d q) f 0 := by
-    simpa [h.normShift_comp_inverse_eq hd]
-      using congrArg (fun s : V → ℂ ↦ h.normShift (F d q) s 0) (identity f hf)
+    have h0 := congrArg (fun s : V → ℂ ↦ h.normShift (F d q) s 0) (identity f hf)
+    simpa only [LinearMap.sum_apply, map_sum, Finset.sum_apply, h.normShift_comp_inverse_eq hd,
+      LinearMap.map_smul, Pi.smul_apply, smul_eq_mul, Function.comp_apply, map_zero] using h0
   have moved : ∑ z : h.MulKernel d, B.riemannPhase (F c g) (F c z.out) *
       h.normShift (F c q) (h.normShift (F c z.out) f) 0 =
         μ * h.normShift (F d q) (h.normShift (F d g) f) 0 := by
-    simpa [h.normShift_comp_inverse_eq hd, h.normShift_comm (F c g),
-      mem_thetaSpace_iff_normalizedShift.mp hf, hg]
-      using congrArg (fun s : V → ℂ ↦ h.normShift (F d q) (h.normShift (F d g) s) 0) (identity f hf)
-  simp [← plain, ← moved, sub_mul]
+    have h0 := congrArg (fun s : V → ℂ ↦ h.normShift (F d q) (h.normShift (F d g) s) 0)
+      (identity f hf)
+    simpa only [LinearMap.sum_apply, map_sum, Finset.sum_apply, h.normShift_comp_inverse_eq hd,
+      h.normShift_comm (F c g), (mem_thetaSpace_iff_normalizedShift.mp hf).2 _ hg,
+      LinearMap.map_smul, Pi.smul_apply, smul_eq_mul, Function.comp_apply, map_zero] using h0
+  simp only [sub_mul, one_mul, Finset.sum_sub_distrib, plain, moved]
+  ring
 
 /-- The constant `1` on the kernel of `c`. Let `c ≠ 0` and `d = star c` be distinct and coprime and
 act as the identity on the dual lattice of `B` modulo `L`; let `p` be a prime with `v p < 1`, let
@@ -519,7 +547,9 @@ lemma hasShiftBound_one_of_ker {A : LatticeForm L} {w : torsionPoints L} (hd : s
   -- inequality gives `φ y ≤ max (φ (y + w)) (ρ * iSup φ)` with `ρ < 1`, and the first term decides.
   refine .of_isPosRiemann_sub h.isAmpleType h_pos fun f hf y ↦ ?_
   obtain ⟨μ, hμ, identity⟩ := h.exists_theta_identity hd hc_dual hd_dual hc_ne_d hc
-  have v_μ : v μ = 1 := by simpa [h_det] using congrArg v hμ
+  have v_μ : v μ = 1 := by
+    have h_v8 : v μ ^ 8 = 1 := by rw [← map_pow, hμ, map_pow, h_det, one_pow]
+    simpa using h_v8
   have hφ : B.sizeAt v f ∈ B.sizes v := .of_mem_thetaSpace h.isAmpleType hf
   set φ : torsionPoints L → ℝ≥0 := B.sizeAt v f with φ_def
   have hP : p ^ n ≠ 0 := pow_ne_zero n hp.ne_zero
@@ -535,11 +565,10 @@ lemma hasShiftBound_one_of_ker {A : LatticeForm L} {w : torsionPoints L} (hd : s
   have g_eq : (w : V) - T g ∈ L := by
     have h_apply : F d (F γ w) = (w : V) - F α (F c w) := by
       calc F d (F γ w)
-        _ = F (γ * d) w := by
-          rw [action_comm d γ]
-          simp
+        _ = F (γ * d) w := by rw [action_comm d γ, ← mul_apply_eq_comp, ← map_mul]
         _ = F (1 - α * c) w := by rw [eq_sub_of_add_eq' hαγ]
-        _ = (w : V) - F α (F c w) := by simp
+        _ = (w : V) - F α (F c w) := by
+          rw [map_sub, map_one, map_mul, sub_apply, one_apply_eq_self, mul_apply_eq_comp]
     change (w : V) - F d (F γ w) ∈ L
     simpa only [T, g, torsionAction, h_apply, sub_sub_cancel] using h.map_mem α _ hw
   have g_mem : F c g ∈ L := by simpa [g, action_comm c] using h.map_mem _ _ hw
@@ -631,8 +660,9 @@ lemma hasShiftBound_of_torsionAction
       h.normShift (F c a) (t ∘ (F c).inverse) = h_pull.normShift a t ∘ (F c).inverse := by
     ext
     simp [normalizedShift, riemannForm, action_comm, canonicalMultiplier, thetaShift_apply]
-  have h_fixed : ∀ l ∈ L, h.normShift (F c l) (t ∘ (F c).inverse) = t ∘ (F c).inverse := by
-    grind [mem_thetaSpace_iff_normalizedShift.mp ht]
+  have h_fixed : ∀ l ∈ L, h.normShift (F c l) (t ∘ (F c).inverse) = t ∘ (F c).inverse :=
+    fun l hl ↦ by
+      rw [h_transl, (mem_thetaSpace_iff_normalizedShift.mp ht).2 l hl]
   -- The eigensum `s ξ` for a character `ξ` of the kernel of `c` has degree `B` and the multiplier
   -- `χ l = h.multiplier l * ξ (c⁻¹ l)`, of finite order.
   let s (ξ : AddChar (h.MulKernel c) ℂ) : V → ℂ :=
@@ -643,12 +673,21 @@ lemma hasShiftBound_of_torsionAction
     have h_ah : IsAppellHumbert B χ := by
       refine ⟨h.isAppellHumbert.re_symm, fun l hl ↦ ?_, fun l hl m hm ↦ ?_⟩
       · simp [χ, hl, h.isAppellHumbert.norm_eq_one l hl]
-      · simp [χ, h.isAppellHumbert.semicharacter, field, hl, hm, ← ξ.map_add_eq_mul, mul_assoc,
-          add_mem]
-        -- the class of a sum is the sum of the classes, by definition of the quotient
-        exact Or.inl (Or.inl rfl)
+      · have h_ξ : ξ ⟦⟨(F c).inverse (l + m), by simpa [divLattice] using L.add_mem hl hm⟩⟧ =
+            ξ ⟦⟨(F c).inverse l, by simpa [divLattice]⟩⟧ *
+            ξ ⟦⟨(F c).inverse m, by simpa [divLattice]⟩⟧ := by
+          rw [← ξ.map_add_eq_mul]
+          exact congrArg ξ
+            (congrArg QuotientAddGroup.mk (Subtype.ext (map_add (F c).inverse l m)))
+        simp only [χ, hl, hm, L.add_mem hl hm, ↓reduceDIte,
+          h.isAppellHumbert.semicharacter l hl m hm, h_ξ]
+        ring
     have h_order : ∀ l ∈ L, χ l ^ (2 * Nat.card (h.MulKernel c)) = 1 := by
-      simp +contextual [χ, mul_pow, pow_mul, h.multiplier_sq, ← ξ.map_nsmul_eq_pow]
+      intro l hl
+      simp only [χ, hl, ↓reduceDIte, mul_pow]
+      rw [pow_mul, h.multiplier_sq l hl, one_pow, one_mul, mul_comm 2, pow_mul,
+        ← ξ.map_nsmul_eq_pow, Nat.card_eq_fintype_card, card_nsmul_eq_zero,
+        AddChar.map_zero_eq_one, one_pow]
     have h_ample : IsAmpleType B χ :=
       ⟨h_ah, h.isAmpleType.isPosRiemann, 2 * Nat.card (h.MulKernel c), by simp, h_order⟩
     refine .of_mem_thetaSpace h_ample ⟨?_, fun l hl z ↦ ?_⟩
@@ -669,12 +708,21 @@ lemma hasShiftBound_of_torsionAction
     refine v.map_sum_le fun i _ ↦ v.map_sum_le fun j _ ↦ ?_
     let a : torsionPoints L := ⟨i.out, h.mem_torsionPoints i.out⟩
     let b : torsionPoints L := ⟨j.out, h.mem_torsionPoints j.out⟩
+    have h_eq_ab : ((y + w + b - (y + a) - w : torsionPoints L) : V) = (b : V) - a := by
+      rw [show y + w + b - (y + a) - w = b - a by abel, AddSubgroupClass.coe_sub]
     have h_one : LatticeForm.HasShiftBound v (B.pullForm (F c) + B.pullForm (F c))
         (y + w + b - (y + a) - w) 1 :=
-      h_ker _ _ (by simp [a, b, sub_sub, add_right_comm, sub_mem])
+      h_ker _ _ (by rw [h_eq_ab, map_sub]; exact L.sub_mem j.out.prop i.out.prop)
+    have h_vξ (k : h.MulKernel c) : v (ξ k) = 1 :=
+      valuation_eq_one_of_pow_eq_one (orderOf_pos ξ).ne'
+        (by rw [← pow_apply, pow_orderOf_eq_one]; rfl)
+    have hT_add : ((T y + T w : torsionPoints L) : V) = F c ↑(y + w) := by
+      dsimp only [T, torsionAction]
+      push_cast
+      exact (map_add (F c) (y : V) (w : V)).symm
     refine (mul_le_iSup_of_hasShiftBound hφ hφ h_one).trans_eq' ?_
-    simp [a, b, ← map_add, T, φ_def, h_transl, h_pull.sizeAt_add,
-      valuation_eq_one_of_pow_eq_one (orderOf_pos ξ).ne', ← pow_apply ξ]
+    simp only [a, b, T, φ_def, LinearMap.map_smul, Pi.smul_apply, smul_eq_mul, map_mul, h_vξ,
+      one_mul, hT_add, h_transl, Function.comp_apply, map_zero, h_pull.sizeAt_add]
   have h_card_pos : 0 < v (Nat.card (h.MulKernel c)) := by simp [v.pos_iff]
   -- Take square roots and move the order of the kernel to the left.
   suffices h_main : φ x * v (Nat.card (h.MulKernel c)) ≤ NNReal.sqrt (D * ⨆ z, φ z * φ (z + w)) by
@@ -682,8 +730,21 @@ lemma hasShiftBound_of_torsionAction
   -- The eigensums add up to the order of the kernel times `t ∘ c⁻¹`.
   calc φ x * v (Nat.card (h.MulKernel c))
     _ = v (∑ ξ, h.normShift (T x) (s ξ) 0) := by
-      simp [s, T, φ_def, sum_comm, ← sum_mul, h_transl, mem_thetaSpace_iff_normalizedShift.mp ht,
-        AddChar.sum_apply_eq_ite, field, h_pull.sizeAt_eq_normShift, out_mem_iff_eq_zero]
+      simp only [s, T, φ_def, map_sum, LinearMap.map_smul, Finset.sum_apply, Pi.smul_apply,
+        smul_eq_mul, h_transl, Function.comp_apply, map_zero, h_pull.sizeAt_eq_normShift]
+      rw [Finset.sum_comm]
+      have h_inner (k : h.MulKernel c) :
+          (∑ ξ : AddChar (h.MulKernel c) ℂ,
+              ξ (-k) * h_pull.normShift x (h_pull.normShift k.out t) 0) =
+            if k = 0 then (Nat.card (h.MulKernel c) : ℂ) * h_pull.normShift x t 0 else 0 := by
+        rw [← Finset.sum_mul, AddChar.sum_apply_eq_ite]
+        simp only [neg_eq_zero]
+        split_ifs with hk
+        · subst hk
+          rw [Nat.card_eq_fintype_card, (mem_thetaSpace_iff_normalizedShift.mp ht).2 _
+            ((h.out_mem_iff_eq_zero c 0).mpr rfl)]
+        · exact zero_mul _
+      simp only [h_inner, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, map_mul, mul_comm]
     _ ≤ NNReal.sqrt (D * ⨆ z, φ z * φ (z + w)) := by
       refine v.map_sum_le fun ξ _ ↦ ?_
       -- Each term is bounded by the hypothesis at `c w`; `c` is onto the torsion points.
@@ -715,7 +776,12 @@ lemma eventually_hasShiftBound
   have h_ker : ⨅ y : Y, LinearMap.ker (ev y) ≤ LinearMap.ker (ev 0) := by
     intro f hf
     have hf_zero (y : Y) : (f : V → ℂ) y = 0 := by
-      simpa [ev, thetaShift_apply] using (Submodule.mem_iInf _).mp hf y
+      have hy0 := (Submodule.mem_iInf _).mp hf y
+      rw [LinearMap.mem_ker] at hy0
+      change Complex.exp (-((2 • B) (y : V) 0 + (2 • B) (y : V) (y : V) / 2)) *
+          (f : V → ℂ) (0 + (y : V)) = 0 at hy0
+      rw [zero_add] at hy0
+      exact (mul_eq_zero.mp hy0).resolve_left (Complex.exp_ne_zero _)
     have hf_diff : Differentiable ℂ (f : V → ℂ) := f.property.1
     -- The midpoints of `w` and the points of the lattices `c⁻¹ L` lie in `Y`, and these lattices
     -- have arbitrarily small mesh.
@@ -729,7 +795,14 @@ lemma eventually_hasShiftBound
         simpa [two_smul, mul_smul] using hn
       let m : torsionPoints L := ⟨midpoint ℝ (w : V) z, mid_tors⟩
       exact hf_zero ⟨m, h_one _ _ (by simpa [m] using hz)⟩
-    simpa [ev] using congrFun hf_mid (-w)
+    have hw_mid : midpoint ℝ (w : V) (-w) = 0 := by
+      rw [midpoint_eq_smul_add, add_neg_cancel, smul_zero]
+    have h0 : (f : V → ℂ) 0 = 0 := by
+      simpa only [Function.comp_apply, hw_mid, Pi.zero_apply] using congrFun hf_mid (-w)
+    rw [LinearMap.mem_ker]
+    change (2 • B).thetaShift 0 (f : V → ℂ) 0 = 0
+    rw [thetaShift_zero]
+    exact h0
   obtain ⟨g, hg⟩ : ∃ g : Y →₀ ℂ, (g.sum fun y a ↦ a • ev y) = ev 0 :=
     Finsupp.mem_span_range_iff_exists_finsupp.mp (mem_span_of_iInf_ker_le_ker h_ker)
   filter_upwards [mem_atTop (g.support.sup (v ∘ g))] with C hC φ hφ x
@@ -744,13 +817,32 @@ lemma eventually_hasShiftBound
     have hf_back :
         f (x - z) = χ l * Complex.exp (B l (x - z - l) + B l l / 2) * f (x - z - l) := by
       rw [← hf_per l hl (x - z - l), sub_add_cancel]
-    simp [← add_assoc, ← sub_sub, hf_back, hf_per, hl, exp_add, exp_sub, two_mul, field,
-      h.multiplier_sq l hl]
+    have hf_fwd :
+        f (x + (z + l)) = χ l * Complex.exp (B l (x + z) + B l l / 2) * f (x + z) := by
+      rw [← add_assoc, hf_per l hl (x + z)]
+    have h_diff_exp : Complex.exp (B l (x + z) + B l l / 2) =
+        Complex.exp ((2 • B) l z + (2 • B) l l / 2) *
+          Complex.exp (B l (x - z - l) + B l l / 2) := by
+      rw [← Complex.exp_add]
+      congr 1
+      simp only [two_smul, add_apply, map_add, map_sub]
+      ring
+    dsimp only
+    rw [sub_add_eq_sub_sub, hf_fwd, Pi.pow_apply, h.multiplier_sq l hl, one_mul, h_diff_exp,
+      hf_back]
+    ring
   let P : Θ := ⟨fun y ↦ (-B x x).exp * f (x - y) * f (x + y), hP_mem⟩
   have hP (y : torsionPoints L) : v (ev y P) = B.sizeAt v f (x - y) * B.sizeAt v f (x + y) := by
-    simp [LatticeForm.sizeAt, ev, P, ← map_mul, mul_mul_mul_comm _ (f _), ← exp_add, ← mul_assoc,
-      thetaShift_apply]
-    ring_nf
+    rw [LatticeForm.sizeAt, LatticeForm.sizeAt, ← map_mul]
+    congr 1
+    simp only [ev, LinearMap.comp_apply, LinearMap.domRestrict_apply, P, proj_apply,
+      thetaShift_apply, two_smul, add_apply, zero_add]
+    have h_grp (a b c d : ℂ) : a * (b * c * d) = (a * b) * (c * d) := by ring
+    rw [h_grp, mul_mul_mul_comm _ (f _), ← Complex.exp_add, ← Complex.exp_add]
+    congr 1
+    push_cast
+    simp only [map_sub, map_add, sub_apply, add_apply, map_zero, neg_zero, add_zero]
+    ring
   calc B.sizeAt v f x ^ 2 = v (ev 0 P) := by simpa [sq] using (hP 0).symm
     _ = v (∑ y ∈ g.support, g y * ev y P) := by simp [← hg, Finsupp.sum]
     _ ≤ C * ⨆ z, B.sizeAt v f z * B.sizeAt v f (z + w) := by
@@ -773,7 +865,8 @@ lemma hasMultiplicativeNorm_of_frequently_hasShiftBound
   -- Fix `c` so large that `c^* B - 2 B` is positive. It is enough to show that no torsion point
   -- distorts sizes: `A.HasShiftBound v w 1` for all `A` and `w`.
   have h_tendsto : Tendsto (fun e : V →L[ℂ] V ↦ pullForm e (B + B)) (nhds 0) (nhds 0) := by
-    refine Continuous.tendsto' ?_ 0 0 (by aesop)
+    refine Continuous.tendsto' ?_ 0 0 (by
+      ext u w; simp only [pullForm_apply_apply, zero_apply, map_zero])
     simp only [continuous_clm_apply, pullForm_apply_apply, add_apply]
     fun_prop
   obtain ⟨e, ⟨c, hc_ne, hce, h_ker⟩, h_pos⟩ : ∃ e : V →L[ℂ] V,
@@ -816,9 +909,14 @@ lemma hasMultiplicativeNorm_of_frequently_hasShiftBound
       exact Set.nonempty_iInter.mp (nonempty_of_mem h_mem)
     · -- `c` keeps `W`, so a constant on `W` descends along `c` to twice the degree.
       have h_pos' : IsPosRiemann ((a • B).pullForm (F c) + -(a • B + a • B)) := by
-        refine ⟨fun z ↦ ?_⟩
-        simpa [riemannForm, action_injective c (hce _), map_eq_zero_iff, action_injective] using
-          (h_pos.nsmul ha).riemannForm_pos (F c z)
+        have hec (u : V) : e (F c u) = u := action_injective c (hce (F c u))
+        refine ⟨fun z hz ↦ ?_⟩
+        have hcz : F c z ≠ 0 :=
+          fun h0 ↦ hz (action_injective c (h0.trans (map_zero (F c)).symm))
+        have h_gt := (h_pos.nsmul ha).riemannForm_pos (F c z) hcz
+        simpa only [map_add, map_neg, map_nsmul, LinearMap.add_apply, LinearMap.neg_apply,
+          LinearMap.smul_apply, smul_neg, riemannForm_pullForm, ContinuousLinearMap.map_smul, hec,
+          nsmul_add] using h_gt
       exact h_mul.hasShiftBound_of_torsionAction h_ker h_pos'
         (hD ⟨h.torsionAction c y, by simpa [W] using h.map_mem c _ y.property⟩)
   -- A constant valid in all degrees improves to `1`, by `LatticeForm.HasShiftBound.of_doubling` for
@@ -865,7 +963,10 @@ lemma _root_.New.ThetaTori.hasMultiplicativeNorm_of_expanding [CharZero R] {n p 
     (hp.coprime_iff_not_dvd.mpr hpi).cast.pow_left
   have h_cop_ni : IsCoprime c (n * i) := by
     exact_mod_cast h_cop_pow_p.mono h_dvd dvd_rfl
-  have h_finite : Finite (R ⧸ span {(n * i : R)}) := finiteQuotientOfFreeOfNeBot _ (by aesop)
+  have h_finite : Finite (R ⧸ span {(n * i : R)}) :=
+    finiteQuotientOfFreeOfNeBot _ (Ideal.span_singleton_eq_bot.not.mpr (by
+      have hni : n * i ≠ 0 := Nat.mul_ne_zero (fun h0 ↦ hn (h0 ▸ dvd_zero p)) hi0
+      exact_mod_cast hni))
   have h_unit : IsUnit (Ideal.Quotient.mk (span {(n * i : R)}) c) :=
     (h_cop_ni.map _).isUnit_of_dvd (by simp)
   obtain ⟨m, hm_pos, h_pow⟩ := h_unit.isOfFinOrder.exists_pow_eq_one
@@ -884,18 +985,26 @@ lemma _root_.New.ThetaTori.hasMultiplicativeNorm_of_expanding [CharZero R] {n p 
       ∀ a ∈ (i • B).dualLattice, F u a - a ∈ L := by
     obtain ⟨t, ht⟩ := hu
     intro a ha
-    simpa [eq_add_of_sub_eq ht] using h.map_mem t _ (h_tor a ha)
+    rw [eq_add_of_sub_eq ht, mul_comm, F.map_add, F.map_mul, F.map_one,
+      add_apply, mul_apply_eq_comp, one_apply_eq_self, add_sub_cancel_right, F.map_mul,
+      mul_apply_eq_comp, map_natCast, map_natCast,
+      ContinuousLinearMap.natCast_apply, ContinuousLinearMap.natCast_apply]
+    exact h.map_mem t _ (h_tor a ha)
   have h_dvd_star : (n * i : R) ∣ star (c ^ (j + 1)) - 1 := by
     simpa using map_dvd starRingAut h_dvd_pow
   -- `p ^ k` is a multiple of `c`
   have hy_p : p ^ k • (y : V) ∈ L := by
     obtain ⟨r, hr⟩ := h_dvd
-    have h_mem : F ((p ^ k : ℕ) : R) y ∈ L := by grind [action_comm, map_mem]
+    have h_mem : F ((p ^ k : ℕ) : R) y ∈ L := by
+      rw [Nat.cast_pow, hr, mul_comm, map_mul, mul_apply_eq_comp]
+      exact h.map_mem r _ hy
     simpa only [map_natCast, ContinuousLinearMap.natCast_apply] using h_mem
   have h_det_pow : v (LinearMap.det (F (star (c ^ (j + 1))) : V →ₗ[ℂ] V)) = 1 := by simp [h_det]
   exact (h.nsmul hi0).hasShiftBound_one_of_ker rfl
     (h_dual_of_dvd h_dvd_pow) (h_dual_of_dvd h_dvd_star) h_ne_star hp hv
-    h_det_pow h_pos (by grind [map_mem]) h_cop_pow hy_p
+    h_det_pow h_pos
+    (by rw [pow_succ, map_mul, mul_apply_eq_comp]; exact h.map_mem (c ^ j) _ hy)
+    h_cop_pow hy_p
 
 end New.ThetaTori.IsHermitianAction
 
@@ -913,8 +1022,16 @@ private lemma New.ThetaTori.ThetaTorus.riemannForm_smul_add_pullForm {E : Type} 
     {ℓ : Matrix D.Index D.Index ℂ} (x : ThetaTorus D g ℓ V) :
     riemannForm ((2⁻¹ : ℂ) • (x.automorphyForm + x.automorphyForm.pullForm (Complex.I • 1))) =
       x.automorphyForm.riemannForm := by
-  ext
-  simp [riemannForm, re_symm]
+  ext u w
+  have h_two : (2⁻¹ : ℂ) = ((2⁻¹ : ℝ) : ℂ) := by norm_num
+  have h_im (a b : V) : (x.automorphyForm (Complex.I • a) (Complex.I • b)).im =
+      -(x.automorphyForm b a).im := by
+    rw [map_smul, smul_eq_mul, Complex.I_mul_im, x.re_symm, map_smul, smul_eq_mul,
+      Complex.I_mul_re]
+  rw [riemannForm_def, riemannForm_def]
+  simp only [smul_apply, add_apply, pullForm_apply_apply, one_apply_eq_self, smul_eq_mul, h_two]
+  rw [← mul_sub, Complex.im_ofReal_mul, Complex.sub_im, Complex.add_im, Complex.add_im,
+    h_im u w, h_im w u, Complex.sub_im]
   ring
 
 /-- The average `(x.automorphyForm + i^* x.automorphyForm) / 2` of the form of the theta torus `x`
@@ -928,9 +1045,38 @@ private lemma New.ThetaTori.ThetaTorus.isHermitianAction_smul_add_pullForm {E : 
       x.intAction D.β where
   map_mem := x.intAction_mem_periodLattice
   conj_symm y z := by
-    simpa [Complex.ext_iff, re_symm, add_comm] using x.re_symm (Complex.I • y) (Complex.I • z)
-  pos y hy := by simpa [riemannForm, field] using x.isPosRiemann.riemannForm_pos y hy
-  adjoint := by simp [← adjoint]
+    have h_two : (2⁻¹ : ℂ) = ((2⁻¹ : ℝ) : ℂ) := by norm_num
+    have h_im (a b : V) : (x.automorphyForm (Complex.I • a) (Complex.I • b)).im =
+        -(x.automorphyForm b a).im := by
+      rw [map_smul, smul_eq_mul, Complex.I_mul_im, x.re_symm, map_smul, smul_eq_mul,
+        Complex.I_mul_re]
+    simp only [smul_apply, add_apply, pullForm_apply_apply, one_apply_eq_self, smul_eq_mul, h_two,
+      Complex.ext_iff, Complex.re_ofReal_mul, Complex.im_ofReal_mul, Complex.conj_re,
+      Complex.conj_im, Complex.add_re, Complex.add_im]
+    exact ⟨by rw [x.re_symm y z, x.re_symm (Complex.I • y) (Complex.I • z)],
+      by rw [h_im y z, h_im z y]; ring⟩
+  pos y hy := by
+    have h_two : (2⁻¹ : ℂ) = ((2⁻¹ : ℝ) : ℂ) := by norm_num
+    have h_pos := mul_pos Real.pi_pos (x.isPosRiemann.riemannForm_pos y hy)
+    rw [riemannForm_def, map_smul, smul_eq_mul, Complex.sub_im, Complex.I_mul_im] at h_pos
+    have h_re_diag : (x.automorphyForm (Complex.I • y) (Complex.I • y)).re =
+        -(x.automorphyForm (Complex.I • y) y).im := by
+      rw [map_smul, smul_eq_mul, Complex.I_mul_re]
+    simp only [smul_apply, add_apply, pullForm_apply_apply, one_apply_eq_self, smul_eq_mul, h_two,
+      Complex.re_ofReal_mul, Complex.add_re, h_re_diag]
+    have h_eq : Real.pi * (((x.automorphyForm y y).re -
+        (x.automorphyForm (Complex.I • y) y).im) / (2 * Real.pi)) =
+        2⁻¹ * ((x.automorphyForm y y).re + -(x.automorphyForm (Complex.I • y) y).im) := by
+      field_simp [Real.pi_ne_zero]
+      ring
+    rwa [h_eq] at h_pos
+  adjoint a y z := by
+    have h_adj2 : x.automorphyForm (Complex.I • x.intAction a y) (Complex.I • z) =
+        x.automorphyForm (Complex.I • y) (Complex.I • x.intAction (star a) z) := by
+      rw [← map_smul (x.intAction a) Complex.I y, x.adjoint,
+        ← map_smul (x.intAction (star a)) Complex.I z]
+    simp only [smul_apply, add_apply, pullForm_apply_apply, one_apply_eq_self, smul_eq_mul,
+      x.adjoint, h_adj2]
   riemannForm_integral := by
     rw [x.riemannForm_smul_add_pullForm]
     exact x.isAppellHumbert_periodLattice.le_dualLattice
@@ -978,8 +1124,11 @@ lemma New.ThetaTori.ThetaTorus.hasGoodReduction_and_val_card_eq_one {E : Type} [
   let H : LatticeForm x.periodLattice := (2⁻¹ : ℂ) •
     (x.automorphyForm + x.automorphyForm.pullForm (Complex.I • 1))
   have hp_ndvd : ¬p ∣ Nat.card D.dualTorsion := fun h_dvd ↦ hT (mem_of_dvd _ h_dvd.natCast hp_mem)
-  have h_dual_H : ∀ a ∈ H.dualLattice, Nat.card D.dualTorsion • a ∈ x.periodLattice := fun a ha ↦
-    h_tor a (by grind [RealComplexForm.dualLattice, x.riemannForm_smul_add_pullForm])
+  have h_dual_H : ∀ a ∈ H.dualLattice, Nat.card D.dualTorsion • a ∈ x.periodLattice :=
+    fun a ha ↦ h_tor a fun l hl ↦ by
+      change ∀ l ∈ x.periodLattice, ∃ n : ℤ, H.riemannForm a l = n at ha
+      obtain ⟨n, hn⟩ := ha l hl
+      exact ⟨n, by rwa [← x.riemannForm_smul_add_pullForm]⟩
   have h_herm : IsHermitianAction x.periodLattice H x.intAction D.β :=
     x.isHermitianAction_smul_add_pullForm
   refine hasMultiplicativeNorm_of_expanding h_herm hp_ndvd h_dual_H hp hvp ?_
@@ -1021,7 +1170,15 @@ lemma New.ThetaTori.ThetaTorus.hasGoodReduction_and_val_card_eq_one {E : Type} [
     have h_conj : v (star (Φ v₀) a.val) = 1 := unit_at _ hb_w (by simpa)
     have h_other u (hu : u ≠ v₀) : v (Φ u a.val) = 1 :=
       unit_at _ hb_w (by simpa [D.emb_beta_eq_of_ne u hu])
-    simpa [← det_conj _ ε, det_prodMap, piMap, det_pi, hε, h_v₀,
-      Subtype.forall'.mp h_other] using Or.inl h_conj
+    have h_det_smul {M : Type} [AddCommGroup M] [Module ℂ M] {c : ℂ} (hc : v c = 1) :
+        v (LinearMap.det (c • (1 : Module.End ℂ M))) = 1 := by
+      rw [LinearMap.det_smul, map_one, mul_one, map_pow, hc, one_pow]
+    change v (LinearMap.det (x.intAction (star (star a))).toLinearMap) = 1
+    rw [star_star, ← det_conj _ ε, hε a, det_prodMap, det_prodMap, piMap, det_pi, map_mul,
+      map_mul, map_prod]
+    have h_mul_one {x y : NNReal} (hx : x = 1) (hy : y = 1) : x * y = 1 := by
+      rw [hx, hy, mul_one]
+    exact h_mul_one (h_mul_one (h_det_smul h_v₀) (h_det_smul h_conj))
+      (Finset.prod_eq_one fun u _ ↦ h_det_smul (h_other u.1 u.2))
 
 end ArcReduction
