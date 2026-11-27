@@ -116,14 +116,26 @@ lemma exists_isReductionModEps {C : CommRingCat} (s : Spec C ⟶ Spec (of (TrivS
   -- `B` is `C` modulo the image of `ε`, and `π` is the quotient map.
   let π := ofHom (mk (Ideal.span {preimage s ε}))
   have h_sq : IsSqZeroExt π := by
-    refine ⟨mk_surjective, ?_⟩
+    refine ⟨mk_surjective, fun {a b} ha hb ↦ ?_⟩
     -- A product of two multiples of `ε` is a multiple of `ε * ε = 0`.
-    simp +contextual [π, eq_zero_iff_dvd, dvd_def, mul_mul_mul_comm _ _ (preimage s ε), ← map_mul]
+    obtain ⟨u, rfl⟩ := (eq_zero_iff_dvd _ _).mp ha
+    obtain ⟨v, rfl⟩ := (eq_zero_iff_dvd _ _).mp hb
+    rw [mul_mul_mul_comm, ← map_mul, eps_mul_eps, map_zero, zero_mul]
   refine ⟨_, π, map (ofHom (algebraMap k _) ≫ preimage s ≫ π), ?_, h_sq, eq_zero_iff_dvd _,
     fun {B' t b'} h_t ↦ ?_⟩
   · -- Compare the two ring maps out of `k[ε]`.
     apply homEquiv.injective
-    aesop
+    apply CommRingCat.hom_ext
+    refine DualNumber.ringHom_ext (RingHom.ext fun c ↦ ?_) ?_
+    · simp only [homEquiv_apply, preimage_comp, preimage_map, CommRingCat.hom_comp,
+        RingHom.coe_comp, Function.comp_apply, sqZeroReduction, CommRingCat.hom_ofHom,
+        AlgHom.toRingHom_eq_coe, RingHom.coe_coe, AlgHom.commutes, Algebra.algebraMap_self,
+        RingHom.id_apply]
+    · simp only [homEquiv_apply, preimage_comp, preimage_map, CommRingCat.hom_comp,
+        RingHom.coe_comp, Function.comp_apply, sqZeroReduction, CommRingCat.hom_ofHom,
+        AlgHom.toRingHom_eq_coe, RingHom.coe_coe, TrivSqZeroExt.fstHom_apply, DualNumber.fst_eps,
+        map_zero, π]
+      exact (eq_zero_iff_dvd _ _).mpr dvd_rfl
   · -- A point `t` that lies over `sqZeroReduction k k` kills `ε`, so it factors through the
     -- quotient.
     have h_eps : preimage t (preimage s ε) = 0 :=
@@ -157,8 +169,15 @@ lemma AgreeModEps.ringChar_smul_and_smul_eq_zero (hq : IsPullbackAlong (sqZeroRe
     obtain ⟨B, ψ, b, h_over, h_sq, -⟩ := exists_isReductionModEps (t ≫ T.hom)
     let τ : mk (t ≫ T.hom) ⟶ T := homMk t
     have h_tiny : IsInfinitesimal ψ (τ ≫ y) := by
-      simpa [IsInfinitesimal, eq_zero_iff_factors_zero_section] using
-        h_agree B b (homMk _ h_over ≫ τ)
+      let ι : (Over.map (sqZeroReduction k k)).obj (Over.mk b) ⟶ mk (t ≫ T.hom) :=
+        homMk (Spec.map ψ) h_over
+      have h0 := h_agree B b (ι ≫ τ)
+      rw [AddMonObj.comp_zero, x.isGroupBaseChange.pointEquiv.map_zero,
+        AddMonObj.comp_zero] at h0
+      have h1 : (ι ≫ τ) ≫ y = 0 := x.isGroupBaseChange.pointEquiv.injective
+        (h0.trans x.isGroupBaseChange.pointEquiv.map_zero.symm)
+      obtain ⟨l, hl⟩ := eq_zero_iff_factors_zero_section.mp h1
+      exact eq_zero_iff_factors_zero_section.mpr ⟨l, hl.trans (Category.assoc _ _ _)⟩
     change (τ ≫ y').left = (τ ≫ 0).left
     rw [hy' _ ψ τ h_tiny, AddMonObj.comp_zero]
   constructor
@@ -167,16 +186,19 @@ lemma AgreeModEps.ringChar_smul_and_smul_eq_zero (hq : IsPullbackAlong (sqZeroRe
     -- kills the point; the characteristic of `k` is such an integer.
     have h_char : ((ringChar k : ℕ) : C) = 0 :=
       natCast_eq_zero_of_over_charP (s ≫ (specOver k _).hom)
-    simpa [comp_nsmul] using
-      h_tiny.nsmul_eq_zero x.smoothOfRelativeDimension (mkIdTerminal.from _) h_char
+    rw [comp_nsmul]
+    exact h_tiny.nsmul_eq_zero x.smoothOfRelativeDimension (mkIdTerminal.from _) h_char
   · intro ρ hρ b c hb hc
     refine h_test fun s ψ _ τ h_tiny ↦ ?_
     -- On infinitesimal points the logarithm `ω` of `exists_isTangentLog` turns `c •` into
     -- multiplication by `x.baseHom c = 0`, and the points with `ω = 0` are killed by
     -- `star D.β - b`.
-    obtain ⟨ω, hω⟩ := x.exists_isTangentLog (b := b) (by simp [hρ, hb])
-    have h_log : ω (c • (τ ≫ y)) = 0 := by simp [(hω h_tiny).map_smul, hρ, hc]
-    simpa [mul_smul] using (hω (h_tiny.smul c)).smul_eq_zero_of_eq_zero h_log
+    obtain ⟨ω, hω⟩ := x.exists_isTangentLog (b := b)
+      (by rw [hρ, RingHom.comp_apply, hb, map_zero])
+    have h_log : ω (c • (τ ≫ y)) = 0 := by
+      rw [(hω h_tiny).map_smul, hρ, RingHom.comp_apply, hc, map_zero, map_zero, zero_mul]
+    rw [ModuleObj.comp_smul, mul_smul]
+    exact (hω (h_tiny.smul c)).smul_eq_zero_of_eq_zero h_log
 
 /-- Drinfeld's lifting lemma. Let `x`, `x'` deform `x₀` over `k[ε]`, and let `c` in `𝓞 E` kill all
 points of `x'.groupScheme` that vanish modulo `ε`. Then some homomorphism
@@ -228,10 +250,16 @@ lemma drinfeld_lift (hq : IsPullbackAlong (sqZeroReduction k k) x₀ x)
       (h₁ : AgreeModEps hq' hq T y₁' y₁) (h₂ : AgreeModEps hq' hq T y₂' y₂) :
       AgreeModEps hq' hq T (y₁' - y₂') (y₁ - y₂) := by
     intro B b t
-    simp [h₁ B b t, h₂ B b t, AddGrpObj.comp_sub]
+    rw [AddGrpObj.comp_sub, AddGrpObj.comp_sub, map_sub, map_sub, AddGrpObj.comp_sub,
+      h₁ B b t, h₂ B b t]
   have h_ker {T : Over (Spec (of (TrivSqZeroExt k k)))} (y' : T ⟶ x'.groupScheme)
       (h_agree : AgreeModEps hq' hq T y' 0) : y' ≫ (c • 𝟙 x'.groupScheme) = 0 := by
-    simpa [comp_nsmul] using hc T y' (by simpa using h_agree)
+    rw [ModuleObj.comp_smul, Category.comp_id]
+    refine hc T y' fun B b t ↦ ?_
+    have h0 := h_agree B b t
+    rw [AddMonObj.comp_zero, x.isGroupBaseChange.pointEquiv.map_zero, AddMonObj.comp_zero] at h0
+    rw [AddMonObj.comp_zero, x'.isGroupBaseChange.pointEquiv.map_zero, AddMonObj.comp_zero]
+    exact h0
   -- `AgreeModEps` is stable under pull-back, and the affine opens `j a` cover `x.groupScheme`.
   have h_nat {T' T : Over (Spec (of (TrivSqZeroExt k k)))} {y' : T ⟶ x'.groupScheme}
       {y : T ⟶ x.groupScheme} (g : T' ⟶ T) (h_agree : AgreeModEps hq' hq T y' y) :
@@ -246,7 +274,8 @@ lemma drinfeld_lift (hq : IsPullbackAlong (sqZeroReduction k k) x₀ x)
     (.ofArrows _ j) h_cover fun _ _ ⟨a⟩ ↦ h_local a
   have h_val (T : Over (Spec (of (TrivSqZeroExt k k)))) (y' : T ⟶ x'.groupScheme)
       (y : T ⟶ x.groupScheme) (h_agree : AgreeModEps hq' hq T y' y) : y ≫ F = c • y' := by
-    simpa using hF T y' y h_agree
+    have h := hF T y' y h_agree
+    rwa [ModuleObj.comp_smul, Category.comp_id] at h
   -- The two inclusions of the reduction `x₀.groupScheme` agree modulo `ε`.
   have h_incl : AgreeModEps hq' hq ((Over.map (sqZeroReduction k k)).obj x₀.groupScheme)
       hq'.schemeMap hq.schemeMap := by
@@ -300,7 +329,8 @@ lemma isLinear_and_pairing_eq_of_reduction :
     rw [← map_smul, LinearEquiv.symm_apply_apply]
     have h_fst : hq.isGroupBaseChange.pointEquiv w ≫ f =
         hq'.isGroupBaseChange.pointEquiv (a • w) := by
-      simp [pointEquiv_apply, ← (IsPullbackAlong.isGroupBaseChange _).linear.map_smul, hf]
+      rw [pointEquiv_apply, pointEquiv_apply, Category.assoc, hf, ModuleObj.comp_smul,
+        ← hq'.isGroupBaseChange.linear.map_smul]
     refine ⟨h_fst, ?_⟩
     -- Both classes are the class of `x₀.lineBundle` at `a • w`. (Rewriting with
     -- `atPoint_picClass_pull` instead of unfolding `Pic.atPoint` by `simp` keeps the kernel check
@@ -315,32 +345,48 @@ lemma isLinear_and_pairing_eq_of_reduction :
   refine ⟨⟨fun c ↦ ?_⟩, fun y hy B b t ↦ ?_, fun hs ↦ ?_⟩
   · -- The defect of linearity vanishes modulo `ε`, so `ringChar k` kills it; cancel this isogeny.
     have h_agree : AgreeModEps hq' hq' x.groupScheme ((c • 𝟙 x.groupScheme) ≫ f - c • f) 0 := by
-      simp [AgreeModEps, ← assoc, h_red, smul_comm c, AddGrpObj.comp_sub]
+      intro B b t
+      have ht : t ≫ ((c • 𝟙 x.groupScheme) ≫ f - c • f) = 0 := by
+        rw [AddGrpObj.comp_sub, ← Category.assoc, ModuleObj.comp_smul, Category.comp_id,
+          ModuleObj.comp_smul, (h_red (c • t)).1, (h_red t).1,
+          ← hq'.isGroupBaseChange.pointEquiv.map_smul,
+          ← hq.isGroupBaseChange.pointEquiv.symm.map_smul, ← mul_smul, mul_comm a c, mul_smul,
+          sub_self]
+      rw [ht, x'.isGroupBaseChange.pointEquiv.map_zero, AddMonObj.comp_zero,
+        x'.isGroupBaseChange.pointEquiv.map_zero, AddMonObj.comp_zero]
     obtain ⟨h_char_kills, -⟩ := h_agree.ringChar_smul_and_smul_eq_zero hq'
     refine (epi_of_epi_left (ringChar k • 𝟙 _)).left_cancellation _ _ (eq_of_sub_eq_zero ?_)
-    simpa [← smul_sub, nsmul_comp] using h_char_kills
-  · -- `t` lies over `ε = 0`, where `h_red` turns `f` into `a`. `map_smul` is left out: with it
-    -- `simp` moves `a` across `pointEquiv` and the fact no longer matches the goal.
-    have h_zero : t ≫ y ≫ f = t ≫ 0 := t ≫= hy
-    simpa [← assoc, h_red, -map_smul] using h_zero
+    rw [nsmul_comp, Category.id_comp, nsmul_comp, Category.id_comp, ← smul_sub]
+    exact h_char_kills
+  · -- `t` lies over `ε = 0`, where `h_red` turns `f` into `a`.
+    have h_zero : (t ≫ y) ≫ f = 0 := by rw [Category.assoc, hy, AddMonObj.comp_zero]
+    rw [(h_red (t ≫ y)).1] at h_zero
+    have h_ay0 : a • (t ≫ y) = 0 := hq.isGroupBaseChange.pointEquiv.symm.injective
+      ((hq'.isGroupBaseChange.pointEquiv.injective
+        (h_zero.trans hq'.isGroupBaseChange.pointEquiv.map_zero.symm)).trans
+        hq.isGroupBaseChange.pointEquiv.symm.map_zero.symm)
+    rw [← ModuleObj.comp_smul] at h_ay0
+    rw [h_ay0, AddMonObj.comp_zero, x.isGroupBaseChange.pointEquiv.map_zero, AddMonObj.comp_zero]
   · refine pairing_eq_of_fpqc_cover hs.isGroupBaseChange.isPullback (ringChar k • 𝟙 _) f f _ _
       fun T y z ↦ ?_
     -- So we compare the pairings times `ringChar k`. That multiple of a class is its pull-back
     -- along the absolute Frobenius `Fr` of `T`, which factors through `ε = 0`, where `h_red`
     -- applies.
     let X : Over (Spec (CommRingCat.of k)) := Over.mk (T.hom ≫ (specOver k _).hom)
-    let Fr :
-        (map (sqZeroReduction k k)).obj
-          (mk (X.hom ≫ specMap (frobPow (natCast_eq_zero_of_over_charP (𝟙 _)) 1))) ⟶ T :=
+    let T0 : Over (Spec (CommRingCat.of k)) :=
+      Over.mk (X.hom ≫ specMap (frobPow (CharP.cast_eq_zero k (ringChar k)) 1))
+    let Fr : (map (sqZeroReduction k k)).obj T0 ⟶ T :=
       homMk (absFrobenius 1 X) <| by
         rw [absFrobenius_comm 1 X (specOver ..), ← id_comp (absFrobenius ..), comp_absFrobenius]
         -- On `k[ε]` the Frobenius kills `ε`, so it factors through `k`.
+        dsimp only [T0]
         simpa [X] using _ ≫= homEquiv.injective (by
           -- compare the two ring maps `k[ε] → k[ε]` on `k` and on `ε`, component by component
           simp only [homEquiv_apply, preimage_map, preimage_comp, assoc]
-          ext : 2
-          · ext : 2 <;> simp
-          · ext : 1 <;> simp [CharP.cast_eq_zero])
+          apply CommRingCat.hom_ext
+          refine DualNumber.ringHom_ext (RingHom.ext fun c ↦ ?_) ?_
+          · simp
+          · ext <;> simp [CharP.cast_eq_zero])
     have h_frob {x : ThetaObject Y _} (y : T ⟶ x.groupScheme) :
         ringChar k • x.lineBundle.picClass.atPoint y = x.lineBundle.picClass.atPoint (Fr ≫ y) := by
       have h_pull := picClass_pull_absFrobenius 1 X (x.isProjEmbedding.isLinearSystem.pull y.left)
@@ -348,8 +394,19 @@ lemma isLinear_and_pairing_eq_of_reduction :
       rwa [pow_one] at h_pull
     suffices h_mul : ringChar k • x'.lineBundle.picClass.pairing (y ≫ f) (z ≫ f) =
         ringChar k • x.lineBundle.picClass.pairing (a • y) (a • z) by
-      simpa [(ThetaObject.hasClassLaws _).1.pairing_nsmul_left, nsmul_comp, comp_nsmul] using h_mul
-    simp [Pic.pairing, smul_sub, h_frob, ← add_comp, ← assoc, (h_red _).right, comp_add]
+      rwa [← Category.assoc, ← Category.assoc, comp_nsmul, Category.comp_id, nsmul_comp,
+        ModuleObj.comp_smul, Category.comp_id, ModuleObj.comp_smul, Category.comp_id,
+        smul_comm a (ringChar k) y, (ThetaObject.hasClassLaws _).1.pairing_nsmul_left,
+        (ThetaObject.hasClassLaws _).1.pairing_nsmul_left]
+    have h_pt0 : x'.lineBundle.picClass.atPoint
+          (0 : (Over.map (sqZeroReduction k k)).obj T0 ⟶ x'.groupScheme) =
+        x.lineBundle.picClass.atPoint
+          (0 : (Over.map (sqZeroReduction k k)).obj T0 ⟶ x.groupScheme) := by
+      have h0 := (h_red (0 : (Over.map (sqZeroReduction k k)).obj T0 ⟶ x.groupScheme)).right
+      rw [AddMonObj.zero_comp, smul_zero] at h0
+      exact h0
+    simp only [Pic.pairing, smul_sub, smul_add, h_frob, ← Category.assoc, ← add_comp,
+      (h_red _).right, comp_add, ModuleObj.comp_smul, AddMonObj.comp_zero, h_pt0]
 
 /-- Let `f : x.groupScheme ⟶ x'.groupScheme` and `F : x.groupScheme ⟶ x₁.groupScheme` be
 homomorphisms of deformations of `x₀.groupScheme` over `k[ε]` (`k` algebraically closed of prime
@@ -382,10 +439,16 @@ lemma exists_isAdditive_schemeMap_comp_eq_smul (ha : a ≠ 0)
       (spec_of_surjective _ isSqZeroExt_fstHom.coe_surjective)
   -- Multiplication by `a` commutes with the inclusion of the reduction.
   have h_sq : (a • 𝟙 x₀.groupScheme).left ≫ hq'.schemeMap.left = hq.schemeMap.left ≫ f.left := by
-    simpa [← hf] using
-      congr_arg CommaMorphism.left (hq'.isGroupBaseChange.linear.map_smul a (𝟙 x₀.groupScheme))
+    have h := hq'.isGroupBaseChange.linear.map_smul a (𝟙 x₀.groupScheme)
+    rw [CategoryTheory.Functor.map_id, Category.id_comp, ← hf] at h
+    exact congrArg CommaMorphism.left h
   have h_quasi : LocallyQuasiFinite f.left := by
     refine .of_finite_preimage_singleton _ fun z ↦ ?_
+    have : IsFinite (a • 𝟙 x₀.groupScheme).left := h_isog_a.toIsFinite
+    have : LocallyQuasiFinite (a • 𝟙 x₀.groupScheme).left :=
+      @AlgebraicGeometry.instLocallyQuasiFiniteOfIsFinite _ _ _ h_isog_a.toIsFinite
+    have : IsClosedImmersion hq'.schemeMap.left := h_closed'
+    have : LocallyQuasiFinite hq'.schemeMap.left := inferInstance
     have h_fin := ((a • 𝟙 x₀.groupScheme).left ≫ hq'.schemeMap.left).finite_preimage_singleton z
     rw [h_sq] at h_fin
     exact .of_preimage h_fin h_surj.surj
@@ -402,16 +465,24 @@ lemma exists_isAdditive_schemeMap_comp_eq_smul (ha : a ≠ 0)
     obtain ⟨S, ι, -, -, hι_closed, hι, h_univ⟩ := exists_finite_kernel_ring h_isog.toIsFinite
     obtain ⟨z, rfl⟩ := h_univ y hy
     obtain ⟨γ, hγ⟩ : ∃ γ : S →ₐ[k[ε]] S, specOver.map γ ≫ ι = a • ι :=
-      specOver.map_bijective.surjective.exists.mp (h_univ (a • ι) (by simp [hι]))
+      specOver.map_bijective.surjective.exists.mp
+        (h_univ (a • ι) (by rw [IsLinear.smul_comp, hι, smul_zero]))
     obtain ⟨o, ho⟩ : ∃ o : S →ₐ[k[ε]] k[ε], specOver.map o ≫ ι = 0 :=
-      specOver.map_bijective.surjective.exists.mp (h_univ 0 (by simp))
+      specOver.map_bijective.surjective.exists.mp (h_univ 0 (AddMonObj.zero_comp _))
     -- `ψ` is the quotient map of `S` modulo `ε`, and `u` the closed immersion it defines.
     obtain ⟨B, ψ, b, hψ, -, hψ_ker, -⟩ := exists_isReductionModEps (specOver k[ε] S).hom
     let u : (map (sqZeroReduction k k)).obj (mk b) ⟶ specOver _ S := homMk _ hψ
-    have hu : u ≫ specOver.map γ = u ≫ specOver.map (.comp (ofId ..) o) :=
-      (mono_of_mono_left ι).right_cancellation _ _ <| by
-        -- `map_smul` is left out: with it `simp` moves `a` out of `pointEquiv`, off the goal.
-        simpa [← specOver.map_comp_assoc, -map_smul, hγ, ho] using h_ker_agree ι hι _ _ u
+    have hu : u ≫ specOver.map γ = u ≫ specOver.map (.comp (ofId ..) o) := by
+      refine (mono_of_mono_left ι).right_cancellation _ _ ?_
+      have h0 := h_ker_agree ι hι B b u
+      have hz0 : x.isGroupBaseChange.pointEquiv
+          (0 : (map (sqZeroReduction k k)).obj (mk b) ⟶ x.groupScheme) = 0 :=
+        x.isGroupBaseChange.pointEquiv.toLinearMap.map_zero
+      rw [AddMonObj.comp_zero, hz0, AddMonObj.comp_zero] at h0
+      have h1 := congrArg x.isGroupBaseChange.pointEquiv.symm (h0.trans hz0.symm)
+      rw [LinearEquiv.symm_apply_apply, LinearEquiv.symm_apply_apply] at h1
+      rw [Category.assoc, hγ, h1, Category.assoc, ← specOver.map_comp_assoc o (ofId _ S) ι,
+        ho, AddMonObj.comp_zero, AddMonObj.comp_zero]
     have h_split (s : S) :
         ∃ d : S, γ s = preimage (specOver k[ε] S).hom ε * d + ofId _ S (o s) := by
       have h_eq : preimage (u ≫ specOver.map γ).left s =
@@ -422,20 +493,36 @@ lemma exists_isAdditive_schemeMap_comp_eq_smul (ha : a ≠ 0)
     choose d hd using h_split
     -- With `γ s = ε * d s + o s` and `ε * ε = 0`, both sides below are `ε * o (d s) + o s`.
     -- On points: applying `a` twice factors through the zero section, so `a • a • ι = 0`.
+    have hε : preimage (specOver k[ε] S).hom ε = algebraMap k[ε] S ε := by
+      dsimp [specOver]; simp only [preimage_map, CommRingCat.hom_ofHom]
+    have hε2 : algebraMap k[ε] S ε * algebraMap k[ε] S ε = 0 := by
+      rw [← RingHom.map_mul, eps_mul_eps, RingHom.map_zero]
     have hγγ : γ.comp γ = .comp (.comp (ofId ..) o) γ := by
       ext s
-      simp [hd s, hd (d s), ← smul_def, smul_smul]
+      simp only [AlgHom.comp_apply, hd s, hd (d s), map_add, map_mul, AlgHom.commutes, ofId_apply,
+        hε, mul_add, ← mul_assoc, hε2, zero_mul, zero_add]
     have h_comp : z ≫ specOver.map (γ.comp γ) ≫ ι =
         z ≫ specOver.map (((ofId _ S).comp o).comp γ) ≫ ι := by rw [hγγ]
-    simpa [← specOver.map_comp_assoc, hγ, ho] using h_comp
+    have h_a0 : a • (0 : specOver k[ε] S ⟶ x.groupScheme) = 0 := by
+      conv_lhs => rw [← Category.comp_id (0 : _), ← ModuleObj.comp_smul, AddMonObj.zero_comp]
+    rw [← specOver.map_comp_assoc γ γ ι, hγ, ModuleObj.comp_smul, hγ,
+      ModuleObj.comp_smul, ModuleObj.comp_smul,
+      ← specOver.map_comp_assoc γ ((ofId _ S).comp o) ι, hγ, ModuleObj.comp_smul,
+      ← specOver.map_comp_assoc o (ofId _ S) ι, ho, AddMonObj.comp_zero, h_a0,
+      AddMonObj.comp_zero] at h_comp
+    exact h_comp
   -- Hence `F` kills the kernel of the isogeny `f`, and `F = f ≫ μ`.
   obtain ⟨μ, hμ_add, hμ⟩ := exists_isAdditive_comp_eq_of_isIsogeny f F
     fun S _ _ _ _ _ y hy ↦ h_ker S y hy (h_kill y hy)
   refine ⟨μ, hμ_add, ?_⟩
   -- Modulo `ε` this is the claim multiplied by `a`; cancel the isogeny `a` of `x₀.groupScheme`.
   have h_epi : Epi (a • 𝟙 x₀.groupScheme) := epi_of_epi_left _
-  simp [← cancel_epi ((map (sqZeroReduction k k)).map (a • 𝟙 x₀.groupScheme)), ← assoc,
-    (IsPullbackAlong.isGroupBaseChange _).linear.map_smul, smul_smul, ← hF, ← hμ, hf]
+  refine (cancel_epi ((map (sqZeroReduction k k)).map (a • 𝟙 x₀.groupScheme))).mp ?_
+  have h_lin' := hq'.isGroupBaseChange.linear.map_smul a (𝟙 x₀.groupScheme)
+  have h_lin₁ := hq₁.isGroupBaseChange.linear.map_smul a (𝟙 x₀.groupScheme)
+  rw [CategoryTheory.Functor.map_id, Category.id_comp] at h_lin' h_lin₁
+  rw [← Category.assoc, h_lin', ← hf, Category.assoc, hμ, hF,
+    ModuleObj.comp_smul, h_lin₁, ← smul_smul]
 
 end LiftedIsogenies
 
@@ -522,7 +609,10 @@ lemma sqZeroSpecMap_point_lift {y : specOver k C ⟶ x₀.groupScheme}
   simp [← hZ, toSqZeroSpec, sqZeroSpecMap, specOver.map, ← map_comp_assoc, ← ofHom_comp]
   -- on rings, `sqZeroMap φ` followed by the reduction `fstHom` is the reduction followed by `φ`
   congr 2
-  aesop
+  apply CommRingCat.hom_ext
+  refine RingHom.ext fun z ↦ ?_
+  simp only [CommRingCat.hom_ofHom, RingHom.comp_apply, RingHom.coe_coe, fstHom_apply,
+    sqZeroMap_apply, fst_add, fst_inl, fst_inr, add_zero]
 
 /-- A point of `x.groupScheme` with values in `C ⊕ Hom(M, C)` whose reduction to `C` is zero is
 infinitesimal for the first projection. -/
@@ -563,54 +653,76 @@ lemma eq_of_lift_star_sub [IsAlgClosed k] [Fact (ringChar k).Prime] (h_rig : x�
   -- if `star D.β - b = 0`, then `huv` maps to `0 = 1` in `k`, as `x₀.baseHom (D.β - b) = 0`
   have h_ne : Star.star D.β - b ≠ 0 := fun h_zero ↦ by
     simpa [h_zero, hb] using congrArg x₀.baseHom huv
+  obtain ⟨-, f_ker, f_pair⟩ := isLinear_and_pairing_eq_of_reduction f hf
   -- The kernel of `f` is killed by `a = star β - b`, so `a • 𝟙` factors through `f`.
   obtain ⟨μ, _, hμ⟩ := exists_isAdditive_schemeMap_comp_eq_smul f hf h_ne hq₀
-    ((star D.β - b) • 𝟙 _) 1 (by simp) fun S _ _ _ _ _ y hy hyy ↦ by
+    ((star D.β - b) • 𝟙 _) 1 (by rw [one_mul, ModuleObj.comp_smul, Category.comp_id])
+    fun S _ _ _ _ _ y hy hyy ↦ by
       -- `(β - b) a y` is killed by the characteristic and pairs to zero with every point, so it is
       -- zero by rigidity; the adjoint of `β - b` for the pairing is `a`
+      have h_smul0 (r : 𝓞 E) :
+          r • (0 : specOver (TrivSqZeroExt k k) S ⟶ z₀.groupScheme) = 0 := by
+        conv_lhs => rw [← Category.comp_id (0 : _), ← ModuleObj.comp_smul, AddMonObj.zero_comp]
       have h_zero : (D.β - b) • (Star.star D.β - b) • y = 0 := by
         refine h_rig.eq_zero_of_pairing_eq_zero hz₀ _ 1 (𝟙 _) ?_ fun T t y' ↦ ?_
-        · simp [smul_comm _ (D.β - _), AgreeModEps.ringChar_smul_and_smul_eq_zero hq₀,
-            isLinear_and_pairing_eq_of_reduction f hf, hy]
-        · calc
-            z₀.lineBundle.picClass.pairing (t ≫ ((D.β - b) • (star D.β - b) • y)) y'
-            _ = z₀.lineBundle.picClass.pairing ((star D.β - b) • t ≫ y) ((star D.β - b) • y') := by
-              simpa using z₀.pairing_pow_smul_adjoint b 1 ((star D.β - b) • t ≫ y) y'
-            _ = z.lineBundle.picClass.pairing ((t ≫ y) ≫ f) (y' ≫ f) := by
-              obtain ⟨-, -, f_pair⟩ := isLinear_and_pairing_eq_of_reduction f hf
-              simpa using (f_pair hz₀ (t ≫ y) y').symm
-            _ = 0 := by simp [hy, Pic.pairing.eq_1 _ 0]
+        · rw [pow_one, ModuleObj.comp_smul, smul_comm (ringChar k) (D.β - b), ← comp_nsmul,
+            ((f_ker y hy).ringChar_smul_and_smul_eq_zero hq₀).1, AddMonObj.comp_zero]
+          exact h_smul0 _
+        · rw [ModuleObj.comp_smul, ModuleObj.comp_smul]
+          have h_adj := z₀.pairing_pow_smul_adjoint b 1 ((star D.β - b) • t ≫ y) y'
+          rw [pow_one, pow_one] at h_adj
+          rw [h_adj]
+          have hp := (f_pair hz₀ (t ≫ y) y').symm
+          rw [ModuleObj.comp_smul, Category.comp_id, ModuleObj.comp_smul, Category.comp_id] at hp
+          rw [hp]
+          simp only [Category.assoc, hy, AddMonObj.comp_zero, Pic.pairing.eq_1, zero_add]
+          abel
       -- now use `u (β - b) + v a = 1` and `a² y = 0`
-      suffices (1 : 𝓞 E) • (Star.star D.β - b) • y = 0 by simpa using this
-      simp [← huv, add_smul, h_zero, hyy, ← smul_smul]
+      rw [ModuleObj.comp_smul, Category.comp_id, ← one_smul (𝓞 E) ((Star.star D.β - b) • y),
+        ← huv, add_smul, mul_smul, mul_smul, h_zero, hyy, h_smul0, h_smul0, add_zero]
   -- As `μ` reduces to `1`, the identity of `z.groupScheme` factors through it.
-  obtain ⟨ν, _, hν⟩ :=
-    exists_isAdditive_schemeMap_comp_eq_smul μ hμ one_ne_zero hq (𝟙 _) 1 (by simp) (by simp)
+  obtain ⟨ν, _, hν⟩ := exists_isAdditive_schemeMap_comp_eq_smul μ hμ one_ne_zero hq (𝟙 _) 1
+    (by rw [mul_one, one_smul, Category.comp_id])
+    (fun _ _ _ _ _ _ y _ hyy ↦ by rw [one_smul, one_smul] at hyy; rw [Category.comp_id]; exact hyy)
   obtain ⟨ν_lin, -, ν_pair⟩ := isLinear_and_pairing_eq_of_reduction ν hν
   refine (h_rig.eq_and_comp_toFamily_eq_of_hom hz₀ (hz₀.baseHom_eq_comp.trans hρ.symm) ν
-    (fun ⦃_⦄ _ _ ↦ by simp [ν_pair hz₀]) fun l ↦ ?_).1
+    (fun ⦃_⦄ y z' ↦ by
+      have hp := ν_pair hz₀ y z'
+      rw [one_smul, Category.comp_id, Category.comp_id] at hp
+      exact hp.symm) fun l ↦ ?_).1
   -- The difference `d` of the level points is killed by `𝔑`; being infinitesimal, it is also killed
   -- by the second ideal of `h_level`. The two ideals are coprime, so `d = 0`.
   set d := z₀.levelPoints l ≫ ν - z.levelPoints l
   have d_inf : AgreeModEps hq hq _ d 0 := by
     intro _ _ t
-    -- `t.w` says that the test point lies over the closed point of `Spec k[ε]`
+    rw [AddMonObj.comp_zero, z.isGroupBaseChange.pointEquiv.map_zero,
+      AddMonObj.comp_zero, AddGrpObj.comp_sub, map_sub, sub_eq_zero]
     have h_t := by simpa using t.w
-    simp [d, hq.levelPoints_eq_pullSection, ← hq₀.levelPoints_eq_pullSection, hν,
+    simp [hq.levelPoints_eq_pullSection, ← hq₀.levelPoints_eq_pullSection, hν,
       OverMorphism.ext_iff, h_t, ← hq.isGroupBaseChange.pullSection_comp,
-      ← hq₀.isGroupBaseChange.pullSection_comp_assoc, ← comp_left _ _ _ hq₀.schemeMap,
-      AddGrpObj.comp_sub, sub_eq_zero]
+      ← hq₀.isGroupBaseChange.pullSection_comp_assoc, ← comp_left _ _ _ hq₀.schemeMap]
   have h_lev : Ideal.span {D.level} ≤ Ideal.torsionOf (𝓞 E) _ d := by
     have h_torsion : D.level • l = 0 := Subtype.ext l.prop
-    simp [d, smul_sub, ← IsLinear.smul_comp, h_torsion, ← map_smul]
+    rw [Ideal.span_singleton_le_iff_mem, Ideal.mem_torsionOf_iff]
+    rw [smul_sub, ← IsLinear.smul_comp, ← map_smul, ← map_smul, h_torsion, map_zero, map_zero,
+      AddMonObj.zero_comp, sub_self]
   have h_inf :
       ker x₀.baseHom * Ideal.span {↑(ringChar k), Star.star D.β - b} ≤
         Ideal.torsionOf (𝓞 E) _ d := by
-    simpa [mul_comm, Ideal.span_insert, Ideal.sup_mul, Ideal.span_singleton_mul_le_iff,
-      Nat.cast_smul_eq_nsmul, d_inf.ringChar_smul_and_smul_eq_zero.left, ← smul_smul] using
-      fun _ ha ↦ d_inf.ringChar_smul_and_smul_eq_zero.right hρ hb ha
-  exact eq_of_sub_eq_zero ((Ideal.torsionOf_eq_top_iff ..).mp (eq_top_mono (sup_le h_lev h_inf)
-    h_level))
+    obtain ⟨h_rc, h_smul⟩ := d_inf.ringChar_smul_and_smul_eq_zero hq
+    rw [Ideal.span_insert, Ideal.mul_sup, sup_le_iff]
+    refine ⟨Ideal.mul_le.mpr fun a _ r hr ↦ ?_, Ideal.mul_le.mpr fun a ha r hr ↦ ?_⟩
+    · obtain ⟨q, rfl⟩ := Ideal.mem_span_singleton.mp hr
+      rw [Ideal.mem_torsionOf_iff,
+        show a * ((ringChar k : 𝓞 E) * q) = (a * q) * (ringChar k : 𝓞 E) by ring, mul_smul,
+        Nat.cast_smul_eq_nsmul, h_rc, smul_zero]
+    · obtain ⟨q, rfl⟩ := Ideal.mem_span_singleton.mp hr
+      rw [Ideal.mem_torsionOf_iff, show a * ((Star.star D.β - b) * q) =
+          q * ((Star.star D.β - b) * a) by ring, mul_smul, h_smul hρ hb ha, smul_zero]
+  have hd : d = 0 :=
+    (Ideal.torsionOf_eq_top_iff ..).mp (eq_top_mono (sup_le h_lev h_inf) h_level)
+  dsimp only [d] at hd
+  exact sub_eq_zero.mp hd
 
 open scoped Pointwise in
 open NumberField in
@@ -678,8 +790,9 @@ private lemma eq_zero_of_forall_snd_logarithm_eq_zero [IsAlgClosed k] [Fact (rin
   obtain ⟨G, _, hG, G_agree⟩ := drinfeld_lift (c := (star D.β - b) * c) hq₀ hq
     fun _ _ h_inf ↦ (h_inf.ringChar_smul_and_smul_eq_zero).right hzρ hb hc
   suffices G_ker : ∀ (C : Type) [CommRing C] [IsLocalRing C] [Algebra k[ε] C] [Module.Finite k[ε] C]
-      (y : specOver _ C ⟶ z₀.groupScheme), y ≫ (c • 𝟙 _) = 0 → y ≫ G = 0 by
-    obtain ⟨g, _, hg⟩ := exists_isAdditive_schemeMap_comp_eq_smul (hq' := hq₀) (c • 𝟙 _) (by simp)
+      (y : specOver k[ε] C ⟶ z₀.groupScheme), y ≫ (c • 𝟙 _) = 0 → y ≫ G = 0 by
+    obtain ⟨g, _, hg⟩ := exists_isAdditive_schemeMap_comp_eq_smul (hq' := hq₀) (c • 𝟙 _)
+      (by rw [ModuleObj.comp_smul, Category.comp_id])
       hc_ne hq G _ hG fun C _ _ _ _ _ y hy _ ↦ G_ker C y hy
     have h_eq : z₀ = z := eq_of_lift_star_sub h_rig hq hq₀ hz₀ hzρ hb h_coprime h_level g hg
     exact h_const (hz.trans (h_eq.symm.trans hz₀.symm))
@@ -695,41 +808,61 @@ private lemma eq_zero_of_forall_snd_logarithm_eq_zero [IsAlgClosed k] [Fact (rin
       ext
       simp [m, θ, TrivSqZeroExt.map, smul_def, algebraMap_toAlgebra, mul_comm, ↓ lift_def,
         ↓ algebraMap_eq_inl']))
-  let v : specOver k C ⟶ x₀.groupScheme :=
-    homMk (V := (Over.map _).obj (specOver k[ε] C)) (𝟙 (Spec _))
-      (by simp [← map_comp, ← ofHom_comp]) ≫ hz₀.isGroupBaseChange.pointEquiv y
-  have hv : c • v = 0 := by simpa [map_smul] using congr(_ ≫ hz₀.isGroupBaseChange.pointEquiv $hy)
+  let e : specOver k C ⟶ (Over.map (specMap (algebraMap k k[ε]))).obj (specOver k[ε] C) :=
+    homMk (𝟙 (Spec _)) (by simp [← map_comp, ← ofHom_comp])
+  let v : specOver k C ⟶ x₀.groupScheme := e ≫ hz₀.isGroupBaseChange.pointEquiv y
+  have hv : c • v = 0 := by
+    have h1 := hy
+    rw [ModuleObj.comp_smul, Category.comp_id] at h1
+    have h2 := congrArg (fun g ↦ e ≫ hz₀.isGroupBaseChange.pointEquiv g) h1
+    rwa [hz₀.isGroupBaseChange.pointEquiv.map_smul, ModuleObj.comp_smul,
+      hz₀.isGroupBaseChange.pointEquiv.map_zero, AddMonObj.comp_zero] at h2
   let y' : specOver k[ε] C ⟶ z.groupScheme := hz.isGroupBaseChange.pointEquiv.symm (d ≫ Y v)
   obtain ⟨_, ψ, _, -, _, ψ_ker, ψ_univ⟩ := exists_isReductionModEps (specOver k[ε] C).hom
   have θ_red : ofHom θ ≫ ψ = ofHom (fstHom C C _).toRingHom ≫ ψ := by
-    ext
-    simp [θ, smul_def, ψ_ker, -map_mul, ↓ lift_def]
+    have hε : ψ (algebraMap k[ε] C ε) = 0 :=
+      (ψ_ker _).mpr (by
+        dsimp [specOver]; simp only [preimage_map, CommRingCat.hom_ofHom, dvd_rfl])
+    ext x
+    simp [θ, smul_def, hε, ↓lift_def]
   have h_agree : AgreeModEps hq hq₀ _ y' y := by
     intro _ _ s
     obtain ⟨s', hs'⟩ := ψ_univ s.w
     ext
-    simpa [← hs', hp.comp_toFamily, hz₀.comp_toFamily, ← hz.comp_toFamily, y', d, v, toSqZeroSpec,
-      θ_red, pointEquiv, ← map_comp_assoc, -map_comp] using
+    simpa [← hs', hp.comp_toFamily, hz₀.comp_toFamily, ← hz.comp_toFamily, y', d, v, e,
+      toSqZeroSpec, θ_red, pointEquiv, ← map_comp_assoc, -map_comp] using
       s' ≫= map ψ ≫= congr($(hY v).1 ≫ x.toFamily.1)
   -- So `y ≫ G = (β' - b) c • y'`, which by `ω_ker` is zero once
   -- `ω (d ≫ c • Y v)`, which is `θ (ω (c • Y v))`, is zero.
   refine (G_agree _ y' y h_agree).trans (hz.isGroupBaseChange.pointEquiv.injective ?_)
   have v_tiny : IsInfinitesimal (ofHom (fstHom C C _).toRingHom) (c • Y v) :=
     isInfinitesimal_of_comp_eq_zero _
-      (by rw [ModuleObj.comp_smul, hY, ← LinearEquiv.map_smul, hv, map_zero])
+      (by rw [ModuleObj.comp_smul, hY, ← hp.isGroupBaseChange.pointEquiv.map_smul, hv,
+        hp.isGroupBaseChange.pointEquiv.map_zero])
   -- `t • v` is killed by `𝔭`, and `t ≡ 1` modulo `𝔭`, so `hl` for `t • v` computes `ω (c • Y v)`.
   have htv : t • v ∈ placeTorsion x₀ C := by
-    simpa [← smul_smul] using fun a ha ↦
-      (Ideal.torsionOf _ _ v).span_singleton_le_iff_mem.mpr hv (hct ⟨a, ha, mul_comm ..⟩)
+    rw [Submodule.mem_torsionBySet_iff]
+    rintro ⟨a, ha⟩
+    change a • t • v = 0
+    rw [smul_smul, mul_comm a t]
+    obtain ⟨q, hq_eq⟩ := Ideal.mem_span_singleton.mp (hct ⟨a, ha, rfl⟩)
+    change t * a = c * q at hq_eq
+    rw [hq_eq, mul_comm c q, mul_smul, hv, smul_zero]
   have h_lift : toSqZeroSpec C ≫ (t • Y v) = hp.isGroupBaseChange.pointEquiv (t • v) := by
-    rw [ModuleObj.comp_smul, hY, map_smul]
+    rw [ModuleObj.comp_smul, hY, hp.isGroupBaseChange.pointEquiv.map_smul]
   have h_snd : snd (ω (c • Y v)) l = 0 := by
-    simpa [smul_comm c, ω_smul v_tiny, (sub_mem_ker_iff _).mp ht] using
-      congr(snd $(ω_lift ⟨t • v, htv⟩ (t • Y v) h_lift) l).symm.trans (hl C _)
+    have h_l := congr(snd $(ω_lift ⟨t • v, htv⟩ (t • Y v) h_lift) l).symm.trans (hl C _)
+    rw [← mul_smul, mul_comm c t, mul_smul, ω_smul v_tiny t, (sub_mem_ker_iff _).mp ht,
+      x₀.baseHom.map_one, inl_one, RingHom.map_one, one_mul] at h_l
+    exact h_l
   -- the first component of `ω (c • Y v)` vanishes by `ω_red`, the second at `l` by `h_snd`
   have h_log : ω (d ≫ (c • Y v)) = 0 := by
     simpa [↓ω_comp v_tiny d rfl, h_snd, θ, ↓ lift_def] using ω_red v_tiny
-  simpa [y', ← smul_smul] using ω_ker (v_tiny.precomp d rfl ψ θ_red) h_log
+  have h_ker_v := ω_ker (v_tiny.precomp d rfl ψ θ_red) h_log
+  rw [ModuleObj.comp_smul, ← mul_smul] at h_ker_v
+  rw [hz.isGroupBaseChange.pointEquiv.map_smul, hz.isGroupBaseChange.pointEquiv.map_zero,
+    hz.isGroupBaseChange.pointEquiv.apply_symm_apply]
+  exact h_ker_v
 
 include hp in
 /-- **Tangent bound.** Let `M` be a `k`-vector space over an algebraically closed field `k`, let
@@ -776,7 +909,8 @@ lemma _root_.New.Variety.finrank_tangent_le_card_index_sub_one [IsAlgClosed k]
     have h_torsion : c • y.val = 0 :=
       (Submodule.mem_torsionBySet_iff ..).mp y.property ⟨c, RingHom.mem_ker.mpr hc⟩
     exact isInfinitesimal_of_comp_eq_zero _
-      (by rw [ModuleObj.comp_smul, hY, ← LinearEquiv.map_smul, h_torsion, map_zero])
+      (by rw [ModuleObj.comp_smul, hY, ← hp.isGroupBaseChange.pointEquiv.map_smul, h_torsion,
+        hp.isGroupBaseChange.pointEquiv.map_zero])
   -- `ω (c • Z)` is the same for all lifts `Z` of `y`: their difference is infinitesimal, and
   -- `x₀.baseHom c = 0`.
   have ω_lift {C : Type} [CommRing C] [Algebra k C] [IsLocalRing C] (y : placeTorsion x₀ C)
@@ -784,37 +918,65 @@ lemma _root_.New.Variety.finrank_tangent_le_card_index_sub_one [IsAlgClosed k]
       (hZ : toSqZeroSpec C ≫ Z = hp.isGroupBaseChange.pointEquiv y) :
       ω (c • Y y.val) = ω (c • Z) := by
     have h_diff : IsInfinitesimal (ofHom (fstHom C C _).toRingHom) (Z - Y y.val) :=
-      isInfinitesimal_of_comp_eq_zero _ (by simp [hY, hZ, AddGrpObj.comp_sub])
-    simpa [← smul_add, ω_smul h_diff, hc] using
-      (ω_add (h_diff.smul c) (c_Y_infinitesimal y)).symm
+      isInfinitesimal_of_comp_eq_zero _ (by rw [AddGrpObj.comp_sub, hZ, hY, sub_self])
+    have h_add := ω_add (h_diff.smul c) (c_Y_infinitesimal y)
+    rw [← smul_add, sub_add_cancel, ω_smul h_diff c, hc, inl_zero, RingHom.map_zero, zero_mul,
+      zero_add] at h_add
+    exact h_add.symm
   let f (C : Type) [CommRing C] [Algebra k C] [IsLocalRing C] :
       placeTorsion x₀ C →ₛₗ[x₀.baseHom] M →ₗ[k] C :=
     { toFun y := snd (ω (c • Y y.val))
       map_add' y z := by
-        simp [↓ω_lift (y + z) (Y y + Y z) (by rw [comp_add, hY, hY, Submodule.coe_add, map_add]),
-          ω_add (c_Y_infinitesimal y) (c_Y_infinitesimal z)]
+        have h_sum : toSqZeroSpec C ≫ (Y y.val + Y z.val) =
+            hp.isGroupBaseChange.pointEquiv (y + z : placeTorsion x₀ C).val := by
+          rw [comp_add, hY, hY, Submodule.coe_add, hp.isGroupBaseChange.pointEquiv.map_add]
+        rw [ω_lift (y + z) (Y y.val + Y z.val) h_sum, smul_add c (Y y.val) (Y z.val),
+          ω_add (c_Y_infinitesimal y) (c_Y_infinitesimal z), snd_add]
       map_smul' a y := by
-        simp [↓ω_lift (a • y) (a • Y y)
-            (by rw [ModuleObj.comp_smul, hY, Submodule.coe_smul, map_smul]), smul_comm c,
-          ω_smul (c_Y_infinitesimal y)] }
+        have h_sm : toSqZeroSpec C ≫ (a • Y y.val) =
+            hp.isGroupBaseChange.pointEquiv (a • y : placeTorsion x₀ C).val := by
+          rw [ModuleObj.comp_smul, hY, Submodule.coe_smul,
+            hp.isGroupBaseChange.pointEquiv.map_smul]
+        rw [ω_lift (a • y) (a • Y y.val) h_sm, ← mul_smul, mul_comm c a, mul_smul,
+          ω_smul (c_Y_infinitesimal y) a]
+        simp only [preimage_map, hom_ofHom, sqZeroMap_apply, fst_inl, snd_inl,
+          LinearMap.comp_zero, inr_zero, add_zero, TrivSqZeroExt.snd_mul, smul_zero,
+          ofId_apply, algebraMap_smul] }
   refine finrank_le_of_placeTorsion hw h_spec h_full f (fun φ y ↦ ?_) (fun y hy ↦ ?_) fun l hl ↦ ?_
   · -- Naturality: `sqZeroSpecMap φ ≫ Y y` is a lift of `placeTorsionMap φ y`.
-    simp [f, ω_lift (placeTorsionMap φ y) _ (sqZeroSpecMap_point_lift hp φ (hY _)),
+    dsimp only [f, LinearMap.coe_mk, AddHom.coe_mk]
+    rw [ω_lift (placeTorsionMap φ y) _ (sqZeroSpecMap_point_lift hp φ (hY _)),
       ← ModuleObj.comp_smul, ω_comp (c_Y_infinitesimal y) (sqZeroSpecMap φ) rfl]
+    intro l
+    simp only [hom_ofHom, sqZeroMap_apply, snd_add, snd_inl, snd_inr, LinearMap.comp_apply,
+      zero_add]
+    rfl
   · -- Tangent vectors: as `y` is `0` at `ε = 0`, the point `Z'` below also lifts `y`. It vanishes
     -- at `ε = 0`, so `ω (c • Z')` is `x₀.baseHom c = 0` times `ω Z'`.
     let Z' := Y y.val - sqZeroSpecMap ((ofId k k[ε]).comp (fstHom k k k)) ≫ Y y.val
     have hZ' : toSqZeroSpec _ ≫ Z' = hp.isGroupBaseChange.pointEquiv y := by
-      simp [Z', sqZeroSpecMap_point_lift hp, ← specOver.map_comp_assoc, hY, hy, AddGrpObj.comp_sub]
-    have : IsSqZeroExt (ofHom (sqZeroMap (M := M) (fstHom k k k))) :=
-      ⟨fun a ↦ ⟨sqZeroMap (ofId k k[ε]) a, by ext <;> simp⟩,
-        by simp +contextual [TrivSqZeroExt.ext_iff, DFunLike.ext_iff]⟩
+      rw [AddGrpObj.comp_sub, hY, sqZeroSpecMap_point_lift hp _ (hY _), ← specOver.map_comp_assoc,
+        hy, AddMonObj.comp_zero, hp.isGroupBaseChange.pointEquiv.map_zero, sub_zero]
+    have : IsSqZeroExt (ofHom (sqZeroMap (M := M) (fstHom k k k))) := by
+      refine ⟨fun a ↦ ⟨sqZeroMap (ofId k k[ε]) a, by ext <;> simp⟩, fun {a b} ha hb ↦ ?_⟩
+      simp only [hom_ofHom, sqZeroMap_apply, TrivSqZeroExt.ext_iff, fst_add, fst_inl, fst_inr,
+        add_zero, snd_add, snd_inl, snd_inr, zero_add, fst_zero, snd_zero, fstHom_apply] at ha hb
+      have ha2 (m : M) : (a.snd m).fst = 0 := congrArg (fun g ↦ g m) ha.2
+      have hb2 (m : M) : (b.snd m).fst = 0 := congrArg (fun g ↦ g m) hb.2
+      apply TrivSqZeroExt.ext
+      · exact TrivSqZeroExt.ext (by simp [ha.1]) (by simp [fst_mul, ha.1, hb.1])
+      · refine LinearMap.ext fun m ↦ TrivSqZeroExt.ext ?_ ?_
+        · simp [TrivSqZeroExt.snd_mul, op_smul_eq_smul, fst_mul, ha.1, hb.1, ha2 m, hb2 m]
+        · simp [TrivSqZeroExt.snd_mul, op_smul_eq_smul, ha.1, hb.1, ha2 m, hb2 m, smul_eq_mul]
     have Z'_infinitesimal : IsInfinitesimal (ofHom (sqZeroMap (fstHom k k k))) Z' := by
       simp [Z', IsInfinitesimal, OverMorphism.ext_iff, sqZeroSpecMap, AddGrpObj.comp_sub,
         sub_eq_zero, ← map_comp_assoc, ← ofHom_comp]
       congr
       ext <;> simp
-    simp [f, (ω_lift y Z' hZ').trans (ω_smul Z'_infinitesimal c), hc]
+    refine LinearMap.ext fun l ↦ ?_
+    dsimp only [f, LinearMap.coe_mk, AddHom.coe_mk]
+    rw [(ω_lift y Z' hZ').trans (ω_smul Z'_infinitesimal c), hc, inl_zero, RingHom.map_zero,
+      zero_mul, snd_zero, LinearMap.zero_apply]
   -- Let all `f C y` kill `l`; then `l = 0` by the last step.
   exact eq_zero_of_forall_snd_logarithm_eq_zero hp h_rig hρ hc hc_ne ht hct hb h_coprime h_level
     ω ω_smul ω_ker ω_red ω_comp Y hY ω_lift (h_const l) hl
