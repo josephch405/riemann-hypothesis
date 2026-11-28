@@ -110,10 +110,7 @@ lemma sum_padicValInt_Icc_le {n p m H : ℕ} {c : ℤ} (hp : p.Prime) (hn : n �
   have : Fact p.Prime := ⟨hp⟩
   have h_val (k : ℤ) (hk : k ∈ Icc (c - n) (c + n)) :
       padicValInt p k ≤ #{i ∈ range (p.log H) | ((p ^ (i + 1) : ℕ) : ℤ) ∣ k} := by
-    have hk_le : k.natAbs ≤ H := by
-      rw [mem_Icc] at hk
-      have hk' : |k - c| ≤ n := abs_le.2 ⟨by omega, by omega⟩
-      exact Int.ofNat_le.1 (by linarith [abs_sub_abs_le_abs_sub k c, Int.natCast_natAbs k])
+    have hk_le : k.natAbs ≤ H := by grind
     have h_log : padicValInt p k ≤ p.log H :=
       (multiplicity_le_nat_log _).trans (Nat.log_mono_right hk_le)
     refine (card_range _).ge.trans (card_le_card fun i hi ↦ mem_filter.2 ⟨?_, ?_⟩)
@@ -125,7 +122,7 @@ lemma sum_padicValInt_Icc_le {n p m H : ℕ} {c : ℤ} (hp : p.Prime) (hn : n �
     rw [pow_succ', ← Nat.div_div_eq_div_mul]
     exact Nat.div_le_div_right (Nat.div_le_of_le_mul (by linarith))
   have h_geom : ∑ i ∈ range (p.log H), 2 * m / p ^ i ≤ 4 * m := by
-    have hp_le : p ≤ 2 * (p - 1) := by have := hp.two_le; omega
+    have hp_le : p ≤ 2 * (p - 1) := by grind [hp.two_le]
     refine (Nat.geom_sum_le hp.two_le _ _).trans (Nat.div_le_of_le_mul ?_)
     linarith [Nat.mul_le_mul_left (2 * m) hp_le]
   calc
@@ -210,6 +207,8 @@ lemma JumpLattice.mem_withOrders_raisedOrdersAtZero_of_gap {L : k.JumpLattice O}
   omega
 
 namespace PairingSide
+
+attribute [local instance low] NormedAlgebra.toAlgebra
 
 section Definitions
 
@@ -326,8 +325,7 @@ variable {c' : S'.paramLattice} {l κ s e e' : ℕ} {o o' o₁ o₂ o₃ : ℕ �
 @[simp]
 lemma wittFst_inclKer : ∀ y : S.Ambient,
     S.wittFst (S.inclKer.wittMap y) = y ∧ S.projTrivial.wittMap (S.inclKer.wittMap y) = 0 :=
-  fun y ↦ y.induction (by simp) fun _ _ hx hy ↦
-    ⟨by simp only [map_add, hx.1, hy.1], by simp only [map_add, hx.2, hy.2, add_zero]⟩
+  diagTensor_induction (by simp)
 
 /-- The pairing `P`, read on the first components of vectors of the two extensions, is balanced for
 the multiplication by the root of unity `ζ` of `O`. -/
@@ -335,16 +333,11 @@ lemma wittPairing_wittFst_mulZeta (x : S.extensionLattice.Ambient)
     (y : S'.extensionLattice.Ambient) :
     P.wittPairing (S.wittFst (S.extensionLattice.mulZeta.wittMap x)) (S'.wittFst y) =
       P.wittPairing (S.wittFst x) (S'.wittFst (S'.extensionLattice.mulZeta.wittMap y)) := by
-  induction x using DiagTensor.induction with
-  | h_mk a t =>
-    induction y using DiagTensor.induction with
-    | h_mk a' t' =>
-      simp only [Pairing.wittPairing, Hom.wittMap, JumpLattice.wittMap, wittFst, mulZeta,
-        DiagTensor.map_mk, DiagTensor.pair_mk]
-      exact congrArg (DiagTensor.mk (a * a')) (congrArg (mkQ _) (congrArg P.toZp
-        (congrArg P.integralForm (TensorProduct.smul_tmul (O.ζ : O) t.1 t'.1))))
-    | h_add y₁ y₂ h₁ h₂ => simp only [map_add, h₁, h₂]
-  | h_add x₁ x₂ h₁ h₂ => simp only [map_add, LinearMap.add_apply, h₁, h₂]
+  revert x y
+  exact diagTensor_induction
+    (fun _ _ ↦ diagTensor_induction (by simp [mulZeta, modPairing])
+      fun _ _ h₁ h₂ ↦ by simp only [map_add, h₁, h₂])
+    fun _ _ h₁ h₂ y ↦ by simp only [map_add, LinearMap.add_apply, h₁, h₂]
 
 /-- The Teichmüller lifts `k.letterTeich` of two distinct letters differ by a unit of the ring `k.S`
 of the chart. -/
@@ -363,12 +356,8 @@ lemma wittPairing_wittFst_eq_zero_of_ne {i j : k.Letter} (h_ne : j ≠ i)
   -- `ζ` acts at a letter by its Teichmüller lift, and the lifts of `j` and `i` differ by a unit.
   have h_eq : k.letterTeich j • P.wittPairing (S.wittFst x) (S'.wittFst y) =
       k.letterTeich i • P.wittPairing (S.wittFst x) (S'.wittFst y) := by
-    have h := wittPairing_wittFst_mulZeta (P := P) x y
-    rw [mem_letterPart_iff_mulZeta.1 hx, mem_letterPart_iff_mulZeta.1 hy,
-      S.wittFst.map_smul_of_tower, S'.wittFst.map_smul_of_tower,
-      P.wittPairing.map_smul_of_tower, LinearMap.smul_apply,
-      (P.wittPairing _).map_smul_of_tower] at h
-    exact h
+    simpa [mem_letterPart_iff_mulZeta.1 hx, mem_letterPart_iff_mulZeta.1 hy] using
+      wittPairing_wittFst_mulZeta (P := P) x y
   rw [← (isUnit_letterTeich_sub h_ne).smul_eq_zero, sub_smul, h_eq, sub_self]
 
 /-- Let `P` be a pairing modulo `p ^ m` of two sides `S`, `S'` of the chart `k`, with lattices `Y`,
@@ -388,8 +377,8 @@ lemma isSafe_sum {u : k.Letter → S.extensionLattice.Ambient}
   have h_sum : P.wittPairing (S.wittFst (∑ i, u i)) (S'.wittFst (∑ i, v i)) =
       ∑ i, P.wittPairing (S.wittFst (u i)) (S'.wittFst (v i)) := by
     simp only [map_sum, LinearMap.sum_apply]
-    exact Fintype.sum_congr _ _ fun i ↦
-      Fintype.sum_eq_single i fun j h_ne ↦ wittPairing_wittFst_eq_zero_of_ne h_ne (hu j) (hv i)
+    exact sum_congr _ _ fun i ↦
+      sum_eq_single i fun j h_ne ↦ wittPairing_wittFst_eq_zero_of_ne h_ne (hu j) (hv i)
   rw [IsSafe, h_sum, smul_sum]
   exact sum_mem fun i _ ↦ h_safe i
 
@@ -410,19 +399,14 @@ lemma exists_mem_form_cocycle_eq_coboundary (W : Submodule BdRPlus BdR) {μ : S.
   have Λ_equiv (g : k.subgroup) (y : TensorProduct ℤ_[p] Bmax S.Carrier) :
       Λ (tensorAction Bmax (toGp (g : Γ.G)) (S.ρ g) y) = toGp (g : Γ.G) • Λ y := by
     induction y with
-    | tmul b t =>
-      simp only [Λ, tensorAction, TensorProduct.map_tmul, LinearMap.liftBaseChange_tmul,
-        LinearMap.comp_apply, LinearMap.restrictScalars_apply, DistribSMul.toLinearMap_apply]
-      rw [hμ t g, smul_def', smul_def', smul_mul', smul_algebraMap_eq_algebraMap_smul]
+    | tmul b t => simp [Λ, tensorAction, hμ t, smul_def']
     | add y y' hy hy' => simp only [map_add, smul_add, hy, hy']
   obtain ⟨v, hv⟩ : ∃ v : TensorProduct ℤ_[p] Bmax S.Carrier, ∀ g : Γ.G,
       1 ⊗ₜ (S.cocycleMap c).val g = tensorAction Bmax (toGp g) (S.ρ g) v - v :=
     (S.cocycleMap c).property
   have Λ_cob (g : k.subgroup) :
       μ (DiagTensor.mk 1 ((S.cocycleMap c).val g)) = toGp (g : Γ.G) • Λ v - Λ v := by
-    rw [← Λ_equiv g v, ← map_sub, ← hv g]
-    simp only [Λ, LinearMap.liftBaseChange_tmul, LinearMap.comp_apply,
-      LinearMap.restrictScalars_apply, one_smul]
+    simp [← Λ_equiv, ← map_sub, ← hv, Λ]
   have Λ_mem (g : k.subgroup) : toGp (g : Γ.G) • Λ v - Λ v ∈ W := by
     simpa only [← Λ_cob] using hW _
   obtain ⟨a, ha⟩ : ∃ a : localFieldOf k.subgroup, Λ v - Algebra.cast a ∈ W :=
@@ -450,23 +434,10 @@ lemma exists_linearMap_form_cocycle_eq_coboundary (W : Submodule BdRPlus BdR) {�
   induction e.mem_span c using span_induction with
   | mem x hx =>
     obtain ⟨j, rfl⟩ := hx
-    simp only [f, Basis.constr_basis]
-    exact ⟨b_mem _, b_cob _⟩
-  | zero =>
-    rw [map_zero]
-    refine ⟨Submodule.zero_mem W, fun g ↦ ?_⟩
-    rw [map_zero, ZeroMemClass.coe_zero, Pi.zero_apply, map_zero, map_zero, smul_zero, sub_zero]
-  | add x y _ _ hx hy =>
-    rw [map_add]
-    refine ⟨add_mem hx.1 hy.1, fun g ↦ ?_⟩
-    rw [map_add, Submodule.coe_add, Pi.add_apply, map_add, map_add, hx.2 g, hy.2 g, smul_add,
-      add_sub_add_comm]
-  | smul r x _ hx =>
-    rw [map_smul]
-    refine ⟨W.smul_of_tower_mem r hx.1, fun g ↦ ?_⟩
-    rw [LinearMap.map_smul_of_tower, Submodule.coe_smul_of_tower, Pi.smul_apply,
-      LinearMap.map_smul_of_tower, LinearMap.map_smul_of_tower, hx.2 g, smul_sub,
-      smul_comm (toGp _)]
+    simp [f, b_mem, b_cob]
+  | zero => simp
+  | add x y _ _ hx hy => simp [hx, hy, add_mem, add_sub_add_comm]
+  | smul r x _ hx => simp [hx, smul_of_tower_mem, smul_sub, smul_comm (toGp _) r]
 
 /-- Let `S` be a side of the chart: lattices `Y` and `C` with crystalline cocycles of `Y` indexed by
 `C`, which define the extension `S.extensionLattice` of `C` by `Y`, with underlying module `Y × C`.
@@ -485,17 +456,14 @@ lemma exists_extend_form (W : Submodule BdRPlus BdR) {μ : S.Functional} (hμ : 
     S.trivialLattice.exists_functional_extend f
   let ν : S.extensionLattice.Functional := μ ∘ₗ ↑S.wittFst + μ' ∘ₗ S.projTrivial.wittMap
   have ν_apply (t : S.Carrier) (c : S.paramLattice) :
-      ν (DiagTensor.mk 1 (t, c)) = μ (DiagTensor.mk 1 t) + f c := by
-    simp only [ν, LinearMap.add_apply, LinearMap.comp_apply, Hom.wittMap, JumpLattice.wittMap,
-      LinearMap.restrictScalars_apply, DiagTensor.map_mk, hμ']
-    rfl
+      ν (DiagTensor.mk 1 (t, c)) = μ (DiagTensor.mk 1 t) + f c := by simp [ν, hμ']
   refine ⟨ν, fun (t, c) g ↦ ?_, span_le.2 ?_, ext fun y ↦ by simp [ν]⟩
-  · have h_act : S.extensionLattice.ρ g (t, c) = (S.ρ g t + (S.cocycleMap c).val g, c) := rfl
+  · -- invariance: the cocycle term of the action cancels the coboundary of `f c`
+    have h_act : S.extensionLattice.ρ g (t, c) = (S.ρ g t + (S.cocycleMap c).val g, c) := rfl
     rw [h_act, ν_apply, ν_apply, map_add, map_add, hμ t g, f_cob, smul_add, add_assoc,
       sub_add_cancel]
   · rintro _ ⟨⟨t, c⟩, rfl⟩
-    rw [SetLike.mem_coe, Submodule.mem_comap, Submodule.restrictScalars_mem, ν_apply]
-    exact add_mem (hW t) (f_mem c)
+    simpa [ν, hμ'] using add_mem (hW t) (f_mem c)
 
 /-- Let `x` lie over a constant at the letter `i` and be deep for `o`. An operator of cost `e` sends
 `x` into every submodule `M` that holds `x` and the points over `0` with orders `o`. -/
@@ -510,8 +478,7 @@ lemma IsOperatorOfCost.apply_mem_of_kerWithOrders_le
 `o` at the letter `i` are deep for `o` at `i`. -/
 lemma locKisinPart_kerWithOrders_le_deepElements :
     locKisinPart (S.kerWithOrders i o) ≤ S.deepElements i o :=
-  fun _ ⟨h_exp, h_over_zero⟩ ↦
-    ⟨⟨0, (map_zero _).trans h_over_zero.symm⟩, smul_sub_mem_withOrders h_exp⟩
+  fun _ ⟨h_exp, h_over_zero⟩ ↦ ⟨ker_le_comap _ h_over_zero, smul_sub_mem_withOrders h_exp⟩
 
 /-- An operator `A` of cost `e` keeps every depth: if `x` lies over a constant at the letter `i` and
 is deep for `o`, then the same holds for `A x`. -/
@@ -530,7 +497,7 @@ lemma IsOperatorOfCost.comp {A B : S.extensionLattice.kisinLoc →+ S.extensionL
   intro i o x hx_deep
   have h_split : B.comp A x - p ^ (e' + e) • x =
       (B (A x) - p ^ e' • A x) + p ^ e' • (A x - p ^ e • x) := by
-    simp only [AddMonoidHom.comp_apply, smul_sub, pow_add, mul_smul, sub_add_sub_cancel]
+    simp [smul_sub, pow_add, mul_smul]
   rw [h_split]
   exact add_mem (hB (hA.mem_deepElements hx_deep)) (nsmul_mem (hA hx_deep) (p ^ e'))
 
@@ -554,10 +521,8 @@ lemma mem_kisinLocAinf_of_inclKer {y : S.Ambient}
           ν (φ ^ (n + 1) • r • S.inclKer.wittMap y) ∈ hodgeFil 0 := hy
   refine ⟨r, hr, ⟨t, ht, ?_⟩, fun n μ hμ ↦ ?_⟩
   · simpa using wittMap_mem_ainfLattice (LinearMap.fst O S.Carrier S.paramLattice.Carrier) h_lattice
-  · obtain ⟨ν, hν, -, rfl⟩ := exists_extend_form ⊤ hμ (fun _ ↦ Submodule.mem_top)
-    rw [LinearMap.comp_apply, LinearMap.restrictScalars_apply, Hom.wittMap_smul,
-      S.inclKer.wittMap.map_smul_of_tower]
-    exact h_values n ν hν
+  · obtain ⟨ν, hν, -, rfl⟩ := exists_extend_form ⊤ hμ (by simp)
+    simpa using h_values n ν hν
 
 /-- A vector `y` of `S` whose image in the extension lies at the letter `i` lies at `i`. -/
 lemma mem_letterPart_of_inclKer {y : S.Ambient}
@@ -605,22 +570,9 @@ lemma exists_inclKer_eq_of_kerWithOrders (hw : w ∈ S.kerWithOrders i o) :
     ∃ y ∈ S.withOrders i o,
       S.inclKer.wittMap y = w ∧ (w ∈ S.extensionLattice.kisinLoc → y ∈ S.kisinLoc) := by
   obtain ⟨w_exp, w_over_zero⟩ := hw
-  have h_decomp (z : S.extensionLattice.Ambient) :
-      S.inclKer.wittMap (S.wittFst z) +
-        S.trivialLattice.wittMap S.extensionLattice
-          (LinearMap.inr O.O S.Carrier S.paramLattice.Carrier) (S.projTrivial.wittMap z) = z := by
-    induction z using DiagTensor.induction with
-    | h_mk a t =>
-      change DiagTensor.mk a (t.1, 0) + DiagTensor.mk a (0, t.2) = DiagTensor.mk a t
-      rw [← map_add, Prod.mk_add_mk, add_zero, zero_add]
-    | h_add z₁ z₂ h₁ h₂ => simp only [map_add]; rw [add_add_add_comm, h₁, h₂]
-  have h_eq : S.inclKer.wittMap (S.wittFst w) = w := by
-    have h0 : S.projTrivial.wittMap w = 0 := w_over_zero
-    have := h_decomp w
-    rw [h0, map_zero, add_zero] at this
-    exact this
-  exact ⟨S.wittFst w, mem_withOrders_of_inclKer (h_eq.symm ▸ w_exp), h_eq,
-    fun h ↦ mem_kisinLoc_of_inclKer (h_eq.symm ▸ h)⟩
+  obtain ⟨y, rfl⟩ : w ∈ S.inclKer.wittMap.range :=
+    (lTensor_exact _ .inl_snd snd_surjective _).1 w_over_zero
+  exact ⟨y, mem_withOrders_of_inclKer w_exp, rfl, mem_kisinLoc_of_inclKer⟩
 
 /-- Let `S` be a side of the chart, with lattices `Y` and `C = S.paramLattice`. Suppose that
 `p ^ κ * E ^ s`, with `E` the Eisenstein polynomial of the chart, kills the cokernel at the letter
@@ -680,15 +632,9 @@ lemma projTrivial_depthOperator_eq_zero (g : k.galMonoid) (υ : Ainf)
     S.projTrivial.wittMap (S.depthOperator g υ x).val = 0 := by
   -- `g` fixes the constant below `x`, and the projection commutes with the retraction
   have h_quot : S.projTrivial.wittMap (υ • k.zTauUnit⁻¹ • (g • x.val - x.val)) = 0 := by
-    rw [map_smul_of_tower, map_smul_of_tower, map_sub, k.galMonoid.smul_def, Hom.wittMap_smul,
-      hx_over, constantAt, LinearMap.comp_apply, LinearMap.restrictScalars_apply,
-      gal_smul_letterProj, DiagTensor.smul_mk, smul_one]
-    change υ • k.zTauUnit⁻¹ •
-      (S.trivialLattice.letterProj i (DiagTensor.mk 1 c) -
-        S.trivialLattice.letterProj i (DiagTensor.mk 1 c)) = 0
-    rw [sub_self, smul_zero, smul_zero]
-  rw [depthOperator_apply, S.projTrivial.wittMap_coordRetract _ 0 h_quot, map_zero,
-    Submodule.coe_zero]
+    simp [hx_over, constantAt, gal_smul_letterProj, k.galMonoid.smul_def]
+  rw [depthOperator_apply, S.projTrivial.wittMap_coordRetract _ 0 h_quot]
+  simp
 
 /-- The operator `S.depthOperator g υ` sends an element of `S.deepElements i o` into
 `S.kerWithOrders i o`, the vectors over `0` with orders `o` at `i`. -/
@@ -717,30 +663,21 @@ lemma exists_isOperatorOfCost_mem_hodgeFil_succ (S : PairingSide O) (a : ℕ) (n
   obtain ⟨m, γ, υ, step⟩ := S.extensionLattice.exists_valueAt_sub_mem_hodgeFil_succ a n
   let B : S.extensionLattice.kisinLoc →+ S.extensionLattice.kisinLoc :=
     p ^ cost a n • .id _ + ∑ l : Fin m, S.depthOperator (γ l) υ
-  have hB_apply (z : S.extensionLattice.kisinLoc) :
-      B z = p ^ cost a n • z + ∑ l, S.depthOperator (γ l) υ z := by
-    dsimp only [B]
-    rw [AddMonoidHom.add_apply, AddMonoidHom.smul_apply, AddMonoidHom.id_apply]
-    exact congrArg (_ + ·) (map_sum (AddMonoidHom.eval z) (fun l ↦ S.depthOperator (γ l) υ) univ)
   refine ⟨B, fun i o x hx_deep ↦ ?_, fun x μ hμ h_inv g ↦ ?_⟩
-  · have h_sum : B x - p ^ cost a n • x = ∑ l, S.depthOperator (γ l) υ x := by
-      rw [hB_apply, add_sub_cancel_left]
+  · have h_sum : B x - p ^ cost a n • x = ∑ l, S.depthOperator (γ l) υ x := by simp [B]
     rw [h_sum]
     exact sum_mem fun l _ ↦ depthOperator_mem_kerWithOrders (γ l) υ hx_deep
+  -- the value of `x` is invariant modulo `hodgeFil n`, hence a constant modulo `hodgeFil n`; so
+  -- `step` gives a constant modulo `hodgeFil (n + 1)`, and the retraction keeps it
   have x_mem : x.val ∈ S.extensionLattice.kisinLocAinf := x.property.1
   obtain ⟨const, h_const⟩ :=
     step x.val x.property μ hμ (exists_valueAt_sub_mem_hodgeFil x_mem hμ h_inv)
   let y : S.extensionLattice.kisinLocAinf := p ^ cost a n • ⟨x.val, x_mem⟩ +
     ∑ l : Fin m, υ • ⟨_, zTauUnit_inv_smul_sub_mem_kisinLocAinf (γ l) x.property⟩
-  have hy_val : y.val = S.extensionLattice.depthStepOperator (cost a n) υ γ x.val := by
-    simp [y, depthStepOperator_apply]
   have hy : valueAt a μ y.val - Algebra.cast const ∈ hodgeFil (n + 1) := by
-    rw [hy_val]; exact h_const
-  have hB : (B x).val = (S.extensionLattice.coordRetract y).val := congrArg Subtype.val <| by
-    rw [hB_apply, map_add, map_nsmul, map_sum,
-      show S.extensionLattice.coordRetract ⟨x.val, x_mem⟩ = x from
-        Subtype.ext (coordRetract_of_mem_kisinLoc x.property x_mem)]
-    rfl
+    simpa [y, depthStepOperator_apply] using h_const
+  have hB : (B x).val = (S.extensionLattice.coordRetract y).val := by
+    simp [B, y, depthOperator_apply, coordRetract_of_mem_kisinLoc, nsmul_mem]
   have hB_const : valueAt a μ (B x).val - Algebra.cast const ∈ hodgeFil (n + 1) := by
     rw [hB]
     exact valueAt_coordRetract_sub_mem_hodgeFil hμ y ((valueField a).algebraMap_mem const) hy
@@ -764,10 +701,7 @@ lemma exists_isOperatorOfCost_and_mem_deepElements (I : Finset ((_ : ℕ) × ℤ
   -- rest with the operator `B` that clears the step `n` at level `a`.
   induction I using Finset.induction_on_max_value (fun q : Σ _ : ℕ, ℤ ↦ q.2) with
   | empty =>
-    refine ⟨.id _, fun _ _ _ _ ↦ by
-        simp only [Finset.sum_empty, pow_zero, one_smul, AddMonoidHom.id_apply, sub_self]
-        exact Submodule.zero_mem _,
-      fun i o x ⟨hx_const, hx_deep⟩ o' cover ↦
+    refine ⟨.id _, by simp [IsOperatorOfCost], fun i o x ⟨hx_const, hx_deep⟩ o' cover ↦
       ⟨hx_const, fun g ↦ mem_withOrders_of_le (hx_deep g) fun a u hu ↦ ?_⟩⟩
     by_contra! h_lt
     exact notMem_empty _ (cover a u hu (o a u) le_rfl h_lt)
@@ -798,9 +732,7 @@ lemma exists_isOperatorOfCost_and_mem_deepElements (I : Finset ((_ : ℕ) × ℤ
     rw [eq_succ]
     refine B_step (A x) μ hμ.1 (fun γ ↦ ?_) g
     obtain ⟨-, low_values⟩ := deep_low.2 γ
-    have hlv := low_values b u hu μ hμ
-    simp only [low, eq_succ, and_self, ↓reduceIte] at hlv
-    exact hlv
+    simpa [low, eq_succ] using low_values b u hu μ hμ
 
 /-- Let `S.pointsOver c i e orders depth` be the points of the extension of the side `S` that
 project to `p ^ e` times the component of `1 ⊗ c` at the letter `i`, have the given orders, and are
@@ -822,25 +754,19 @@ lemma pointsOver_nonempty_of_costs {e e' : ℕ} {depth depth' orders : ℕ → �
   obtain ⟨x_mem, pr_x, x_exp, x_deep⟩ := hx
   let y : S.extensionLattice.kisinLoc := p ^ s • ⟨x, x_mem⟩
   have y_deep {d : ℕ → ℤ → ℤ} (deep : x ∈ invariantsMod (S.extensionLattice.withOrders i d)) :
-      y ∈ S.deepElements i d := by
-    refine ⟨⟨p ^ s • p ^ e • c, ?_⟩, fun g ↦ ?_⟩
-    · dsimp only [y, localizedProjTrivial]
-      rw [LinearMap.comp_apply, LinearMap.restrictScalars_apply, LinearMap.restrictScalars_apply,
-        Submodule.coe_subtype, AddSubmonoidClass.coe_nsmul, map_nsmul, map_nsmul, map_nsmul, pr_x]
-    · simp only [y, LinearMap.restrictScalars_apply,
-        Submodule.coe_subtype]
-      rw [AddSubmonoidClass.coe_nsmul, smul_comm g, ← smul_sub]
-      exact nsmul_mem (deep g) (p ^ s)
+      y ∈ S.deepElements i d :=
+    smul_of_tower_mem _ _ ⟨⟨p ^ e • c, by simp [pr_x]⟩, deep⟩
   have y_own : y ∈ S.deepElements i orders := y_deep (smul_sub_mem_withOrders x_exp)
   obtain ⟨-, deep⟩ : A y ∈ S.deepElements i depth' := A_deep (y_deep x_deep) depth' cover
+  -- `A` keeps `orders`, as `y` is deep for them; the new depth then improves them
   have exp : A y ∈ locKisinPart (S.extensionLattice.withOrders i orders) :=
     A_cost.apply_mem_of_kerWithOrders_le (fun _ ⟨h_exp, _⟩ ↦ h_exp) (nsmul_mem x_exp _) y_own
   refine ⟨A y, (A y).property, ?_, mem_withOrders_improvedOrders exp deep, deep⟩
+  -- `A y` and `p ^ (∑ q ∈ I, cost q.1 q.2) • y` lie over the same constant
   calc S.projTrivial.wittMap (A y).val
       = S.projTrivial.wittMap (p ^ (∑ q ∈ I, cost q.1 q.2) • y).val :=
         sub_mem_ker_iff.1 (A_cost y_own).2
-    _ = p ^ (∑ q ∈ I, cost q.1 q.2) • p ^ s • p ^ e • S.constantAt i c := by
-      simp only [AddSubmonoidClass.coe_nsmul, map_nsmul, y, pr_x]
+    _ = p ^ (∑ q ∈ I, cost q.1 q.2) • p ^ s • p ^ e • S.constantAt i c := by simp [y, pr_x]
     _ = p ^ (e + ∑ q ∈ I, cost q.1 q.2 + s) • S.constantAt i c := by module
 
 /-- Let `x` lie in `S.pointsOver c i e o₁ o`: it lies over `p ^ e` times the constant of `c` at the
@@ -850,14 +776,7 @@ lemma zTauUnit_inv_smul_sub_mem_kerWithOrders (hx : x ∈ S.pointsOver c i e o�
     k.zTauUnit⁻¹ • (g • x - x) ∈ S.kerWithOrders i o := by
   obtain ⟨x_mem, pr_x, -, x_deep⟩ := hx
   refine ⟨JumpLattice.zTauUnit_inv_smul_sub_mem_withOrders x_mem (x_deep g), ?_⟩
-  rw [SetLike.mem_coe, LinearMap.mem_ker, LinearMap.restrictScalars_apply, map_smul_of_tower,
-    map_sub, k.galMonoid.smul_def, Hom.wittMap_smul, pr_x, smul_comm (g : FrobGroup Γ),
-    constantAt, LinearMap.comp_apply, LinearMap.restrictScalars_apply, gal_smul_letterProj,
-    DiagTensor.smul_mk, smul_one]
-  change k.zTauUnit⁻¹ •
-    (p ^ e • S.trivialLattice.letterProj i (DiagTensor.mk 1 c) -
-      p ^ e • S.trivialLattice.letterProj i (DiagTensor.mk 1 c)) = 0
-  rw [sub_self, smul_zero]
+  simp [k.galMonoid.smul_def, pr_x, smul_comm, constantAt, gal_smul_letterProj]
 
 /-- Two points `x` and `w` over the same constant, with orders `o₁` and `o₂`, differ by a vector
 over `0` with orders `o₁ ⊓ o₂`. -/
@@ -865,10 +784,8 @@ lemma sub_mem_kerWithOrders_of_pointsOver (hx : x ∈ S.pointsOver c i e o₁ o)
     (hw : w ∈ S.pointsOver c i e o₂ o₃) : w - x ∈ S.kerWithOrders i (o₁ ⊓ o₂) := by
   obtain ⟨-, pr_x, x_exp, -⟩ := hx
   obtain ⟨-, pr_w, w_exp, -⟩ := hw
-  exact ⟨sub_mem (mem_withOrders_of_le w_exp fun _ _ _ ↦ inf_le_right)
-    (mem_withOrders_of_le x_exp fun _ _ _ ↦ inf_le_left),
-    SetLike.mem_coe.2 <| LinearMap.mem_ker.2 <| by
-      rw [LinearMap.restrictScalars_apply, map_sub, pr_w, pr_x, sub_self]⟩
+  exact ⟨sub_mem (mem_withOrders_of_le w_exp (by simp))
+    (mem_withOrders_of_le x_exp (by simp)), by simp [pr_w, pr_x]⟩
 
 /-- Let `φ` be the Frobenius and `S.pointsOver c j e o o'` the points over `p ^ e` times the
 constant of `c` at the letter `j` with orders `o` that are fixed by `Γ'` modulo orders `o'` (the
@@ -877,16 +794,17 @@ a point at `i` over the same constant, with orders `shiftedOrders l 0 o` and dep
 `shiftedOrders l 1 o'`. -/
 lemma phi_pow_smul_mem_pointsOver (hw : w ∈ S.pointsOver c (i.stepBack l) e o o') :
     φ ^ l • w ∈ S.pointsOver c i e (shiftedOrders l 0 o) (shiftedOrders l 1 o') := by
-  refine ⟨phi_pow_smul_mem_kisinLoc hw.1, ?_, phi_pow_smul_mem_withOrders hw.2.2.1, fun g ↦ ?_⟩
-  · simp [hw.2.1, smul_comm, phi_pow_smul_constantAt, Perm.coe_inv]
+  refine ⟨phi_pow_smul_mem_kisinLoc hw.1,
+    by simp [hw.2.1, smul_comm, phi_pow_smul_constantAt, Perm.coe_inv],
+    phi_pow_smul_mem_withOrders hw.2.2.1, fun g ↦ ?_⟩
+  -- `g • w - w` is divisible by `k.zTau`, and `φ ^ l • k.zTau` vanishes at the levels `a < l`,
+  -- which raises the order there from `0` to `1`
   have quot := phi_pow_smul_mem_withOrders (zTauUnit_inv_smul_sub_mem_kerWithOrders hw g).1
   rw [show g • φ ^ l • w - φ ^ l • w = (φ ^ l • k.zTau) • φ ^ l • k.zTauUnit⁻¹ • (g • w - w) by
-    simp only [smul_phi_pow_comm, ← smul_sub, ← frobGroup_smul_smul, ← zTauUnit_smul,
-      smul_inv_smul]]
+    simp [← frobGroup_smul_smul, ← zTauUnit_smul, smul_sub, smul_phi_pow_comm]]
   refine mem_withOrders_of_mem_hodgeFil (smul_mem _ _ quot) fun a u hu h_lt μ hμ ↦ ?_
-  have ha : a < l := by
-    by_contra h
-    simp only [shiftedOrders, h, ↓reduceIte, lt_self_iff_false] at h_lt
+  -- the order to reach differs from the order of the quotient only at the levels below `l`
+  have ha : a < l := by by_contra h; simp [h] at h_lt
   simpa [ha] using mul_mem_hodgeFil (phiInvToBdR_mem_hodgeFil_one_iff.2 <| by
     simpa [zTau, smul_mul'] using (frobE_dvd_phi_pow_tau ha).mul_right _) (quot.2 a u hu μ hμ)
 
@@ -895,14 +813,8 @@ the letter `i`. -/
 lemma wittPairing_constantAt_one (i : k.Letter) (w : S.Ambient) :
     JumpLattice.wittPairing (C := S.kerLattice) (.lsmul O S.Carrier)
       (P.tateDualSide.constantAt i 1) w = S.letterProj i w := by
-  induction w using DiagTensor.induction with
-  | h_mk a t =>
-    simp only [constantAt, LinearMap.comp_apply, LinearMap.restrictScalars_apply]
-    rw [wittPairing_letterProj_left]
-    simp only [JumpLattice.wittPairing, DiagTensor.pair_mk]
-    change S.letterProj i (DiagTensor.mk (1 * a) ((1 : O.O) • t)) = _
-    rw [one_mul, one_smul]
-  | h_add x y hx hy => simp only [map_add, hx, hy]
+  revert w
+  exact diagTensor_induction (by simp [constantAt, wittPairing_letterProj_left])
 
 /-- Let `P` be a pairing of the lattices `Y`, `Y'` of two sides, given by a form `ψ : Y ⊗ Y' → O(1)`
 and a linear map `P.toZp : O → ℤ_p`, modulo `p ^ P.exponent`. Its Tate dual side is the lattice
@@ -919,27 +831,18 @@ lemma map_wittPairing_extensionForm (n : P.tateDualSide.extensionLattice.Ambient
       P.wittPairing (JumpLattice.wittPairing (C := S.kerLattice) (.lsmul O S.Carrier)
         (P.tateDualSide.projTrivial.wittMap n) w) y := by
   -- Both sides are linear in each variable: compare them on pure tensors.
-  induction n using DiagTensor.induction with
-  | h_add n₁ n₂ h₁ h₂ => simp only [map_add, LinearMap.add_apply, h₁, h₂]
-  | h_mk a₁ t₁ =>
-    induction w using DiagTensor.induction with
-    | h_add w₁ w₂ h₁ h₂ => simp only [map_add, LinearMap.add_apply, h₁, h₂]
-    | h_mk a₂ t₂ =>
-      induction y using DiagTensor.induction with
-      | h_add y₁ y₂ h₁ h₂ => simp only [map_add, h₁, h₂]
-      | h_mk a₃ t₃ =>
-        simp only [Pairing.wittPairing, JumpLattice.wittPairing, Hom.wittMap, JumpLattice.wittMap,
-          DiagTensor.pair_mk, DiagTensor.map_mk, LinearMap.comp_apply,
-          LinearMap.restrictScalars_apply, mul_assoc]
-        refine congrArg (DiagTensor.mk (a₁ * (a₂ * a₃))) ?_
-        have h_zero (z : QuotSpan ((p : ℤ_[p]) ^ P.exponent)) : p ^ P.exponent • z = 0 :=
-          Selmer.nsmul_quot_eq_zero (dvd_refl _) z
-        rcases t₁ with ⟨f₀, o₀⟩
-        change (mkQ _) (P.toZp (p ^ P.exponent • f₀ (t₂ ⊗ₜ[O] t₃) +
-          o₀ • P.integralForm (t₂ ⊗ₜ[O] t₃))) =
-          (mkQ _) (P.toZp (P.integralForm ((o₀ • t₂) ⊗ₜ[O] t₃)))
-        rw [map_add, map_nsmul, map_add, map_nsmul, h_zero, zero_add,
-          ← P.integralForm.map_smul, TensorProduct.smul_tmul']
+  revert n w y
+  refine diagTensor_induction
+    (fun _ _ ↦ diagTensor_induction
+      (fun _ _ ↦ diagTensor_induction ?_ fun _ _ h₁ h₂ ↦ by simp only [map_add, h₁, h₂])
+      fun _ _ h₁ h₂ y ↦ by simp only [map_add, LinearMap.add_apply, h₁, h₂])
+    fun _ _ h₁ h₂ w y ↦ by simp only [map_add, LinearMap.add_apply, h₁, h₂]
+  -- `extensionForm (λ, o) = p ^ m • λ + o • ψ`: the terms in `ψ` agree, and `p ^ m • λ` is `0`
+  -- modulo `p ^ m`
+  have h_kill (a : WittCFlat) (z : Rep.of (charRep (QuotSpan ((p : ℤ_[p]) ^ P.exponent)) χ)) :
+      p ^ P.exponent • DiagTensor.mk a z = 0 := by
+    rw [← map_nsmul, Selmer.nsmul_quot_eq_zero (by simp) z, map_zero]
+  simp [extensionForm, modPairing, mul_assoc, -nsmul_eq_mul, h_kill]
 
 end Points
 
