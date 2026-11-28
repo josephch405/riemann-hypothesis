@@ -267,8 +267,9 @@ the bijection that sends g to the place of a fixed embedding of E over K compose
 instance : CommGroup (P.Φ s) :=
   (Equiv.ofBijective (fun g : Gal(P.E s/P.K) ↦ InfinitePlace.mk (lift.comp g.toAlgHom).toRingHom)
     (by
-      let : Module.IsTorsionFree P.K (P.E s) := DivisionSemiring.to_moduleIsTorsionFree
-      let : Module.IsTorsionFree P.K ℂ := DivisionSemiring.to_moduleIsTorsionFree
+      -- Bind locally to avoid slow fallback searches for `Module.IsTorsionFree`.
+      have : Module.IsTorsionFree P.K (P.E s) := DivisionSemiring.to_moduleIsTorsionFree
+      have : Module.IsTorsionFree P.K ℂ := DivisionSemiring.to_moduleIsTorsionFree
       refine ⟨fun g g' h ↦ AlgEquiv.ext fun x ↦ ?_, fun w ↦ ?_⟩
       · exact lift.injective (AlgHom.congr_fun (P.algHom_eq_of_mk_eq s h) x)
       · -- All infinite places of `E` lie above the one infinite place of `K`, so they are
@@ -305,8 +306,9 @@ the automorphism `New.Parameters.galOfPlace` s v. -/
 instance : CMType (P.E s) where
   Φ v := (lift.comp (P.galOfPlace s v).toAlgHom).toRingHom
   mk_Φ := by
-    let : Module.IsTorsionFree P.K (P.E s) := DivisionSemiring.to_moduleIsTorsionFree
-    let : Module.IsTorsionFree P.K ℂ := DivisionSemiring.to_moduleIsTorsionFree
+    -- Bind locally to avoid slow fallback searches for `Module.IsTorsionFree`.
+    have : Module.IsTorsionFree P.K (P.E s) := DivisionSemiring.to_moduleIsTorsionFree
+    have : Module.IsTorsionFree P.K ℂ := DivisionSemiring.to_moduleIsTorsionFree
     exact (P.galOfPlace s).left_inv
 
 /-- For each infinite place `v` of `E`, the embedding `Φ v` of `E` into `ℂ` chosen at `v` restricts
