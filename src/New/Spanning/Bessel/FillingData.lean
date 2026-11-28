@@ -260,14 +260,9 @@ lemma exists_lowestKType_eq_ite (v : D.Φ) {u : Unit → D.shape.κ → ℤ}
   have hk : D.k ≤ D.a := D.nat_le_of_hasLogBound
   -- Of the heights above `p` and below `k`, only height 1 has columns; so the sum vanishes
   -- unless `p = 0`.
-  have hk1 : 1 < D.k := D.nat_lt_of_hasLogBound
   have h_column (p : ℕ) :
-      ∑ q ∈ Ioo p (card D.shape.κ), D.columnCount v q =
-        if p = 0 then D.columnCount v 1 else 0 := by
-    rw [sum_eq_ite 1 fun q hq hq1 ↦ by
-      have hq_lt : q < D.k := h_card ▸ (mem_Ioo.mp hq).2
-      simp [columnCount, hq1, hq_lt.ne, hq_lt.not_gt]]
-    simp only [mem_Ioo, h_card, hk1, and_true, Nat.lt_one_iff]
+      ∑ q ∈ Ioo p (card D.shape.κ), D.columnCount v q = if p = 0 then D.columnCount v 1 else 0 := by
+    rw [sum_eq_ite 1] <;> grind [columnCount]
   refine ⟨i, fun j ↦ ?_, fun j ↦ ?_⟩
   · have h_position : decreasingPosition (u ()) j = 0 ↔ j = i := by
       grind [(hu ()).1, hu.eq_hcParameter () j]
@@ -380,10 +375,7 @@ lemma exists_besselSystem (v : D.Φ) :
     ⟨_, isHCParam_hcParameter D.shape.κ _ 0⟩
   obtain ⟨rep, ⟨C, hC⟩, h_irred, h_cont, e, h_coef⟩ := exists_unitary_schur_rep hu
   have he : ‖e‖ = 1 := by
-    have h1 := h_coef 1
-    rw [map_one, OneMemClass.coe_one, one_apply_eq_self,
-      inner_self_eq_norm_sq_to_K] at h1
-    have h_sq : ‖e‖ ^ 2 = 1 := by exact_mod_cast (by simpa using h1 : ((‖e‖ ^ 2 : ℝ) : ℂ) = 1)
+    have h_sq : ‖e‖ ^ 2 = 1 := by simpa using congrArg norm (h_coef 1)
     exact (pow_eq_one_iff_of_nonneg (norm_nonneg e) two_ne_zero).1 h_sq
   -- A point `x` of length at most `b ^ (5 n)` where the volume of the unit ball is bounded by the
   -- L² norm of the average.
