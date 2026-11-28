@@ -102,6 +102,7 @@ lemma IsAppellHumbert.summable_and_analyticAt_tsum {P : Type*} {b : P} [FinCompl
   -- A homogenised bound on the unit sphere of `ℝ × V`, with a small extra parameter `ε`: here
   -- `r = (ε, c, ξ, u, z)`, so `r.2.1 = c` and `r.2.2 = (ξ, u, z)`, and `y = (s, x)`. At `ε = 0` it
   -- says `-Re (B x (T b x)) / 2 < s ^ 2`, true as `(s, x) ≠ 0`; it persists nearby.
+  -- Supply the `ℝ`-scalar action directly to avoid slow `ContinuousSMul` instance search.
   have _ : ContinuousSMul ℝ (StrongDual ℂ V) := ⟨by
     rw [show (fun p : ℝ × StrongDual ℂ V ↦ p.1 • p.2) = fun p ↦ (p.1 : ℂ) • p.2 from
       funext fun p ↦ (algebraMap_smul ℂ p.1 p.2).symm]
@@ -114,14 +115,12 @@ lemma IsAppellHumbert.summable_and_analyticAt_tsum {P : Type*} {b : P} [FinCompl
       ContinuousAt.eventually_lt (by fun_prop) (continuousAt_snd.fst.pow 2) ?_
     -- At `r = (0, b, p)` the left side is `-Re (B x (T b x)) / 2`: negative if `x ≠ 0`, and zero
     -- if `x = 0`, when `s ≠ 0` as `(s, x)` lies on the sphere.
-    rw [mul_zero, zero_smul, zero_mul, add_zero]
-    change (0 - B x 0 - B x (T b x) / 2).re < s ^ 2
-    rw [map_zero, sub_zero, zero_sub, neg_re, div_ofNat_re]
-    rcases eq_or_ne x 0 with rfl | hx_ne
-    · have hs_ne : s ≠ 0 := fun hs ↦ by simp [hs] at hx
-      rw [map_zero, _root_.zero_apply, zero_re, zero_div, neg_zero]
-      exact sq_pos_of_ne_zero hs_ne
-    · linarith [hpos x hx_ne, sq_nonneg s]
+    have h_base : -((B x (T b x)).re / 2) < s ^ 2 := by
+      rcases eq_or_ne x 0 with rfl | hx_ne
+      · have hs_ne : s ≠ 0 := fun hs ↦ by simp [hs] at hx
+        simpa using sq_pos_of_ne_zero hs_ne
+      · linarith [hpos x hx_ne, sq_nonneg s]
+    simpa [exponent] using h_base
   obtain ⟨scale, h_scale_pos, near⟩ :
       ∃ scale > (0 : ℝ), ∀ᶠ q : P × StrongDual ℂ V × V × V in nhds (b, p),
       ∀ y ∈ Metric.sphere (0 : ℝ × V) 1,
@@ -146,24 +145,8 @@ lemma IsAppellHumbert.summable_and_analyticAt_tsum {P : Type*} {b : P} [FinCompl
       simp [h_scale_pos.ne']
     -- Multiply the bound at this unit vector by the square of the norm of `(scale⁻¹, l)`.
     have h_re : (exponent q l).re + ‖(l : V)‖ ≤ scale⁻¹ ^ 2 := by
-      let r : ℝ := ‖(scale⁻¹, (l : V))‖
-      have hr : 0 < r := norm_pos_iff.mpr fun h ↦
-        inv_ne_zero h_scale_pos.ne' (congrArg Prod.fst h)
-      have hq' := (hq _ h_unit).le
-      simp only [NormedSpace.normalize, Prod.smul_fst, Prod.smul_snd, smul_eq_mul, norm_smul,
-        norm_inv, norm_norm, mul_assoc, inv_mul_cancel₀ h_scale_pos.ne', mul_one] at hq'
-      have h_hom :
-          (exponent (q.1, r⁻¹ • q.2) (r⁻¹ • (l : V))).re = r⁻¹ ^ 2 * (exponent q l).re := by
-        rcases q with ⟨c, ξ, u, z⟩
-        have h_clm (φ : V →L[ℂ] ℂ) (v : V) : φ (r⁻¹ • v) = r⁻¹ • φ v := by
-          rw [← algebraMap_smul ℂ r⁻¹ v, φ.map_smul, algebraMap_smul]
-        simp only [exponent, Prod.smul_fst, Prod.smul_snd, smul_apply, map_smul, ← smul_add,
-          h_clm, Complex.real_smul]
-        rw [← Complex.re_ofReal_mul]; congr 1; push_cast; ring
-      change (exponent (q.1, r⁻¹ • q.2) (r⁻¹ • (l : V))).re + r⁻¹ * (r⁻¹ * ‖(l : V)‖) ≤
-          (r⁻¹ * scale⁻¹) ^ 2 at hq'
-      rw [h_hom, ← mul_assoc, ← sq, ← mul_add, mul_pow] at hq'
-      exact le_of_mul_le_mul_left hq' (sq_pos_of_pos (inv_pos.mpr hr))
+      simpa [exponent, -Prod.norm_mk, h_scale_pos.ne', NormedSpace.normalize, norm_smul, fieldLe]
+        using (hq _ h_unit).le
     calc ‖term q l‖
       _ = Real.exp (exponent q l).re := by simp [term, norm_exp, hB.norm_eq_one _ l.prop]
       _ ≤ Real.exp (scale⁻¹ ^ 2 - ‖(l : V)‖) := Real.exp_le_exp.mpr (by linarith)
@@ -214,11 +197,7 @@ lemma IsAppellHumbert.poincareSeries_mem_thetaSpace_and_quotMean
     -- On the diagonal the series is `∑ l, 𝐞 (B.riemannForm x l) * t 0 l`, a Fourier series on
     -- `V ⧸ L`; its mean is the coefficient at `l = 0`.
     have h_term (x : V) (l : L) : B.poincareTerm χ x x l = 𝐞 (B.riemannForm x l) * t 0 l := by
-      rw [ThetaTori.LatticeForm.poincareTerm]
-      simp only [t, Prod.fst_zero, Prod.snd_zero, _root_.zero_apply, sub_self, zero_add,
-        map_zero, zero_sub]
-      rw [coe_fourierChar_eq_exp, mul_div_assoc', ← exp_add, ← hB.sub_eq_riemannForm x l,
-        sub_eq_add_neg]
+      simp [t, ThetaTori.LatticeForm.poincareTerm, exp_sub, ← hB.sub_eq_riemannForm, field]
     have coef : ∑' l : ({0} : Set L), t 0 l =
         quotMean L.toAddSubgroup fun x ↦ ∑' l : L, 𝐞 (B.riemannForm x l) * t 0 l :=
       (isPosRiemann_of_re_pos h_pos).isDualFamily.tsum_coeff_eq_quotMean
@@ -227,9 +206,7 @@ lemma IsAppellHumbert.poincareSeries_mem_thetaSpace_and_quotMean
       simp only [ThetaTori.LatticeForm.poincareSeries]
       exact tsum_congr (h_term x)
     simp only [h_series, ← coef]
-    rw [tsum_singleton]
-    simp only [t, ZeroMemClass.coe_zero, Prod.fst_zero, Prod.snd_zero,
-      _root_.zero_apply, map_zero, zero_div, sub_zero, exp_zero, one_div]
+    simp [t]
   refine ⟨fun x y ↦ (series (B x, y - x, y)).1, ?_, fun x ↦ ⟨fun y ↦ ?_, fun m hm z ↦ ?_⟩, mean, ?_⟩
   · exact (AnalyticOnNhd.continuous fun p _ ↦ (series p).2).comp
       (f := fun p : V × V ↦ (B p.1, p.2 - p.1, p.2)) (by fun_prop)
@@ -277,10 +254,7 @@ lemma IsAppellHumbert.exists_mem_thetaSpace_ne_zero : ∃ f ∈ B.thetaSpace χ,
       semicharacter := by simpa [h_riem] using hB.semicharacter }
   -- The real part of `(B + T) x x` is `π E(x, i x)`, positive for `x ≠ 0`.
   have h_re (x : V) : ((B + T) x x).re = Real.pi * B.riemannForm x (I • x) := by
-    rw [riemannForm_def, ← mul_div_assoc, mul_comm 2 Real.pi, mul_div_mul_left _ _ Real.pi_ne_zero]
-    simp only [T, _root_.add_apply, smul_apply, ContinuousLinearMap.comp_apply,
-      ContinuousLinearMap.lsmul_apply, smul_eq_mul, map_smul, add_re, add_im, mul_re,
-      div_ofNat_re, div_ofNat_im, I_re, I_im, sub_im, mul_im]
+    simp [T, riemannForm_def, field]
     ring
   have pos : ∀ x ≠ 0, 0 < ((B + T) x x).re := fun x hx ↦ by
     rw [h_re x]
@@ -382,34 +356,19 @@ private lemma pairingMean_neg {n : ℕ} (s t : Fin n → B.thetaSpace χ) (b : V
     pairingMean t s (-b) = conj (pairingMean s t b) := by
   -- After translating the mean by `b`, the integrands agree up to conjugation: the theta values
   -- match, and so do the exponents, written here as they appear after unfolding.
-  have h_exp (x : V) :
-      exp (linearPartForm B (-b) (-b) / 2) *
-          (conj (exp (-(B (x + b) 0 + B (x + b) (x + b) / 2))) *
-            exp (-(B (x + b) (-b) + B (x + b) (x + b) / 2))) =
-        conj (exp (linearPartForm B b b / 2)) *
-          (exp (-(B x 0 + B x x / 2)) * conj (exp (-(B x b + B x x / 2)))) := by
-    rw [← exp_conj, ← exp_conj, ← exp_conj, ← exp_add, ← exp_add, ← exp_add, ← exp_add]
-    congr 1
-    have h1 : (B b x).re = (B x b).re := hB.re_symm b x
-    have h2 : (B (I • b) b).re = -(B b b).im := by simpa using hB.re_symm (I • b) b
-    simp only [linearPartForm, smul_apply, _root_.add_apply, ContinuousLinearMap.comp_apply,
-      ContinuousLinearMap.lsmul_apply, _root_.neg_apply, smul_eq_mul, map_neg, map_add, map_zero,
-      map_div₀, map_mul, neg_neg, conj_I, conj_ofNat]
-    generalize B (I • b) b = u, B b b = v, B x x = w, B x b = p, B b x = q at h1 h2 ⊢
-    apply Complex.ext <;> simp [h1, h2, neg_div] <;> ring
+  have h_exponent (x : V) :
+      (I / 2 * B (I • b) b + I / 2 * I * B b b) / 2 +
+          (-((conj (B x x) + conj (B x b) + (conj (B b x) + conj (B b b))) / 2) +
+            (-((B x x + B x b + (B b x + B b b)) / 2) + (B b b + B x b))) =
+        (-(I / 2 * conj (B (I • b) b)) + I / 2 * I * conj (B b b)) / 2 +
+          (-(B x x / 2) + (-(conj (B x x) / 2) + -conj (B x b))) := by
+    -- Use symmetry of the real part, including at `I • b`, in both components.
+    apply Complex.ext <;> simp [hB.re_symm, neg_div] <;> ring
   have h_integrand (x : V) :
       pairingIntegrand t s (-b) (x + b) = conj (pairingIntegrand s t b x) := by
-    have h_cancel : -b + (x + b) = x := by abel
-    unfold pairingIntegrand
-    rw [map_mul, map_sum, Finset.mul_sum, Finset.mul_sum]
-    refine Finset.sum_congr rfl fun i _ ↦ ?_
-    simp only [thetaShift_apply_apply, map_mul, starRingEnd_self_apply, zero_add,
-      h_cancel, add_comm b x]
-    calc _ = (exp (linearPartForm B (-b) (-b) / 2) *
-            (conj (exp (-(B (x + b) 0 + B (x + b) (x + b) / 2))) *
-              exp (-(B (x + b) (-b) + B (x + b) (x + b) / 2)))) *
-          (conj ((t i : V → ℂ) (x + b)) * (s i : V → ℂ) x) := by ring
-      _ = _ := by rw [h_exp x]; ring
+    simp [pairingIntegrand, linearPartForm, mul_sum, thetaShift_apply_apply, ← exp_conj,
+      ← mul_assoc, mul_right_comm _ (conj _), conj_ofNat, ← exp_add, neg_div, map_sum,
+      add_comm b x, h_exponent]
   calc pairingMean t s (-b)
       = quotMean L.toAddSubgroup fun x ↦ pairingIntegrand t s (-b) (x + b) :=
         (quotMean_translate (isContPeriodic_pairingIntegrand t s (-b)) b).symm
@@ -454,21 +413,15 @@ lemma IsAppellHumbert.exists_injective_to_dual_quotient {n : ℕ} {s : Fin n →
             pairingIntegrand (thetaShiftEnd q.out ∘ s) (t + t') 0 x =
               pairingIntegrand (thetaShiftEnd q.out ∘ s) t 0 x +
                 pairingIntegrand (thetaShiftEnd q.out ∘ s) t' 0 x := by
-          simp only [pairingIntegrand, Pi.add_apply, Submodule.coe_add, map_add, mul_add,
-            Finset.sum_add_distrib]
+          simp [pairingIntegrand, mul_add, sum_add_distrib]
         have h_per (u : Fin n → B.thetaSpace χ) :
             IsContPeriodic L.toAddSubgroup (pairingIntegrand (thetaShiftEnd q.out ∘ s) u 0) :=
           isContPeriodic_pairingIntegrand _ u 0
         simp only [pairingMean, quotMean, h_add]
         exact integral_add (h_per t).integrable_out (h_per t').integrable_out
       map_smul' c t := by
-        have h_smul (x : V) :
-            pairingIntegrand (thetaShiftEnd q.out ∘ s) (c • t) 0 x =
-              c * pairingIntegrand (thetaShiftEnd q.out ∘ s) t 0 x := by
-          simp only [pairingIntegrand, Pi.smul_apply, SetLike.val_smul, map_smul, smul_eq_mul,
-            Finset.mul_sum, mul_left_comm _ c]
-        rw [pairingMean, pairingMean, funext h_smul, quotMean_const_mul, RingHom.id_apply,
-          smul_eq_mul] }
+        unfold pairingMean pairingIntegrand
+        simp [mul_left_comm, ← mul_sum] }
   refine ⟨.pi pairingAt, (injective_iff_map_eq_zero _).mpr fun t ht ↦ ?_⟩
   -- Up to a non-zero factor, `pairingMean t (thetaShiftEnd a ∘ s) (b - a)` is the Fourier
   -- coefficient of `pairingIntegrand t s b` at the character of `a`; changing `a` by an element of
@@ -593,6 +546,7 @@ lemma IsAppellHumbert.relIndex_dualLattice_eq_finrank_end :
   have := hB.finite_dualLattice_quotient
   let h_fintype_quot : Fintype (B.dualLattice ⧸ N) := Fintype.ofFinite (B.dualLattice ⧸ N)
   have h_finite : Module.Finite ℂ (B.thetaSpace χ) := hB.finite_thetaSpace
+  -- Supply `Module.Finite` on endomorphisms directly to avoid slow instance search.
   have _ : Module.Finite ℂ (End ℂ (B.thetaSpace χ)) := Module.Finite.linearMap ℂ ℂ _ _
   have card_le : card (B.dualLattice ⧸ N) ≤ finrank ℂ (End ℂ (B.thetaSpace χ)) :=
     hB.linearIndependent_thetaShiftEnd_out.fintype_card_le_finrank
@@ -676,6 +630,7 @@ lemma IsAppellHumbert.schur_lemma {Q : End ℂ (B.thetaSpace χ)}
   have central (A : End ℂ (B.thetaSpace χ)) : Commute A Q :=
     Commute.span_left (Set.forall_mem_range.mpr h_comm) A
       (hB.span_range_thetaShiftEnd_eq_top.ge mem_top)
+  -- Supply `Module.Free` directly to avoid slow vector-space freeness search.
   have _ : Module.Free ℂ (B.thetaSpace χ) := .of_divisionRing ℂ _
   have ⟨c, _, hc⟩ := Module.End.mem_subsemiringCenter_iff.mp
     (Subsemiring.mem_center_iff.mpr central)
@@ -739,14 +694,12 @@ lemma New.IsAppellHumbert.exists_mem_thetaSpace_nsmul_apply_ne_zero (hB : IsAppe
   have h_multiplier (a l : V) :
       (χ ^ m) l * (m • B).riemannPhase l a * (χ l * B.riemannPhase l (-(m : ℝ) • a)) =
         (χ ^ (m + 1)) l := by
-    have h_phase : (m • B).riemannPhase l a * B.riemannPhase l (-(m : ℝ) • a) = 1 := by
-      rw [RealComplexForm.riemannPhase, RealComplexForm.riemannPhase, ← Circle.coe_mul,
-        ← AddChar.map_add_eq_mul]
-      have h_sum : (m • B).riemannForm l a + B.riemannForm l (-(m : ℝ) • a) = 0 := by
-        rw [map_nsmul, LinearMap.smul_apply, LinearMap.smul_apply, nsmul_eq_mul,
-          map_smul, smul_eq_mul, neg_mul, add_neg_cancel]
-      rw [h_sum, AddChar.map_zero_eq_one, Circle.coe_one]
-    rw [mul_mul_mul_comm, h_phase, mul_one, pow_succ, Pi.mul_apply]
+    have h_sum : (m • B).riemannForm l a + B.riemannForm l (-(m : ℝ) • a) = 0 := by
+      rw [map_nsmul, LinearMap.smul_apply, LinearMap.smul_apply, nsmul_eq_mul,
+        map_smul, smul_eq_mul, neg_mul, add_neg_cancel]
+    rw [mul_mul_mul_comm, RealComplexForm.riemannPhase, RealComplexForm.riemannPhase,
+      ← Circle.coe_mul, ← AddChar.map_add_eq_mul, h_sum, AddChar.map_zero_eq_one,
+      Circle.coe_one, mul_one, pow_succ, Pi.mul_apply]
   have h_mem (a : V) : thetaShift (m • B) a (f ^ m) * thetaShift B (-(m : ℝ) • a) f ∈
       ((m + 1) • B).thetaSpace (χ ^ (m + 1)) := by
     refine (mul (thetaShift_mem (pow hf m) a) (thetaShift_mem hf _)).imp_right
