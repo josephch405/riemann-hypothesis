@@ -285,7 +285,6 @@ lemma radicalPoint_hermitianPart (c : Matrix r Unit (𝔸 E)) (b : Matrix Unit U
   exact G.ext_adeleMatrix (by simp only [radicalPoint, radicalElement, G.adeleMatrix_ofMatrix,
     h_sum])
 
-seal Finset.sum Finset.prod Finset.univ in
 /-- The coordinates `radicalPoint X` embed a column and a hermitian scalar as a closed subset of
 the adelic unitary group of `V'`. -/
 lemma isClosedEmbedding_radicalPoint : Topology.IsClosedEmbedding (radicalPoint X) := by
