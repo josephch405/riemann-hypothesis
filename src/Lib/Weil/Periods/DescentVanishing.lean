@@ -233,8 +233,7 @@ lemma thetaTerm_radicalCentre_mul (z : Matrix p p (𝔸 E)) (x : Matrix m p E) (
     D.thetaTerm V a b f (D.radicalCenter z * g) x h =
       stdAddChar E ((-H.j • (xᴴ * V.J * x)).map toAdele * z).trace * D.thetaTerm V a b f g x h := by
   have h_scalar : toAdele (2⁻¹ : E) * -toAdele (H.j * 2 : E) = toAdele (-H.j) := by
-    rw [← map_neg, ← map_mul, mul_neg, mul_comm H.j, ← mul_assoc,
-      inv_mul_cancel₀ two_ne_zero, one_mul]
+    simp [← map_neg, ← map_mul, mul_comm H.j]
   have h_phase :
       toAdele (2⁻¹ : E) * (-toAdele (H.j * 2 : E) • z * (xᴴ * V.J * x).map toAdele).trace =
         ((-H.j • (xᴴ * V.J * x)).map toAdele * z).trace := by
@@ -242,14 +241,11 @@ lemma thetaTerm_radicalCentre_mul (z : Matrix p p (𝔸 E)) (x : Matrix m p E) (
       trace_smul, trace_mul_comm z, smul_eq_mul, smul_eq_mul, ← mul_assoc, h_scalar]
   have h_split : pairWeil W V a b (D.radicalCenter z * g, h) f =
       pairWeil W V a b (D.radicalCenter z, 1) (pairWeil W V a b (g, h) f) := by
-    rw [rep_apply_apply]
-    exact congrArg (pairWeil W V a b · f) (Prod.ext rfl (one_mul h).symm)
+    simp [rep_apply_apply]
   rw [thetaTerm, h_split, radicalCentre_apply, homSlice_radicalElement, gram_at_point_eq_map,
     h_phase]
   -- The Heisenberg translation in `homSlice_radicalElement` is by the zero vector.
-  simp only [neg_smul, coe_units_inv, conjTranspose_zero, Matrix.mul_zero, Matrix.zero_mul,
-    matrixToVec_zero, Heisenberg.Rep.rho_zero_apply, map_smul, theta_apply, smul_eq_mul,
-    thetaTerm]
+  simp [thetaTerm]
 
 /-- For `y` left invariant under the rational points `V.Γ`, the term of the frame `x` in the theta
 kernel at `(g, h)`, times `y h`, does not change when `(x, h)` is replaced by `(γ x, γ h)` with `γ`
@@ -267,6 +263,13 @@ lemma fixesLeft_thetaTerm_mul (hΓ : V.Γ.FixesLeft y) (x : Matrix m p E) :
   obtain ⟨γ, hγ, rfl⟩ := mem_ratStabilizer.mp hk
   simpa only [hγ] using D.thetaTerm_mul_ratEmbed_mul hΓ γ x h
 
+/-- The term `D.thetaTerm V a b f g x h` of the theta kernel varies continuously with `h`. -/
+@[fun_prop]
+lemma continuous_thetaTerm (x : Matrix m p E) :
+    Continuous fun h : G E t ↦ D.thetaTerm V a b f g x h := by
+  unfold thetaTerm
+  fun_prop
+
 /-- Let `y` be continuous on `U(V)(𝔸)`, and let the terms of the theta kernel at `g` be absolutely
 integrable against `y`. Then the theta lift of `y` at `radicalCenter z * g` is the sum over all
 rational frames `x` of `ψ (tr (-j β(x) z))` times the integral over `[U(V)]` of the term of `x` at
@@ -283,17 +286,11 @@ lemma integral_pairTheta_radicalCentre_mul (h_int : D.HasIntegrableTerms V a b f
       ∑' x : Matrix m p E, χ x * (D.thetaTerm V a b f g x h * y h) := by
     simp_rw [← (D.hasSum_thetaTerm h).tsum_eq, D.thetaTerm_radicalCentre_mul, ← tsum_mul_right,
       mul_assoc, χ]
-  have h_meas (x : Matrix m p E) : AEStronglyMeasurable
-      (fun h : G E t ↦ D.thetaTerm V a b f g x h * y h) V.quotMeasure := by
-    unfold thetaTerm
-    have h_pw : Continuous fun h : G E t ↦ pairWeil W V a b (g, h) f := by fun_prop
-    exact (((W₀.hom V).θ.continuous.comp
-      ((D.homSlice V _).continuous.comp h_pw)).mul hy).aestronglyMeasurable
   have h_swap : ∑' x : Matrix m p E, ∫ h, χ x * (D.thetaTerm V a b f g x h * y h) ∂V.quotMeasure =
       ∫ h, ∑' x : Matrix m p E, χ x * (D.thetaTerm V a b f g x h * y h) ∂V.quotMeasure :=
     (hasSum_integral_of_lintegral_tsum_lt_top
       (by simpa [← ofReal_norm, χ, Circle.norm_coe] using h_int) -- since `|χ x| = 1`
-      fun x ↦ .const_mul (h_meas x) (χ x)).tsum_eq
+      fun x ↦ .const_mul (by fun_prop) (χ x)).tsum_eq
   simp_rw [h_expand, ← h_swap, integral_const_mul, χ]
 
 /-- Let `D` split `W`, and take the theta kernel of the datum `f` twisted by the characters `a`,
@@ -308,27 +305,20 @@ lemma centreCoeff_integral_eq_tsum (h_int : D.HasIntegrableTerms V a b f g y)
         (fun k : G E s ↦ ∫ h : G E t, pairTheta W V a b f (k, h) * y h ∂V.quotMeasure) g =
       ∑' x : {x : Matrix m p E | xᴴ * V.J * x = β},
         ∫ h : G E t, D.thetaTerm V a b f g (x : Matrix m p E) h * y h ∂V.quotMeasure := by
-  have h_meas (x : Matrix m p E) : AEStronglyMeasurable
-      (fun h : G E t ↦ D.thetaTerm V a b f g x h * y h) V.quotMeasure := by
-    unfold thetaTerm
-    have h_pw : Continuous fun h : G E t ↦ pairWeil W V a b (g, h) f := by fun_prop
-    exact (((W₀.hom V).θ.continuous.comp
-      ((D.homSlice V _).continuous.comp h_pw)).mul hy).aestronglyMeasurable
   have h_summable :
       Summable fun x : Matrix m p E ↦ ∫ h, D.thetaTerm V a b f g x h * y h ∂V.quotMeasure :=
-    (hasSum_integral_of_lintegral_tsum_lt_top h_int h_meas).summable
+    (hasSum_integral_of_lintegral_tsum_lt_top h_int (by fun_prop)).summable
   -- With the character of `j • β` from `centerCoeff`, the frequency of `x` is zero exactly when
   -- `x` has Gram matrix `β`. So the right side is the mean over `z` of a sum over all `x`.
   have h_freq (x : Matrix m p E) : -H.j • (xᴴ * V.J * x) + H.j • β = 0 ↔
       x ∈ {x : Matrix m p E | xᴴ * V.J * x = β} := by
-    simp only [Set.mem_ofPred_eq, neg_smul, neg_add_eq_zero, smul_right_inj WeilData.j_ne_zero]
+    simp [neg_add_eq_zero, WeilData.j_ne_zero]
   rw [isDualFamily_ratMatrices.tsum_coeff_eq_quotMean _ h_freq h_summable, centerCoeff]
   congr with z
   -- The means over `z` have the same integrand: the characters of `j β` and of `x` multiply.
-  rw [D.integral_pairTheta_radicalCentre_mul h_int hy, ← tsum_mul_left]
-  refine tsum_congr fun x ↦ ?_
-  rw [isDualFamily_ratMatrices.add_left, ← mul_assoc]
-  exact congrArg (· * _) (mul_comm _ _)
+  simp_rw [D.integral_pairTheta_radicalCentre_mul h_int hy, ← tsum_mul_left,
+    isDualFamily_ratMatrices.add_left]
+  exact tsum_congr fun x ↦ by ring
 
 /-- Unfolding. Let `y` be continuous on `U(V)(𝔸)` and left invariant under the rational points, and
 let the terms of the theta kernel at `g` be absolutely integrable against `y`. Let `x` be a rational
@@ -348,12 +338,7 @@ lemma centreCoeff_eq_integral_ratStabilizer (h_int : D.HasIntegrableTerms V a b 
   obtain ⟨h_integrable, -, h_sum⟩ := integral_tsum_orbit_of_lt_top_or_integrable (Γ := V.Γ)
     (μ := volume)
     (S := V.ratStabilizer x) (D := {z : Matrix m p E | zᴴ * V.J * z = xᴴ * V.J * x})
-    V.ratEmbed_injective rfl (fun z ↦ by
-      unfold thetaTerm
-      have h_pw : Continuous fun h : G E t ↦ pairWeil W V a b (g, h) f := by fun_prop
-      exact (((W₀.hom V).θ.continuous.comp
-        ((D.homSlice V _).continuous.comp h_pw)).mul hy).measurable)
-    (D.thetaTerm_mul_ratEmbed_mul hΓ)
+    V.ratEmbed_injective rfl (fun z ↦ by fun_prop) (D.thetaTerm_mul_ratEmbed_mul hΓ)
     rfl (gram_eq_iff_mem_orbit h_gram) (.inl h_int)
   exact ⟨h_integrable, h_sum⟩
 
@@ -466,25 +451,17 @@ lemma mem_range_secondBlock {g : G E (1 : n → ℤˣ)} :
     g ∈ (secondBlock o hs).range ↔ g.adeleMatrix * firstFrame E o = firstFrame E o := by
   constructor
   · rintro ⟨v, rfl⟩
-    simp only [secondBlock, MonoidHom.coe_comp, Function.comp_apply, MonoidHom.inr_apply,
-      blockEmb_mul_firstFrame, adeleMatrix_one, Matrix.mul_one]
+    simp [secondBlock, blockEmb_mul_firstFrame]
   · intro hg
     -- In the basis indexed by `n₁ ⊕ n₂` the first block of columns of `g` is that of `1`.
     let g' : G E ((1 : n₁ → ℤˣ) ⊕ᵥ (1 : n₂ → ℤˣ)) := reindex o.symm hs g
     have h_entry (i : n) (j : n₁) :
         g.adeleMatrix i (o (.inl j)) = (1 : Matrix n n (𝔸 E)) i (o (.inl j)) := by
-      simpa only [Matrix.one_apply, firstFrame, inclMatrix, Matrix.mul_apply,
-        Matrix.map_apply, submatrix_apply, id_eq, Function.comp_apply,
-        MonoidWithZeroHom.map_ite_one_zero, mul_ite, mul_one, mul_zero, Finset.sum_ite_eq',
-        Finset.mem_univ, ↓reduceIte] using congrFun₂ hg i j
+      simpa [firstFrame, inclMatrix, Matrix.mul_apply, Matrix.one_apply] using congrFun₂ hg i j
     have h_cols : g'.adeleMatrix.toCols₁ = fromRows 1 0 := by
       ext i j : 1
       change g.adeleMatrix (o i) (o (.inl j)) = _
-      cases i
-      · simp only [h_entry, Matrix.one_apply, EmbeddingLike.apply_eq_iff_eq, Sum.inl.injEq,
-          fromRows_apply_inl]
-      · simp only [h_entry, ne_eq, EmbeddingLike.apply_eq_iff_eq, reduceCtorEq,
-          not_false_eq_true, one_apply_ne, fromRows_apply_inr, Matrix.zero_apply]
+      cases i <;> simp [h_entry, Matrix.one_apply]
     obtain ⟨a, ha⟩ : ∃ a : U (stdForm E (1 : n₂ → ℤˣ)),
         U.sum stdForm_sum (1, a) = g'.toUnitary :=
       (U.mem_range_sum_right stdForm_sum (by simp)).mpr h_cols
@@ -493,8 +470,7 @@ lemma mem_range_secondBlock {g : G E (1 : n → ℤˣ)} :
     have h_sum : G.sum (1, toUnitary.symm a) = g' := by
       apply ext_adeleMatrix
       rw [adeleMatrix_sum, ha_mat]
-      simp only [adeleMatrix, map_one, OneMemClass.coe_one, Units.val_one,
-        MulEquiv.apply_symm_apply]
+      simp [adeleMatrix]
     refine ⟨toUnitary.symm a, ?_⟩
     change (reindex o.symm hs).symm (G.sum (1, toUnitary.symm a)) = g
     rw [h_sum, MulEquiv.symm_apply_apply]
@@ -514,26 +490,19 @@ lemma comap_Gamma_secondBlock : (stdSpace E n).Γ.comap (secondBlock o hs) = (st
 /-- `diag(h₁, h₂) = diag(1, h₂) diag(h₁, 1)`. -/
 lemma blockEmb_eq_secondBlock_mul (h₁ : G E (1 : n₁ → ℤˣ)) (h₂ : G E (1 : n₂ → ℤˣ)) :
     blockEmb hs (h₁, h₂) = secondBlock o hs h₂ * blockEmb hs (h₁, 1) := by
-  rw [secondBlock, MonoidHom.coe_comp, Function.comp_apply, MonoidHom.inr_apply,
-    ← map_mul, Prod.mk_mul_mk, one_mul, mul_one]
+  simp [secondBlock, ← map_mul]
 
 /-- The second block commutes with `diag(h₁, 1)⁻¹`. -/
 lemma inv_blockEmb_mul_secondBlock_mul (h₁ : G E (1 : n₁ → ℤˣ)) (v : G E (1 : n₂ → ℤˣ))
     (g : G E (1 : n → ℤˣ)) :
     (blockEmb hs (h₁, 1))⁻¹ * (secondBlock o hs v * g) =
       secondBlock o hs v * ((blockEmb hs (h₁, 1))⁻¹ * g) := by
-  rw [secondBlock, MonoidHom.coe_comp, Function.comp_apply, MonoidHom.inr_apply,
-    ← mul_assoc, ← mul_assoc]
-  congr 1
-  rw [← map_inv, ← map_mul, ← map_mul]
-  refine congrArg (blockEmb hs) (Prod.ext
-    (by rw [Prod.fst_mul, Prod.fst_mul, mul_one, one_mul])
-    (by rw [Prod.snd_mul, Prod.snd_mul, Prod.snd_inv, inv_one, one_mul, mul_one]))
+  simp [secondBlock, ← mul_assoc, ← map_inv, ← map_mul]
 
 omit [Fintype n₁] [DecidableEq n₁] [Fintype n₂] [DecidableEq n₂] in
-@[fun_prop] lemma continuous_movedFrame : Continuous (movedFrame (E := E) o) :=
-  (G.continuous_adeleMatrix.comp continuous_inv).matrix_mul
-    (continuous_const (y := firstFrame E o))
+@[fun_prop] lemma continuous_movedFrame : Continuous (movedFrame (E := E) o) := by
+  unfold movedFrame
+  fun_prop
 
 omit [DecidableEq n] [DecidableEq n₁] in
 @[fun_prop] lemma continuous_frameChar [WeilData E] (T : Set (FinPlace E)) :
@@ -542,13 +511,8 @@ omit [DecidableEq n] [DecidableEq n₁] in
   fun_prop [matrixToVec]
 
 @[fun_prop] lemma continuous_frameWeight [WeilData E] :
-    Continuous (frameWeight (E := E) (n := n) (n₁ := n₁)) := by
-  unfold frameWeight matrixToVec
-  have h_smul : Continuous fun x : Matrix n n₁ (𝔸 E) ↦
-      (scaleIdele E : 𝔸 E) • fun p : n × n₁ ↦ x p.1 p.2 :=
-    continuous_pi fun p ↦ (continuous_const (y := (scaleIdele E : 𝔸 E))).mul
-      (continuous_id.matrix_elem p.1 p.2)
-  exact ((isVacuum_vacuumFn (s := 1).cont).comp h_smul).norm.pow 2
+    Continuous (frameWeight (E := E) (n := n) (n₁ := n₁)) :=
+  (isVacuum_vacuumFn (s := 1).cont.comp (by fun_prop [matrixToVec])).norm.pow 2
 
 omit [DecidableEq n] [DecidableEq n₁] in
 /-- The slice `frameWeight x = vac[α₀ x]` of the vacuum is not zero exactly when all entries of `x`
@@ -569,36 +533,23 @@ lemma exists_movedFrame_eq [WeilData E] {h : G E (1 : n → ℤˣ)}
   let X : Matrix n n₁ (𝔸f E) := inclMatrix (𝔸f E) (o ∘ .inl)
   let X' : Matrix n n₁ (𝔸f E) := h⁻¹.2.val.val * X
   have hX_gram : Xᴴ * (1 : Matrix n n (𝔸f E)) * X = 1 := by
-    simp only [inclMatrix, conjTranspose_submatrix, conjTranspose_one, Matrix.mul_one,
-      ← ext_iff, Matrix.mul_apply, submatrix_apply, Matrix.one_apply, Function.comp_apply,
-      id_eq, mul_ite, mul_one, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte,
-      EmbeddingLike.apply_eq_iff_eq, Sum.inl.injEq, implies_true, X]
+    simp [X, inclMatrix, Matrix.mul_apply, ← ext_iff, Matrix.one_apply]
   have hX'_gram : X'ᴴ * (1 : Matrix n n (𝔸f E)) * X' = 1 :=
     (U.gram_invariant h⁻¹.2 X X).trans hX_gram
   have hX_int : IsIntMatrix (Ô E) X := by
-    simp only [IsIntMatrix, inclMatrix, submatrix_apply, Matrix.one_apply, id_eq,
-      Function.comp_apply, ite_mem, one_mem, implies_true, zero_mem, and_self, X]
+    simp [X, IsIntMatrix, inclMatrix, ite_mem, Matrix.one_apply]
   have hX'_int : IsIntMatrix (Ô E) X' := by
-    simpa only [X, X', IsIntMatrix, Prod.snd_inv, Gf.coe_inv, coe_units_inv, inclMatrix,
-      Matrix.mul_apply, submatrix_apply, Matrix.one_apply, id_eq, Function.comp_apply,
-      mul_ite, mul_one, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte,
-      movedFrame, firstFrame, Matrix.map_apply, MonoidWithZeroHom.map_ite_one_zero,
-      adeleMatrix_snd] using frameWeight_ne_zero_iff.1 h_weight
+    simpa [movedFrame, firstFrame, X, X', IsIntMatrix, inclMatrix, Matrix.mul_apply,
+      Matrix.one_apply] using frameWeight_ne_zero_iff.1 h_weight
   obtain ⟨d, hd_mem, hdX⟩ := witt_Ô_of_orthonormal hX_gram hX'_gram hX_int hX'_int
   -- Take `γ⁻¹` with the infinite part of `h⁻¹` and the finite part `d`.
   let γInv : G E (1 : n → ℤˣ) := (h⁻¹.1, d)
   have h_frame : γInv.adeleMatrix * firstFrame E o = h⁻¹.adeleMatrix * firstFrame E o := by
     ext i j : 1
     suffices γInv.adeleMatrix i (o (.inl j)) = h⁻¹.adeleMatrix i (o (.inl j)) by
-      simpa only [firstFrame, inclMatrix, Matrix.mul_apply, Matrix.map_apply,
-        submatrix_apply, Matrix.one_apply, id_eq, Function.comp_apply,
-        MonoidWithZeroHom.map_ite_one_zero, mul_ite, mul_one, mul_zero,
-        Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+      simpa [firstFrame, inclMatrix, Matrix.mul_apply, Matrix.one_apply]
     refine Prod.ext rfl ?_
-    simpa only [γInv, X, X', Prod.fst_inv, adeleMatrix_snd, Prod.snd_inv, Gf.coe_inv,
-      coe_units_inv, inclMatrix, Matrix.mul_apply, submatrix_apply, Matrix.one_apply, id_eq,
-      Function.comp_apply, mul_ite, mul_one, mul_zero, Finset.sum_ite_eq',
-      Finset.mem_univ, ↓reduceIte] using congrFun₂ hdX i j
+    simpa [γInv, X, X', inclMatrix, Matrix.mul_apply, Matrix.one_apply] using congrFun₂ hdX i j
   exact ⟨γInv⁻¹, inv_mem hd_mem, by rw [movedFrame, inv_inv, h_frame, movedFrame]⟩
 
 /-- The characters `ψ_u` separate frames away from `T` and its conjugates: two frames with the same
@@ -625,6 +576,11 @@ lemma smul_eq_of_frameChar_eq [WeilData E] {T : Set (FinPlace E)} {x x' : Matrix
 noncomputable abbrev blockQuotMeasure : Measure (G E (1 : n → ℤˣ)) :=
   cosetMeasure volume volume (secondBlock (E := E) o hs)
 
+/-- The block-diagonal embedding `blockEmb hs` is continuous. -/
+@[fun_prop]
+lemma continuous_blockEmb : Continuous (blockEmb (E := E) hs) :=
+  (isClosedEmbedding_blockEmb hs).continuous
+
 /-- The embedding of the second block is a closed embedding of `U(n₂)(𝔸)` in `U(n)(𝔸)`. -/
 lemma isClosedEmbedding_secondBlock : Topology.IsClosedEmbedding (secondBlock (E := E) o hs) :=
   (isClosedEmbedding_blockEmb hs).comp
@@ -637,12 +593,8 @@ lemma continuous_blockPeriod {Y : G E (1 : n → ℤˣ) → ℂ} (hY_cont : Cont
     Continuous (blockPeriod o hs Y h₁) := by
   obtain ⟨C, hC⟩ :=
     (isRapid_of_isCocompact hY_cont hY_inv (stdSpace E n).isCocompact_Gamma).bounded
-  exact continuous_of_dominated
-    (fun h ↦ (hY_cont.comp (((isClosedEmbedding_blockEmb hs).continuous.comp
-      ((continuous_const (y := h₁)).prodMk continuous_id)).mul
-      (continuous_const (y := h)))).aestronglyMeasurable)
-    (fun h ↦ .of_forall fun h₂ ↦ hC _) (integrable_const C)
-    (.of_forall fun h₂ ↦ hY_cont.comp (continuous_const_mul _))
+  exact continuous_of_dominated (by fun_prop) (fun h ↦ .of_forall fun h₂ ↦ hC _)
+    (integrable_const C) (.of_forall (by fun_prop))
 
 /-- For a continuous function `Y` on `[U(n)]`, the period `I(h) = ∫ Y(diag(h₁, h₂) h) dh₂` is left
 invariant under the second block, so it depends only on the frame `h⁻¹ o₁`. -/
@@ -665,15 +617,12 @@ lemma blockPeriod_eq_of_movedFrame_eq {Y : G E (1 : n → ℤˣ) → ℂ} (hY_co
     exact hY_inv _ ((comap_Gamma_secondBlock o hs).ge hγ) _
   have h_shift (h₂ : G E (1 : n₂ → ℤˣ)) :
       blockEmb hs (h₁, h₂) * a = blockEmb hs (h₁, h₂ * v) * b := by
-    rw [← mul_inv_eq_iff_eq_mul, mul_assoc, ← hv, secondBlock, MonoidHom.coe_comp,
-      Function.comp_apply, MonoidHom.inr_apply, ← map_mul, Prod.mk_mul_mk, mul_one]
+    rw [← mul_inv_eq_iff_eq_mul, mul_assoc, ← hv]
+    simp [secondBlock, ← map_mul]
   -- The measure on `[U(n₂)]` is invariant under right translation by `v`.
   have h_translate : ∫ h₂, Y (blockEmb hs (h₁, h₂ * v) * b) ∂(stdSpace E n₂).quotMeasure =
       ∫ h₂, Y (blockEmb hs (h₁, h₂) * b) ∂(stdSpace E n₂).quotMeasure :=
-    ((stdSpace E n₂).integral_comp_mul_right v h_inv
-      (hY_cont.comp (((isClosedEmbedding_blockEmb hs).continuous.comp
-        ((continuous_const (y := h₁)).prodMk continuous_id)).mul
-        (continuous_const (y := b))))).1
+    ((stdSpace E n₂).integral_comp_mul_right v h_inv (by fun_prop)).1
   simpa only [blockPeriod, h_shift] using h_translate
 
 /-- The rational points of the second block are the rational points of `U(n)` that fix the
@@ -686,9 +635,8 @@ lemma mem_map_Gamma_secondBlock (k : G E (1 : n → ℤˣ)) :
   have h_fix (γ : U (stdSpace E n).J) : (stdSpace E n).ratEmbed γ ∈ (secondBlock o hs).range ↔
       (γ : Matrix n n E) * inclMatrix E (o ∘ .inl) = inclMatrix E (o ∘ .inl) := by
     rw [mem_range_secondBlock]
-    simp only [adeleMatrix_ratEmbed, stdSpace_x, inv_one, Units.val_one, one_mul, mul_one,
-      firstFrame, inclMatrix, ← ext_iff, Matrix.mul_apply, Matrix.map_apply,
-      submatrix_apply, ← (toAdele (E := E)).injective.eq_iff, _root_.map_sum, map_mul]
+    simp [adeleMatrix_ratEmbed, firstFrame, inclMatrix, Matrix.mul_apply, ← ext_iff,
+      ← (toAdele (E := E)).injective.eq_iff]
   rw [← comap_Gamma_secondBlock o hs, map_comap_eq, mem_inf]
   constructor
   · rintro ⟨hk, γ, rfl⟩
@@ -746,13 +694,7 @@ lemma exists_theta_homSlice_eq_mul_frameChar (T : Set (FinPlace E)) (u : n × n�
   intro V A f
   have h_base : IsBaseAdapted A := by
     refine ⟨isOrthoIntegral_hyperbolicSpace.2.of_eq_submatrix_mul (id ⊕ᵥ Empty.elim) .one ?_⟩
-    simp only [lAdelic, coe_units_inv, hyperbolicSplitting, kAdelic, Matrix.mul_one,
-      ← ext_iff, submatrix_apply, id_eq, Sum.forall, fromCols_apply_inl, Sum.elim_inl,
-      Matrix.mul_apply, Matrix.map_apply, Fintype.sum_sum_type, fromRows_apply_inl,
-      Matrix.one_apply, MonoidWithZeroHom.map_ite_one_zero, mul_ite, mul_one, mul_zero,
-      Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, fromRows_apply_inr,
-      Matrix.zero_apply, map_zero, Finset.sum_const_zero, add_zero, implies_true,
-      fromCols_apply_inr, zero_add, and_self, Sum.elim_inr, IsEmpty.forall_iff, A]
+    simp [lAdelic, kAdelic, A, hyperbolicSplitting, Matrix.mul_apply, ← ext_iff, Matrix.one_apply]
   -- In the mixed model the vacuum is a nonzero constant times the square norm of `vacuumFn`.
   obtain ⟨c, hc_ne, h_vac⟩ : ∃ c ≠ (0 : ℂ), ∀ z : n × n₁ → 𝔸 E,
       (A.homSource V).slice z ((hyperbolicSpace E n₁).hom V).vacElem =
@@ -762,28 +704,18 @@ lemma exists_theta_homSlice_eq_mul_frameChar (T : Set (FinPlace E)) (u : n × n�
   refine ⟨c, hc_ne, fun x ↦ ?_⟩
   have h_slice : A.homSlice V ((scaleIdele E).val • x) ((hyperbolicSpace E n₁).hom V).vacElem =
       (c * frameWeight x) • ((stdSpace E Empty).hom V).vacElem := by
-    simp only [homSlice_eq_adapted_slice, coe_units_inv, matrixToVec_smul, h_vac,
-      mulVec_mulVec, ← conjTranspose_mul, isUnits_det_units, nonsing_inv_mul,
-      conjTranspose_one, one_mulVec, frameWeight, Complex.ofReal_pow]
+    simp [homSlice_eq_adapted_slice, h_vac, frameWeight, ← conjTranspose_mul]
   -- The Heisenberg translation multiplies the mixed model at `α₀ x` by `ψ_u(x)`.
   have h_half (a r : 𝔸 E) : toAdele (j / 2 : E) * ((a + a) * r) = toAdele (j : E) * (a * r) := by
     conv_rhs => rw [← add_halves (j : E), map_add]
     ring
   have h_shift : A.homSlice V ((scaleIdele E).val • x) f = (frameChar T x u : ℂ) •
       A.homSlice V ((scaleIdele E).val • x) ((hyperbolicSpace E n₁).hom V).vacElem := by
-    simp only [homSlice_eq_adapted_slice, coe_units_inv, matrixToVec_smul, star_smul,
-      star_sub, star_one, star_idemAdele_conjClosure, isMixedLaw_slice, adelicHeisenberg,
-      stdForm_one, one_mulVec, mulVec_mulVec, coord_mul_frame_mul, zero_mulVec, add_zero,
-      star_mulVec, star_star, dotProduct_add, dotProduct_mulVec, vecMul_vecMul,
-      ← conjTranspose_mul, isUnits_det_units, nonsing_inv_mul, conjTranspose_one,
-      vecMul_one, dotProduct_smul, smul_dotProduct, smul_eq_mul, ← add_mul, h_half,
-      Heisenberg.Rep.rho_zero_apply, frameChar, invDifferentIdele, mul_assoc,
-      Units.val_mul, Units.coe_map, Units.val_mk0, MonoidHom.coe_ofClass,
-      Units.coe_star, V, f]
+    simp [homSlice_eq_adapted_slice, f, V, adelicHeisenberg, star_mulVec, dotProduct_mulVec,
+      ← conjTranspose_mul, ← add_mul, h_half, frameChar, invDifferentIdele, mul_assoc]
   have h_one : ((stdSpace E Empty).hom V).θ ((stdSpace E Empty).hom V).vacElem = 1 := by
-    simp only [theta_apply, funext_iff, IsEmpty.forall_iff, implies_true,
-      vacElem_apply_eq_prod_lineTheta, Finset.univ_eq_empty, Pi.zero_apply, Finset.prod_empty]
-  simp only [h_shift, h_slice, map_smul, h_one, smul_eq_mul, mul_one, mul_left_comm]
+    simp [vacElem_apply_eq_prod_lineTheta, Finset.univ_eq_empty, funext_iff]
+  simp [h_shift, h_slice, h_one, mul_left_comm]
 
 /-- Let `Y` be a continuous function on `[U(n)]` whose descents to the split space
 `hyperbolicSpace E n₁` vanish for all data that are vacuum at `T`. Then `ψ_u(x) · vac[α₀ x] · Y(g)`,
@@ -814,13 +746,7 @@ lemma DescentsVanish.integral_frameChar_eq_zero {T : Set (FinPlace E)} {Y : G E 
       (scaleIdele E).val • star ((1 - idemAdele T.conjClosure) • u))
     ((hyperbolicSpace E n₁).hom V).vacElem
   have hf_vac : projOn ((hyperbolicSpace E n₁).hom V) T f = f := by
-    simp +contextual only [star_smul, star_sub, star_one, star_idemAdele_conjClosure,
-      mulVec_smul, Set.mem_union, Set.star_preimage, Set.mem_star, Pi.smul_apply,
-      smul_eq_mul, Prod.snd_mul, Prod.snd_sub, Prod.snd_one,
-      IsDedekindDomain.FiniteAdeleRing.mul_apply,
-      IsDedekindDomain.FiniteAdeleRing.sub_apply,
-      IsDedekindDomain.FiniteAdeleRing.one_apply, idem_of_mem, sub_self, zero_mul,
-      mul_zero, implies_true, projOn_rho, projOn_vacElem, f]
+    simp +contextual [f, mulVec_smul]
   have h_killed : (fun g : G E (hyperbolicSigns n₁) ↦
       ∫ h, pairTheta (hyperbolicSpace E n₁) V υ 1 f (g, h) * Y h ∂V.quotMeasure) = 0 :=
     hkill f hf_vac
@@ -832,17 +758,13 @@ lemma DescentsVanish.integral_frameChar_eq_zero {T : Set (FinPlace E)} {Y : G E 
     hasIntegrableTerms_hyperbolicSplitting_of_isRapid
       (isRapid_of_isCocompact hY_cont hY_inv V.isCocompact_Gamma) υ f g₀
   have h_gram : IsUnit (x₀ᴴ * V.J * x₀) :=
-    ⟨1, by simp only [Units.val_one, inclMatrix, conjTranspose_submatrix, conjTranspose_one,
-      stdSpace_J, Matrix.mul_one, ← ext_iff, Matrix.one_apply, Matrix.mul_apply,
-      submatrix_apply, Function.comp_apply, id_eq, mul_ite, mul_one, mul_zero,
-      Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, EmbeddingLike.apply_eq_iff_eq,
-      Sum.inl.injEq, implies_true, x₀, V]⟩
+    ⟨1, by simp [x₀, V, inclMatrix, Matrix.mul_apply, ← ext_iff, Matrix.one_apply]⟩
   obtain ⟨h_int, h_coeff⟩ :=
     (A.centreCoeff_eq_integral_stabilizer h_terms hY_cont hY_inv h_gram
       (mem_map_Gamma_secondBlock o hs)).right
   have h_zero : ∫ g, A.thetaTerm V υ 1 f g₀ x₀ g * Y g ∂ν = 0 := by
     rw [← h_coeff, h_killed]
-    simp only [centerCoeff, Pi.zero_apply, mul_zero, quotMean_const]
+    simp [centerCoeff]
   -- The term of `x₀` is `c · ψ_u(x) · vac[α₀ x]` with `c = c₁ c₂ ≠ 0`: the Levi element contributes
   -- the factor `c₁` and moves the frame to `α₀ x`.
   obtain ⟨c₂, hc₂_ne, h_theta⟩ : ∃ c₂ ≠ (0 : ℂ), ∀ y : Matrix n n₁ (𝔸 E),
@@ -852,20 +774,14 @@ lemma DescentsVanish.integral_frameChar_eq_zero {T : Set (FinPlace E)} {Y : G E 
   -- `c₁` is the scalar by which the Levi element acts in the mixed model.
   let c₁ : ℂ := ((AutChar.spaceChar (1 : AutChar E) (Fintype.card n)).val m.det : ℂ)⁻¹ *
     (√(ideleAbs m.det) : ℝ) ^ Fintype.card n
-  have hc_ne : c₁ * c₂ ≠ 0 := by
-    simp only [ne_eq, mul_eq_zero, inv_eq_zero, Circle.coe_ne_zero, pow_eq_zero_iff',
-      Complex.ofReal_eq_zero, ideleAbs_nonneg_and_ne_zero, Real.sqrt_eq_zero, false_and,
-      or_self, hc₂_ne, not_false_eq_true, c₁]
+  have hc_ne : c₁ * c₂ ≠ 0 := by simp [c₁, hc₂_ne]
   have h_frame (g : G E (1 : n → ℤˣ)) :
       g⁻¹.adeleMatrix * (V.x⁻¹.val * x₀.map toAdele) * m.val = (scaleIdele E).val • x g := by
-    simp only [adeleMatrix, map_inv, InvMemClass.coe_inv, coe_units_inv, stdSpace_x, inv_one,
-      Units.val_one, Matrix.one_mul, Units.val_smul, Units.smul_def, Matrix.mul_smul,
-      Matrix.mul_assoc, movedFrame_inv_blockEmb_mul, firstFrame, V, x₀, m, x]
+    simp [x, movedFrame_inv_blockEmb_mul, V, m, x₀, firstFrame, Matrix.mul_assoc, Units.smul_def,
+      adeleMatrix]
   have h_trivial (g : G E (1 : n → ℤˣ)) (φ : 𝒮 ((stdSpace E Empty).hom V)) :
       pairWeil (stdSpace E Empty) V 1 1 (1, g) φ = φ := by
-    simp only [pairWeil_apply, pairChar_apply, OneMemClass.coe_one,
-      ContinuousMonoidHom.one_toFun, Circle.coe_one, map_one, inv_one, mul_one,
-      Subsingleton.eq_one (G.onHom (1, g)), one_apply_eq_self, one_smul]
+    simp [pairWeil_apply, Subsingleton.eq_one (G.onHom (1, g))]
   have h_term (g : G E (1 : n → ℤˣ)) : A.thetaTerm V υ 1 f g₀ x₀ g * Y g =
       c₁ * c₂ * (frameChar T (x g) u * frameWeight (x g) • Y g) := by
     rw [Splitting.thetaTerm, homSlice_levi, h_frame, h_trivial, map_smul, h_theta]
@@ -907,12 +823,9 @@ lemma DescentsVanish.integral_frameChar_mul_blockPeriod_eq_zero {T : Set (FinPla
   let ν : Measure (G E (1 : n → ℤˣ)) := ((stdSpace E n₂).Γ.map (secondBlock o hs)).quotMeasure
   obtain ⟨F_int, F_zero⟩ : Integrable F ν ∧ ∫ g, F g ∂ν = 0 :=
     hkill.integral_frameChar_eq_zero o hs hY_cont hY_inv h₁ u
-  have hx_cont : Continuous x :=
-    (continuous_movedFrame o).comp (continuous_const_mul (blockEmb hs (h₁, 1))⁻¹)
   have F_cont : Continuous F :=
     (continuous_subtypeVal.comp <| (continuous_apply u).comp <|
-      (continuous_frameChar T).comp hx_cont).mul
-      ((continuous_frameWeight.comp hx_cont).smul hY_cont)
+      (continuous_frameChar T).comp (by fun_prop)).mul (by fun_prop)
   have F_inv : ((stdSpace E n₂).Γ.map (secondBlock o hs)).FixesLeft F := by
     rintro _ ⟨v, hv, rfl⟩ g
     simp only [F, x_inv, hY_inv _ ((comap_Gamma_secondBlock o hs).ge hv)]
@@ -1008,13 +921,10 @@ lemma integral_continuousMap_frameChar_eq_zero {T : Set (FinPlace E)} {Z : Type}
     (χ : C((n × n₁ → 𝔸 E) → Circle, ℂ)) :
     Integrable (fun g : Z ↦ χ (frameChar T (x g)) * w g) ν ∧
       ∫ g : Z, χ (frameChar T (x g)) * w g ∂ν = 0 := by
-  have w_int : Integrable w ν := by
-    simpa only [frameChar, zero_dotProduct, mul_zero, map_zero_eq_one, Circle.coe_one,
-      one_mul] using hw_int 0
+  have w_int : Integrable w ν := by simpa [frameChar] using hw_int 0
   have integrable (χ : C((n × n₁ → 𝔸 E) → Circle, ℂ)) :
       Integrable (fun g ↦ χ (frameChar T (x g)) * w g) ν :=
-    w_int.bdd_mul (χ.continuous.comp ((continuous_frameChar T).comp hx)).aestronglyMeasurable
-      (.of_forall fun g ↦ χ.norm_coe_le_norm _)
+    w_int.bdd_mul (by fun_prop) (.of_forall fun g ↦ χ.norm_coe_le_norm _)
   -- The integral is a continuous functional `Λ` of `χ`.
   let Λ : C((n × n₁ → 𝔸 E) → Circle, ℂ) →L[ℂ] ℂ :=
     strongIntegral ν fun g ↦ (evalCLM (M := ℂ) ℂ (frameChar T (x g))).smulRight (w g)
@@ -1026,24 +936,18 @@ lemma integral_continuousMap_frameChar_eq_zero {T : Set (FinPlace E)} {Z : Type}
     { carrier := {χ | ∃ u : n × n₁ → 𝔸 E, ∀ y : Matrix n n₁ (𝔸 E),
         χ (frameChar T y) = frameChar T y u}
       mul_mem' := fun ⟨u, hu⟩ ⟨v, hv⟩ ↦
-        ⟨u + v, by simp only [ContinuousMap.mul_apply, hu, frameChar, hv, add_dotProduct,
-          mul_add, map_add_eq_mul, Circle.coe_mul, implies_true]⟩
-      one_mem' := ⟨0, by simp only [ContinuousMap.one_apply, frameChar, zero_dotProduct,
-        mul_zero, map_zero_eq_one, Circle.coe_one, implies_true]⟩ }
+        ⟨u + v, by simp [hu, hv, frameChar, mul_add, map_add_eq_mul]⟩
+      one_mem' := ⟨0, by simp [frameChar]⟩ }
   have dense : Dense (Submodule.span ℂ (chars : Set C((n × n₁ → 𝔸 E) → Circle, ℂ)) :
       Set C((n × n₁ → 𝔸 E) → Circle, ℂ)) := by
     refine stone_weierstrass_span chars ?_ ?_
     · rintro χ ⟨u, hu⟩
-      exact ⟨-u, by simp only [ContinuousMap.star_apply, hu, frameChar, Complex.star_def,
-        ← Circle.coe_inv_eq_conj, Circle.coe_inv, neg_dotProduct, mul_neg, map_neg_eq_inv,
-        implies_true]⟩
+      exact ⟨-u, by simp [frameChar, hu, map_neg_eq_inv, ← Circle.coe_inv_eq_conj]⟩
     · intro z z' hz
       funext u
-      exact Circle.ext (hz ⟨fun c ↦ c u, continuous_subtypeVal.comp (continuous_apply u)⟩
-        ⟨u, fun _ ↦ rfl⟩)
-  have Λ_zero : Λ = 0 :=
-    Λ.ext_on dense fun χ ⟨u, hu⟩ ↦ by simpa only [Λ_apply, hu, _root_.zero_apply] using hw_zero u
-  exact ⟨integrable χ, by simp only [← Λ_apply, Λ_zero, _root_.zero_apply]⟩
+      exact Circle.ext (hz ⟨fun c ↦ c u, by fun_prop⟩ ⟨u, fun _ ↦ rfl⟩)
+  have Λ_zero : Λ = 0 := Λ.ext_on dense fun χ ⟨u, hu⟩ ↦ by simpa [Λ_apply, hu] using hw_zero u
+  exact ⟨integrable χ, by simp [← Λ_apply, Λ_zero]⟩
 
 /-- From descents to periods. Let `Y` be a continuous function on `[U(n)]` that is right invariant
 (`HasLevel`) under the elements of `stdLevel E n` with component 1 at every place outside `T` and
@@ -1077,44 +981,35 @@ lemma integral_blockEmb_eq_zero_of_descentsVanish {T : Set (FinPlace E)} {Y : G 
         ∫ g, frameChar T (x g) u * frameWeight (x g) • I g ∂blockQuotMeasure o hs = 0 :=
     hkill.integral_frameChar_mul_blockPeriod_eq_zero o hs hY_cont hY_inv h₁ u
   let F (g : G E (1 : n → ℤˣ)) : ℂ := χ (frameChar T (x g)) * frameWeight (x g) • I g
-  have hx_cont : Continuous x := (continuous_movedFrame o).comp (continuous_const_mul g₀⁻¹)
   obtain ⟨F_int, F_zero⟩ :
       Integrable F (blockQuotMeasure o hs) ∧ ∫ g, F g ∂blockQuotMeasure o hs = 0 :=
-    integral_continuousMap_frameChar_eq_zero hx_cont (fun u ↦ (h_orth u).left)
+    integral_continuousMap_frameChar_eq_zero (by fun_prop) (fun u ↦ (h_orth u).left)
       (fun u ↦ (h_orth u).right) χ
   let ρ (g : G E (1 : n → ℤˣ)) : ℝ := frameWeight (x g) * ‖I g‖ ^ 2
   have F_eq : F = fun g ↦ (ρ g : ℂ) := by
     funext g
     obtain hg | hg := eq_or_ne (frameWeight (x g)) 0
-    · simp only [Complex.real_smul, hg, Complex.ofReal_zero, zero_mul, mul_zero, F, ρ]
+    · simp [F, ρ, hg]
     · have hχg : χ (frameChar T (x g)) = star (I g) := hχ (g₀⁻¹ * g) hg
       calc F g = frameWeight (x g) • (star (I g) * I g) := by simp only [F, hχg, mul_smul_comm]
-        _ = ρ g := by simp only [Complex.star_def, Complex.conj_mul', Complex.real_smul,
-          Complex.ofReal_mul, Complex.ofReal_pow, ρ]
+        _ = ρ g := by simp [ρ, Complex.conj_mul']
   have ρ_inv (v : G E (1 : n₂ → ℤˣ)) (g : G E (1 : n → ℤˣ)) :
       ρ (secondBlock o hs v * g) = ρ g := by
     have x_inv : x (secondBlock o hs v * g) = x g := by
       simp only [x, g₀, inv_blockEmb_mul_secondBlock_mul, movedFrame_secondBlock_mul]
     simp only [ρ, x_inv, I, blockPeriod_eq_of_movedFrame_eq o hs hY_cont hY_inv h₁ x_inv]
-  have ρ_int : Integrable ρ (blockQuotMeasure o hs) := by
-    simpa only [F_eq, RCLike.re_to_complex, Complex.ofReal_re] using F_int.re
+  have ρ_int : Integrable ρ (blockQuotMeasure o hs) := by simpa [F_eq] using F_int.re
   have ρ_integral : ∫ g, ρ g ∂blockQuotMeasure o hs = 0 := by
-    simpa only [F_eq, integral_complex_ofReal, Complex.ofReal_eq_zero] using F_zero
+    simpa [F_eq, integral_complex_ofReal] using F_zero
   have ρ_zero : ρ = 0 := eq_zero_of_integral_cosetMeasure_eq_zero volume volume
-    (isClosedEmbedding_secondBlock o hs)
-    ((continuous_frameWeight.comp hx_cont).mul (I_cont.norm.pow 2))
+    (isClosedEmbedding_secondBlock o hs) (by fun_prop)
     (fun g ↦ mul_nonneg (sq_nonneg _) (sq_nonneg _)) ρ_inv ρ_int ρ_integral
   -- At `g₀` the frame is `o₁`, which is integral.
   have weight_ne : frameWeight (x g₀) ≠ 0 := by
     simp only [x, inv_mul_cancel]
     exact frameWeight_ne_zero_iff.2
-      (by simp only [movedFrame, inv_one, adeleMatrix_one, firstFrame, inclMatrix,
-        Matrix.one_mul, Matrix.map_apply, submatrix_apply, Matrix.one_apply, id_eq,
-        Function.comp_apply, apply_ite, map_one, map_zero, Prod.snd_one, Prod.snd_zero,
-        one_mem, zero_mem, ite_self, implies_true])
-  have I_zero : I g₀ = 0 := by
-    simpa only [ρ, Pi.zero_apply, mul_eq_zero, weight_ne, ne_eq, OfNat.ofNat_ne_zero,
-      not_false_eq_true, pow_eq_zero_iff, norm_eq_zero, false_or] using congrFun ρ_zero g₀
-  simpa only [I, blockPeriod, inv_mul_cancel, mul_one] using I_zero
+      (by simp [movedFrame, firstFrame, inclMatrix, Matrix.one_apply, apply_ite])
+  have I_zero : I g₀ = 0 := by simpa [ρ, weight_ne] using congrFun ρ_zero g₀
+  simpa [I, blockPeriod] using I_zero
 
 end New.SiegelWeil
