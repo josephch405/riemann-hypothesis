@@ -111,7 +111,10 @@ lemma conjForm_mem_crysForms {p : ℕ} [ThePrime p] [Γ : GroupOverGp p] {d : Ta
   let l' : L.Carrier →ₗ[ℤ_[p]] Bmax :=
     DistribSMul.toLinearMap ℤ_[p] Bmax (toGp g)⁻¹ ∘ₗ l ∘ₗ overZp L.ρ g
   have hl' (t : L.Carrier) : conjForm μ g (DiagTensor.mk 1 t) = algebraMap Bmax BdR (l' t) := by
-    simp [l', hl]
+    have hmk : inr g • (DiagTensor.mk 1 t : L.Ambient) = DiagTensor.mk 1 (overZp L.ρ g t) := by
+      simp
+    rw [conjForm_apply, hmk, hl, smul_algebraMap_eq_algebraMap_smul]
+    rfl
   exact ⟨conjForm_mem_forms h_normal h_equiv, l', hl'⟩
 
 /-- Let `d` be a tame chart for a group `Γ → G_p`, with subgroup `Γ'` and inertia element
@@ -142,18 +145,36 @@ lemma sum_coeff_smul_conjForm_apply_eq_zero {p : ℕ} [ThePrime p] [Γ : GroupOv
     (DistribSMul.toLinearMap ℤ_[p] Bmax (toGp g)⁻¹ ∘ₗ l ∘ₗ overZp L.ρ g).liftBaseChange Bmax
   have hℓ_tmul (g : Γ) (t : L.Carrier) :
       algebraMap Bmax BdR (ℓ g (1 ⊗ₜ t)) = conjForm μ g (DiagTensor.mk 1 t) := by
-    simp [ℓ, hl]
+    have hmk : inr g • (DiagTensor.mk 1 t : L.Ambient) = DiagTensor.mk 1 (overZp L.ρ g t) := by
+      simp
+    rw [conjForm_apply, hmk, hl, smul_algebraMap_eq_algebraMap_smul]
+    change algebraMap Bmax BdR (liftBaseChange Bmax _ (1 ⊗ₜ t)) = _
+    rw [liftBaseChange_tmul, one_smul]
+    rfl
   have hℓ_act (g g' : Γ) (y : Bmax ⊗[ℤ_[p]] L.Carrier) :
       ℓ g' (tensorAction Bmax (toGp g) (L.ρ g) y) = toGp g • ℓ (g' * g) y := by
     induction y with
-    | tmul b t => simp [ℓ, tensorAction, mul_smul]
+    | tmul b t =>
+      dsimp only [ℓ, tensorAction]
+      rw [TensorProduct.map_tmul, liftBaseChange_tmul, liftBaseChange_tmul]
+      simp only [comp_apply, DistribSMul.toLinearMap_apply, map_mul, mul_inv_rev, mul_smul,
+        smul_eq_mul, smul_mul', smul_inv_smul]
+      rfl
     | add y y' hy hy' => simp only [map_add, smul_add, hy, hy']
   have hℓ_coset (u : Γ) (g : d.subgroup) : ℓ (u * g) = ℓ u := by
     ext t
     have h_equiv : conjForm μ u (DiagTensor.mk 1 (L.ρ g t)) =
         toGp g.val • conjForm μ u (DiagTensor.mk 1 t) :=
       conjForm_mem_forms (fun h hh ↦ d.normal.conj_mem h hh u) hμ_equiv t g
-    simpa [ℓ, hl, mul_smul, inv_smul_eq_iff, -map_pow] using h_equiv
+    have h_lhs : conjForm μ u (DiagTensor.mk 1 (L.ρ g t)) =
+        algebraMap Bmax BdR (toGp g.val • ℓ (u * g) (1 ⊗ₜ t)) := by
+      rw [← hℓ_act g u (1 ⊗ₜ t)]
+      change conjForm μ u (DiagTensor.mk 1 (L.ρ g t)) =
+        algebraMap Bmax BdR (ℓ u ((toGp g.val • (1 : Bmax)) ⊗ₜ L.ρ g t))
+      rw [show toGp g.val • (1 : Bmax) = 1 by simp, hℓ_tmul]
+    rw [h_lhs, ← hℓ_tmul, smul_algebraMap_eq_algebraMap_smul] at h_equiv
+    have h_eq := FaithfulSMul.algebraMap_injective Bmax BdR h_equiv
+    exact (inv_smul_eq_iff.2 h_eq.symm).symm.trans (inv_smul_smul _ _)
   -- The relation is tested on the vectors `y` fixed near `1`, which span.
   have hℓ_rel : ∑ k ∈ range (q.natDegree + 1), q.coeff k • ℓ (d.tameGen ^ k) = 0 := by
     refine ext_on h_crys fun y hy ↦ ?_
@@ -179,10 +200,17 @@ lemma sum_coeff_smul_conjForm_apply_eq_zero {p : ℕ} [ThePrime p] [Γ : GroupOv
       basisValues (∑ k ∈ range (q.natDegree + 1), q.coeff k • conjForm μ (d.tameGen ^ k)) =
         basisValues 0 := by
     ext i
-    have h_rel (t : L.Carrier) : algebraMap Bmax BdR
-        ((∑ k ∈ range (q.natDegree + 1), q.coeff k • ℓ (d.tameGen ^ k)) (1 ⊗ₜ t)) = 0 := by
-      simp [hℓ_rel]
-    simpa [basisValues, algebraMap.smul, hℓ_tmul] using h_rel _
+    have h_rel (t : L.Carrier) :
+        (∑ k ∈ range (q.natDegree + 1), q.coeff k • conjForm μ (d.tameGen ^ k))
+          (DiagTensor.mk 1 t) = 0 := by
+      have h_eq : algebraMap Bmax BdR
+          ((∑ k ∈ range (q.natDegree + 1), q.coeff k • ℓ (d.tameGen ^ k)) (1 ⊗ₜ t)) = 0 := by
+        rw [hℓ_rel, LinearMap.zero_apply, map_zero]
+      rw [LinearMap.sum_apply, map_sum] at h_eq
+      simp only [LinearMap.smul_apply, Algebra.smul_def, map_mul,
+        ← IsScalarTower.algebraMap_apply ℤ_[p] Bmax BdR, hℓ_tmul] at h_eq
+      simpa only [LinearMap.sum_apply, LinearMap.smul_apply, Algebra.smul_def] using h_eq
+    exact h_rel _
   simpa using apply_eq_of_mem_fracSpan _ 0 h_values (kisinAinf_le_fracSpan hx_mem)
 
 /-- Let `Γ` be a group over `G_p = Gal(ℚ̄_p/ℚ_p)` with a tame chart `d`: this gives an element
@@ -256,8 +284,9 @@ lemma aeval_linearFrob_extensionLattice_eq_zero {p : ℕ} [ThePrime p] [Γ : Gro
   have h_triv : linearFrob S.trivialLattice.ρ d.tameGen 0 = 1 := by
     simp [IsCrystalline.linearFrob_eq_one, isAdmissible_of_cyclotomicGp_zpow 0, isWeilPair_tameGen]
   have h_quot : π.baseChange Bmax (β y - y) = 0 := by
-    simp [baseChange_linearFrob h_crys d.isWeilPair_tameGen
-      S.trivialLattice.inClass.isPotentiallyCrystalline π (by simp [π, extensionRep]), h_triv, β]
+    rw [map_sub, baseChange_linearFrob h_crys d.isWeilPair_tameGen
+      S.trivialLattice.inClass.isPotentiallyCrystalline π (by simp [π, extensionRep]),
+      h_triv, one_apply_eq_self, sub_self]
   obtain ⟨x, hx⟩ : ∃ x : Bmax ⊗[ℤ_[p]] S.Carrier, ι.baseChange Bmax x = β y - y :=
     (lTensor_exact Bmax .inl_snd snd_surjective _).1 h_quot
   -- The inclusion of `Y` commutes with `β`, hence with its powers.
@@ -266,10 +295,16 @@ lemma aeval_linearFrob_extensionLattice_eq_zero {p : ℕ} [ThePrime p] [Γ : Gro
   have hqY : aeval (linearFrob S.ρ d.tameGen 0) q = 0 := by
     simpa [eval₂_map, coeffEnd, aeval_def] using hq_zero
   calc aeval β (q * (X - 1)) y
-      = aeval β q (ι.baseChange Bmax x) := by simp [hx]
+      = aeval β q (ι.baseChange Bmax x) := by
+        rw [map_mul, map_sub, aeval_X, map_one, mul_apply_eq_comp, LinearMap.sub_apply,
+          one_apply_eq_self, hx]
     _ = ι.baseChange Bmax (aeval (linearFrob S.ρ d.tameGen 0) q x) := by
-      simp [aeval_eq_sum_range, pow_apply_eq_iterate, h_comm.iterate_right _ x]
-    _ = 0 := by simp [hqY]
+        rw [aeval_eq_sum_range, aeval_eq_sum_range, LinearMap.sum_apply, LinearMap.sum_apply,
+          map_sum]
+        refine sum_congr rfl fun k _ ↦ ?_
+        rw [LinearMap.smul_apply, LinearMap.smul_apply, LinearMap.map_smul_of_tower,
+          pow_apply_eq_iterate, pow_apply_eq_iterate, h_comm.iterate_right k x]
+    _ = 0 := by rw [hqY, LinearMap.zero_apply, map_zero]
 
 /-- A tame chart `d` has an exponent `e`, prime to `p`, and an element `ξ = d.tameMultiplier` of
 `Λ = W(𝔽_{p^f})` whose residue in `𝔽_{p^f}`, its `constantCoeff`, is a primitive `e`-th root of
@@ -353,23 +388,37 @@ lemma aeval_tameMultiplier_pow_mul_mem_liftIdeal {p : ℕ} [ThePrime p] [Γ : Gr
       S.trivialLattice.letterProj i (S.projTrivial.wittMap (FrobGroup.inr (d.tameGen ^ j) • x)) =
         a j • S.constantAt i c := by
     have h_fix : FrobGroup.inr (d.tameGen ^ j) • S.constantAt i c = S.constantAt i c := by
-      simp [constantAt, smul_letterProj (m := inr _) (d.fixesLambda_tameGen_pow j _), -map_pow]
+      change FrobGroup.inr (d.tameGen ^ j) •
+        S.trivialLattice.letterProj i (DiagTensor.mk 1 c) =
+        S.trivialLattice.letterProj i (DiagTensor.mk 1 c)
+      rw [smul_letterProj (m := inr _) (d.fixesLambda_tameGen_pow j _)]
+      exact congrArg _ (by simp)
     have hz : toGp (d.tameGen ^ j) • d.z.val = ξ ^ j * d.z := by
       simpa [ξ, -map_pow, ← map_pow (algebraMap (WittFq d.f) Ainf)] using
         d.tameGen_pow_smul_z j
     have h_scalar : toGp (d.tameGen ^ j) •
         (p ^ t * d.z ^ (k + 1) - r • (algebraMap (WittFq d.f) d.S w + d.z * v)).val = a j := by
-      simp [a, v', w', -map_pow, hz, fixesLambda_tameGen_pow, smul_sub, mul_assoc, mul_comm]
+      rw [AddSubgroupClass.coe_sub, MulMemClass.coe_mul, SubmonoidClass.coe_pow,
+        SubmonoidClass.coe_pow, SubringClass.coe_natCast, AddSubmonoidClass.coe_nsmul,
+        AddMemClass.coe_add, MulMemClass.coe_mul]
+      change toGp (d.tameGen ^ j) •
+        ((p : Ainf) ^ t * d.z.val ^ (k + 1) - r • (w' + d.z.val * v.val)) = a j
+      rw [smul_sub, smul_mul', smul_pow', smul_pow',
+        show toGp (d.tameGen ^ j) • (p : Ainf) = p by simp, hz, ← smul_comm, smul_add,
+        d.fixesLambda_tameGen_pow j w, smul_mul', hz]
+      dsimp only [a, v']
+      ring
     have h_letter : S.trivialLattice.letterProj i (S.constantAt i c) = S.constantAt i c :=
       mem_letterPart_iff_letterProj.1 letterProj_mem_letterPart
-    simp [hx_proj, frobGroup_smul_smul, h_fix, ← h_scalar, h_letter, -map_pow]
+    rw [S.projTrivial.wittMap_smul, hx_proj, frobGroup_smul_smul, h_fix, inr_smul, h_scalar,
+      LinearMap.map_smul_of_tower, h_letter]
   refine ⟨S.extensionLattice.letterProj i y, letterProj_mem_withOrders (frobKisinAinf_zero.ge hy),
     ?_⟩
   -- Cancel `z`, which is a unit of `W(C^♭)`.
   suffices h : d.z.val • S.projTrivial.wittMap (S.extensionLattice.letterProj i y) =
       d.z.val • b • S.constantAt i c from
     (isUnit_algebraMap_wittCFlat_of_not_p_dvd d.not_p_dvd_z).smul_left_cancel.1
-      (by simpa [b] using h)
+      (by rw [algebraMap_smul WittCFlat, algebraMap_smul WittCFlat]; exact h)
   calc d.z.val • S.projTrivial.wittMap (S.extensionLattice.letterProj i y)
       = S.trivialLattice.letterProj i (S.projTrivial.wittMap (d.z.val • y)) := by simp
     _ = (∑ j ∈ range (Q.natDegree + 1), Q.coeff j • a j) • S.constantAt i c := by
@@ -404,7 +453,10 @@ lemma killsCokernel_of_isKilledBy {p : ℕ} [ThePrime p] [Γ : GroupOverGp p]
   obtain ⟨ν, hzν, hν_le⟩ : ∃ ν : ℕ, (∀ i : Letter, d.z.val ^ ν ∈ S.liftIdeal (p ^ (κ + 1)) 0 i) ∧
       (p - 1) * ν ≤ d.e * (n + κ) :=
     exists_z_pow_mem_liftIdeal h_jumps κ
-  have hν : ν < d.e := by nlinarith [NeZero.pos d.e, (by omega : n + κ < p - 1)]
+  have hν : ν < d.e := Nat.lt_of_mul_lt_mul_left (a := p - 1) <|
+    hν_le.trans_lt <| by
+      rw [mul_comm (p - 1)]
+      exact Nat.mul_lt_mul_of_pos_left (by omega) (NeZero.pos d.e)
   let Q : ℤ_[p][X] := q * (X - Polynomial.C 1)
   have hQ_kills : aeval (linearFrob S.extensionLattice.ρ d.tameGen 0) Q = 0 := by
     simpa only [Q, C_1] using aeval_linearFrob_extensionLattice_eq_zero hY_killed
@@ -435,7 +487,7 @@ lemma killsCokernel_of_isKilledBy {p : ℕ} [ThePrime p] [Γ : GroupOverGp p]
         p_pow_mul_z_pow_pred_mem_liftIdeal k.succ_pos h_ideal
       have h_lower : p ^ (t + m) * d.z.val ^ k ∈ S.liftIdeal (p ^ (κ + 1)) 0 i :=
         Ideal.mem_of_dvd _ (mul_dvd_mul_right (pow_dvd_pow _ (by omega)) _) h_down
-      exact ih hk.le (t + m) (by lia) h_lower
+      exact ih hk.le (t + m) (by rw [mul_add, mul_one] at ht; omega) h_lower
     · -- Free step: `Q(tameMultiplier ^ (k + 1))` is a unit.
       have h_unit : IsUnit (algebraMap (WittFq d.f) Ainf (aeval (d.tameMultiplier ^ (k + 1)) Q)) :=
         (isUnit_of_coeff_zero_ne_zero _ h_bad).map _
