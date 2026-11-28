@@ -161,9 +161,10 @@ lemma riemannForm_apply_beta_eq_sub (h : IsHermitianAction L B F β) (u w : V) :
 
 /-- For hermitian data `h`, the canonical multiplier of `F β` (`h.multiplier`) and `B` are
 Appell–Humbert data (`New.IsAppellHumbert`). -/
-lemma isAppellHumbert (h : IsHermitianAction L B F β) : IsAppellHumbert B h.multiplier := by
-  grind [isAppellHumbert_canonicalMultiplier, riemannForm_apply_beta_eq_sub, IsHermitianAction,
-    conj_re]
+lemma isAppellHumbert (h : IsHermitianAction L B F β) : IsAppellHumbert B h.multiplier :=
+  isAppellHumbert_canonicalMultiplier h.riemannForm_apply_beta_eq_sub
+    (fun x y ↦ by rw [h.conj_symm x y, conj_re])
+    (fun u hu w hw ↦ h.riemannForm_integral _ (h.map_mem β u hu) _ hw)
 
 /-- Let `x` lie in the dual lattice of `B` (`E(x, l)` is an integer for `l ∈ L`, `E` the Riemann
 form) and let `F (star a) y ∈ L`. Then the phase `exp (2πi E(F a x, y))` is `1`. -/
@@ -199,7 +200,17 @@ lemma normShift_map_out (h : IsHermitianAction L B F β) {a : R}
 `exp (B x (F (star β) x) - B x x / 2)`. -/
 lemma multiplier_eq_exp (h : IsHermitianAction L B F β) :
     h.multiplier x = exp (B x (F (star β) x) - B x x / 2) := by
-  grind [canonicalMultiplier, h.isAppellHumbert.sub_eq_riemannForm, h.star_eq_one_sub, h.adjoint]
+  rw [multiplier, canonicalMultiplier]
+  congr 1
+  have h_sub := h.isAppellHumbert.sub_eq_riemannForm (F β x) x
+  have h_add : F β x + F (star β) x = x := by
+    have h1 : F β + F (star β) = 1 := by
+      rw [← map_add, h.star_eq_one_sub, add_sub_cancel, map_one]
+    simpa using DFunLike.congr_fun h1 x
+  have h_beta : B x (F β x) + B x (F (star β) x) = B x x := by
+    rw [← map_add, h_add]
+  rw [h.adjoint] at h_sub
+  linear_combination (-h_sub - h_beta) / 2
 
 /-- Hermitian data stay hermitian data when `B` is multiplied by a positive integer `m`. -/
 lemma nsmul (h : IsHermitianAction L B F β) {m : ℕ} (hm : m ≠ 0) :
@@ -300,13 +311,21 @@ lemma sum_conj_pow_four_eq_sum_pow_four [IsFullRankLattice L] [IsDomain R] [Modu
       inv_eq_of_mul_eq_one_left h_mul]
   obtain ⟨a, b, c, d, h_sq⟩ := (N ^ 2 - 1).sum_four_squares
   let M : Matrix (Fin 4) (Fin 4) ℤ := !![(a : ℤ), b, c, d; -b, a, -d, c; -c, d, a, -b; -d, -c, b, a]
+  have hMMT : M * Mᵀ = ((a ^ 2 + b ^ 2 + c ^ 2 + d ^ 2 : ℕ) : ℤ) • 1 := by
+    ext i j
+    rw [Matrix.mul_apply, Fin.sum_univ_four]
+    simp only [transpose_apply, Matrix.smul_apply, smul_eq_mul, Matrix.one_apply]
+    fin_cases i <;> fin_cases j <;> simp [M] <;> ring
   -- On a group killed by `N`, `M Mᵀ = N ^ 2 - 1` acts as `-1`, so `-Mᵀ` is a right inverse of `M`.
   have M_surj : Function.Surjective fun p : Fin 4 → h.MulKernel κ ↦ M • p := by
     refine fun p ↦ ⟨-Mᵀ • p, funext fun j ↦ ?_⟩
-    calc (M • -Mᵀ • p) j = (a ^ 2 + b ^ 2 + c ^ 2 + d ^ 2) • -p j := by
-          fin_cases j <;> simp [M, Fin.sum_univ_four] <;> module
-      -- `↓`: rewrite by `h_sq` before simp takes the sum of squares apart
-      _ = p j := by simp [↓h_sq, hN, sq, sub_nsmul, NeZero.one_le, mul_smul]
+    dsimp only
+    have hp : (M • -Mᵀ • p) j = (a ^ 2 + b ^ 2 + c ^ 2 + d ^ 2) • -p j := by
+      rw [← mul_smul, mul_neg, neg_smul, ← smul_neg, hMMT, smul_assoc, one_smul, natCast_zsmul]
+      rfl
+    rw [hp]
+    -- `↓`: rewrite by `h_sq` before simp takes the sum of squares apart
+    simp [↓h_sq, hN, sq, sub_nsmul, NeZero.one_le, mul_smul]
   have prod_M (p : Fin 4 → h.MulKernel κ) : ∏ i, q (p i) ^ (N ^ 2 - 1) = ∏ i, q ((M • p) i) := by
     obtain ⟨y, rfl⟩ := mk_surjective.comp_left p
     -- Expand both exponents; since `Mᵀ M = N ^ 2 - 1` as well, the mixed terms cancel.
@@ -422,12 +441,12 @@ lemma isSelfAdjoint_quotMean_pow (c : R) {κ : R} [NeZero κ] (hκ : κ = c - st
   -- sum over `h.MulKernel κ` times a Gaussian integral over `V`, divided by the covolume of `L`.
   -- The integral is `1 / conj (det (M κ) * det c̄)`, with `M κ` the matrix of `B x (κ y)`; the
   -- Gauss sum and `det (M κ)` have real fourth powers.
+  have : DiscreteTopology L.toAddSubgroup := (inferInstance : DiscreteTopology L)
   borelize V
   -- `μ` is Lebesgue measure on `V` in the coordinates `e` of a basis `b`, divided by `π ^ dim V`.
   let b : Basis (Fin (finrank ℂ V)) ℂ V := finBasis ℂ V
   let e : (Fin (finrank ℂ V) → ℂ) ≃L[ℂ] V := b.equivFun.symm.toContinuousLinearEquiv
   let μ : Measure V := (normalizedVolume _).map e
-  have : DiscreteTopology L.toAddSubgroup := inferInstanceAs (DiscreteTopology L)
   have : IsFiniteMeasure (L.toAddSubgroup.quotMeasure μ) :=
     isFiniteMeasure_addOrbitMeasure μ isCocompact_of_isFullRankLattice
   -- `M a` is the matrix of the form `(x, y) ↦ B x (a y)` in the basis `b`.
