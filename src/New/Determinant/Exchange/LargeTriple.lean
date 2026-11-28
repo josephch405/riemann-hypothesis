@@ -954,8 +954,17 @@ lemma exists_integral_thetaTerm_eq_of_periods {σ' : b ⊕ b ⊕ n ≃ m} {v : P
           (g, y) φ := by
     simp [thetaOnRealData, rankTwist, pairWeil, sq, mul_assoc]
   rw [abs_inf, det_inf, ← cut_star, h_twist]
-  simp [HeckeChar.finPart, rankTwist, AutChar.spaceChar, AutChar.baseChange_toUnits, det_y, κ₀, hN,
-    B, G.adeleMatrix, Matrix.mul_assoc]
+  simp only [AutChar.spaceChar, rankTwist, hN, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true,
+    mul_div_cancel_left₀, map_mul, map_inv, map_pow, baseChange_upsilonU1, card_sum, inv_pow,
+    Subgroup.coe_mul, InvMemClass.coe_inv, SubmonoidClass.coe_pow,
+    ContinuousMonoidHom.mul_apply, circleChar_inv_apply, _root_.mul_inv_rev,
+    ContinuousMonoidHom.pow_apply, Circle.coe_mul, Circle.coe_inv, Circle.coe_pow, inv_inv,
+    ideleAbs_nonneg_and_ne_zero, Real.sqrt_mul, Complex.ofReal_mul,
+    GeneralLinearGroup.val_det_apply, det_y, AutChar.baseChange_toUnits, Units.inv_eq_val_inv,
+    coe_units_inv, Matrix.mul_assoc, Units.val_mul, HeckeChar.finPart,
+    ContinuousMonoidHom.coe_toMonoidHom, MonoidHom.mk'_apply, MonoidHom.coe_comp,
+    MonoidHom.coe_ofClass, Function.comp_apply, Circle.toUnits_apply, Units.val_mk0,
+    G.adeleMatrix, B, κ₀]
   rw [div_eq_mul_inv, div_eq_mul_inv, mul_inv, mul_inv, mul_inv, mul_inv, inv_inv, inv_inv,
     pow_add _ (card b), pow_add _ (card b), mul_pow, ← pow_mul]
   refine (mul_inv_cancel_right₀ (Units.ne_zero (vacuumFactor (isAdapted_homSource D V')))
