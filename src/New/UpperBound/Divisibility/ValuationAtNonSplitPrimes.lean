@@ -243,7 +243,9 @@ lemma IsMarked.map_ofSplitPlaces_neighborDiagonal (hΛ : D.IsMarked Λ) {ι : Ty
     star_star]
   congr! 2 with b
   simp only [neighborExponent, markedIndices, mem_filter, mem_univ, true_and]
-  grind [hΛ.star_notMem, star_star]
+  by_cases h1 : inducedPlace τ ∈ Λ
+  · simp [h1, hΛ.star_notMem _ h1]
+  · by_cases h2 : star (inducedPlace τ) ∈ Λ <;> simp [h1, h2]
 
 /-- Let `Λ` be a marked set of primes (`D.IsMarked Λ`). For any `J` and `j`, the sum over places `τ`
 of `∑ b, neighborExponent Λ J τ b` times `D.lastEntry (j + 1) τ` is `0`: the weights on `X_{j+1}`
@@ -460,7 +462,18 @@ lemma IsMarked.norm_baseChange_atUniformizer (hΛ : D.IsMarked Λ) {l : FinPlace
     ((a : 𝔸f D.E) * star ((a⁻¹ : (𝔸f D.E)ˣ) : 𝔸f D.E))‖ ^ _ = _
   rw [map_mul, adeleExtension_star, inducedPlace, ← placeOfEmb_comp_star, map_units_inv, norm_mul,
     norm_inv, h_unif, h_unif]
-  split_ifs <;> simp_all [norm_p_eq_inv, NeZero.ne]
+  by_cases h1 : placeOfEmb (ιₚ.comp (Φ τ)) = l
+  · have h2 : placeOfEmb ((ιₚ.comp (Φ τ)).comp (starRingEnd D.E)) ≠ l := by
+      rw [placeOfEmb_comp_star, h1]
+      exact hΛ.isSplit hl
+    simp only [h1, h2, hl, ite_true, ite_false, ite_self, map_natCast, map_one, norm_p_eq_inv,
+      norm_one, inv_one, mul_one, neg_neg, sub_zero, zpow_natCast, inv_pow, ← rpow_natCast,
+      ← rpow_neg hp_pos.le]
+  · by_cases h2 : placeOfEmb ((ιₚ.comp (Φ τ)).comp (starRingEnd D.E)) = l
+    · simp only [h1, h2, hl, ite_true, ite_false, ite_self, map_natCast, map_one, norm_p_eq_inv,
+        norm_one, one_mul, inv_inv, neg_neg, zero_sub, zpow_natCast, rpow_natCast]
+    · simp only [h1, h2, ite_false, ite_self, map_one, norm_one, inv_one, mul_one, one_zpow,
+        sub_self, rpow_zero]
 
 /-- A marked prime has norm `p ^ (2 h)` with `2 h ≤ f`, for `f = D.f` the number of infinite places
 of `D.E`: the exponent is the order of `D.placeOfInt (-p)`, which is even. -/
@@ -924,7 +937,10 @@ lemma IsWeakChainDatum.exists_lift_eq_chain_scaledHeckeOperator (H : IsWeakChain
   -- `T_{l,i}` from `exists_hecke_transfer`, acting on the datum through the group of the target.
   induction L with
   | nil =>
-    refine ⟨1, fun x hx ↦ ⟨by simp, fun y ↦ by simp [chain, compUpTo], fun g _ hg ↦ ?_⟩⟩
+    refine ⟨1, fun x hx ↦ ⟨by simp, ?_, fun g _ hg ↦ ?_⟩⟩
+    · intro y
+      simp only [List.map_nil, List.prod_nil, one_apply_eq_self]
+      rfl
     obtain ⟨hp_M, hp_N, -⟩ := hΛ.not_dvd_M_mul_N
     have h_standard : (D.translateDatum x j).val ∈ standardData (D.homX j) 1 :=
       H.translateDatum_mem_standardData hQ hp_N hx j (.inr hp_M)
@@ -941,7 +957,11 @@ lemma IsWeakChainDatum.exists_lift_eq_chain_scaledHeckeOperator (H : IsWeakChain
     refine ⟨(∑ i ≤ D.ceilLogLifts p, (c i * s) • heckeSplit ρ hl_split i) * t, fun x hx ↦ ?_⟩
     let newDatum : (D.homX j).finitePart := t (D.translateDatum x j)
     have h_sph : newDatum ∈ levelSpace ρ (maxCompactAt (D.X (j + 1)) l.val) := by
-      simp +contextual [ρ, newDatum, t_comm x hx, h_fix x hx]
+      rw [mem_levelSpace]
+      rintro ⟨b, hb⟩
+      rw [MonoidHom.one_apply, one_smul]
+      change k.ω (1, b) newDatum = newDatum
+      rw [t_comm x hx 1 b hb.1, h_fix x hx b hb]
     refine ⟨fun a b hb ↦ ?_, fun y ↦ ?_, fun g hj hg ↦ ?_⟩
     · -- `T_{l,i}` commutes with the source group, and with `b` as `newDatum` is spherical at `l`.
       have h_comm (i : ℕ) : k.ω (a, b) (heckeSplit ρ hl_split i newDatum) =
@@ -954,11 +974,40 @@ lemma IsWeakChainDatum.exists_lift_eq_chain_scaledHeckeOperator (H : IsWeakChain
           heckeSplit (algFormRep D.columnCount (D.lastEntry (j + 1))) hl_split i
               (k.lift newDatum φ) :=
         liftKernel_lift_heckeSplit ϑ.toTameChar j hl_split i newDatum φ
-      let z : D.SourceForm := s • (L.map hΛ.scaledHeckeOperator).prod y
+      let y' : D.SourceForm := (L.map hΛ.scaledHeckeOperator).prod y
+      let z : D.SourceForm := s • y'
       have hz : z.val ∈ sphericalAt (algFormRep D.columnCount (D.lastEntry 0)) l.val :=
         levelSpace_anti (hΛ.maxCompactAt_le_levelX l.property) z.property
-      simpa [← t_lift x hx, h_lift, k, newDatum, z, smul_smul, s, NeZero.ne, mul_div_cancel₀,
-        IsMarked.scaledHeckeOperator] using h_hecke x hx z.val hz
+      have h_lhs :
+          k.lift (((∑ i ≤ D.ceilLogLifts p, (c i * s) • heckeSplit ρ hl_split i) * t)
+            (D.translateDatum x j)) (chain (D.liftKernel ϑ) (D.translateDatum x) j y.val) =
+          ∑ i ≤ D.ceilLogLifts p, c i •
+            heckeSplit (algFormRep D.columnCount (D.lastEntry (j + 1))) hl_split i
+              (chain (D.liftKernel ϑ) (D.translateDatum x) (j + 1) z.val) := by
+        simp only [mul_apply_eq_comp, LinearMap.sum_apply, LinearMap.smul_apply, map_sum,
+          map_smul]
+        refine sum_congr rfl fun i _ ↦ ?_
+        rw [mul_smul, h_lift i, t_lift x hx y]
+        congr 1
+        rw [← map_smul, ← map_smul]
+        rfl
+      have h_rhs :
+          (p : ℂ) ^ D.transferExponent p •
+            chain (D.liftKernel ϑ) (D.translateDatum x) (j + 1)
+              (heckeSplit (algFormRep D.columnCount (D.lastEntry 0)) hl_split
+                (D.ceilLogLifts p) z.val) =
+          chain (D.liftKernel ϑ) (D.translateDatum x) (j + 1)
+            (((l :: L).map hΛ.scaledHeckeOperator).prod y).val := by
+        have h_scale : (p : ℂ) ^ D.transferExponent p * s =
+            (p : ℂ) ^ heckeScalingExponent l.val :=
+          mul_div_cancel₀ _ (pow_ne_zero _ (Nat.cast_ne_zero.2 hp.out.ne_zero))
+        change (p : ℂ) ^ D.transferExponent p •
+          chain (D.liftKernel ϑ) (D.translateDatum x) (j + 1)
+            (heckeSplit (algFormRep D.columnCount (D.lastEntry 0)) hl_split
+              (D.ceilLogLifts p) (s • y'.val)) = _
+        rw [map_smul, map_smul, smul_smul, h_scale, ← map_smul]
+        rfl
+      exact h_lhs.trans ((h_hecke x hx z.val hz).trans h_rhs)
     · -- `T_{l,i}` is a sum over cosets `u`, and each joins `g` as its component at `l`.
       let β : ℝ := (L.map fun l : Λ ↦ (D.transferExponent p - heckeScalingExponent l.val : ℝ)).sum +
         ∑ l ∈ Λ, heckeScalingExponent l + liftLoss Λ j
@@ -1010,10 +1059,13 @@ theorem IsWeakChainDatum.gaugeLe_scaledHeckeOperator_pow (H : IsWeakChainDatum �
     | zero => rfl
     | succ j ih =>
       rw [pow_succ', mul_apply_eq_comp, ← (ht j x hx).2.1, ← ih]
-      simp [chain, compUpTo]
+      rfl
   have h_comb : restrictedChain ϑ Ψ ((Y ^ D.m) v) =
       D.restrictToY (chainCombination ϑ Ψ (fun x j ↦ t j (D.translateDatum x j)) D.m v) := by
-    simp +contextual [restrictedChain, Finsupp.sum, h_chain]
+    refine congrArg D.restrictToY ?_
+    simp only [Finsupp.sum, LinearMap.comp_apply, D.SourceForm.coe_subtype, LinearMap.sum_apply,
+      LinearMap.smul_apply]
+    exact sum_congr rfl fun x hx ↦ congrArg (Ψ x • ·) (h_chain x hx D.m).symm
   obtain ⟨-, hp_N, -⟩ := hΛ.not_dvd_M_mul_N
   have hv_gauge : GaugeLe 1 1 v.val := hv.2
   rw [h_comb]
