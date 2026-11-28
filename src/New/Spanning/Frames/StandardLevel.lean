@@ -325,7 +325,11 @@ lemma IntegralPlace.exists_isIntMatrix_hyperbolicBasis {N : A} (hN : N ∈ P.int
     congr 1
     · ext i j
       fin_cases i <;> fin_cases j <;>
-        simp [Matrix.mul_apply, Fin.sum_univ_two, hN_star, h_el]
+        simp only [neg_mul, Fin.zero_eta, Fin.mk_one, Fin.isValue, Matrix.mul_apply,
+          conjTranspose_apply, of_apply, cons_val', cons_val_zero, cons_val_one,
+          cons_val_fin_one, Fin.sum_univ_two, star_neg, star_mul', hN_star, h_el,
+          star_one, star_zero, zero_mul, one_mul, mul_zero, mul_one, add_zero, zero_add,
+          sum_neg_distrib, mul_neg, neg_zero, neg_neg]
       ring
     · have h_cr {X Y : Matrix (Fin m) (Fin m) A} :
           fromCols (0 : Matrix (Fin m) ι A) X * fromRows (0 : Matrix ι (Fin m) A) Y = X * Y := by
