@@ -371,8 +371,7 @@ lemma aeval_tameMultiplier_pow_mul_mem_liftIdeal {p : ℕ} [ThePrime p] [Γ : Gr
         d.tameGen_pow_smul_z j
     have h_scalar : toGp (d.tameGen ^ j) •
         (p ^ t * d.z ^ (k + 1) - r • (algebraMap (WittFq d.f) d.S w + d.z * v)).val = a j := by
-      simp [a, v', w', -map_pow, hz, fixesLambda_tameGen_pow, smul_sub]
-      exact .inl (by ring)
+      simp [a, v', w', -map_pow, hz, fixesLambda_tameGen_pow, smul_sub, mul_assoc, mul_comm]
     have h_letter : S.trivialLattice.letterProj i (S.constantAt i c) = S.constantAt i c :=
       mem_letterPart_iff_letterProj.1 letterProj_mem_letterPart
     rw [S.projTrivial.wittMap_smul, hx_proj, frobGroup_smul_smul, h_fix, inr_smul, h_scalar,
