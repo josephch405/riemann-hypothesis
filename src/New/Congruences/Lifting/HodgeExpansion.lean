@@ -66,6 +66,8 @@ noncomputable section
 
 namespace New.Lift.KummerChart.JumpLattice
 
+attribute [local instance low] NormedAlgebra.toAlgebra
+
 /-! ## Standard exponents, Frobenius on exponents, and additivity of exponents -/
 
 section HodgeExpansion
@@ -97,20 +99,11 @@ letter `i` from the first argument to the value: `b (e_i y, x) = e_i b (y, x)`. 
 lemma wittPairing_letterProj_left (x : L.Ambient) (y : A.Ambient) :
     wittPairing b (A.letterProj i y) x = C.letterProj i (wittPairing b y x) := by
   induction x using DiagTensor.induction with
-  | h_add x x' hx hx' => simp only [map_add, hx, hx']
+  | h_add x x' hx hx' => simp [hx, hx']
   | h_mk a t =>
     induction y using DiagTensor.induction with
-    | h_mk a' t' =>
-      rw [letterProj, letterProj, LinearMap.smul_apply, LinearMap.smul_apply,
-        LinearMap.map_smul_of_tower, LinearMap.smul_apply, LinearMap.sum_apply,
-        LinearMap.sum_apply, map_sum, LinearMap.sum_apply]
-      congr 1
-      refine Finset.sum_congr rfl fun n _ ↦ ?_
-      rw [letterOp_pow_mk, wittPairing, DiagTensor.pair_mk, LinearMap.map_smul_of_tower,
-        LinearMap.smul_apply, DiagTensor.pair_mk, letterOp_pow_mk]
-      exact congrArg (k.letterTeich i⁻¹ ^ n • DiagTensor.mk (a' * a) ·)
-        (congrArg (· t) (b.map_smul ((O.ζ : O) ^ n) t'))
-    | h_add y y' hy hy' => simp only [map_add, LinearMap.add_apply, hy, hy']
+    | h_mk a' t' => simp [letterProj]
+    | h_add y y' hy hy' => simp [hy, hy']
 
 /-- If the pairing `wittPairing b` maps `s × t` into `Q`, it maps the saturations of `s` and `t` by
 the submonoid `T` into the saturation of `Q` by `T`. -/
@@ -220,9 +213,8 @@ lemma coordRetract_mem_withOrders (y : L.kisinLocAinf) (hy : y.val ∈ L.withOrd
   obtain ⟨⟨-, hy_letter⟩, hy_value⟩ := hy
   refine ⟨⟨(coordRetract y).property.1, mem_letterPart_iff_mulZeta.2 ?_⟩, fun a u hu μ hμ ↦ ?_⟩
   · -- `coordRetract` commutes with ζ, which acts on `y` as the scalar `k.letterTeich i`.
-    have h := mulZeta.wittMap_coordRetract y (k.letterTeich i • y)
+    simpa using mulZeta.wittMap_coordRetract y (k.letterTeich i • y)
       (mem_letterPart_iff_mulZeta.1 hy_letter)
-    simpa only [map_smul, SetLike.val_smul] using h
   · exact valueAt_coordRetract_mem_hodgeFil hμ.1 y (hy_value a u hu μ hμ)
 
 /-- Let `μ` be a form. Let `x` lie in `L.kisinLocAinf`, that is, a product of elements `φ^j(E)`
@@ -254,14 +246,11 @@ lemma phi_pow_smul_mem_withOrders (hx : x ∈ L.withOrders (i.stepBack l) c) :
   obtain ⟨m, rfl | rfl⟩ : ∃ m : ℕ, l = a + m + 1 ∨ a = l + m :=
     ⟨max (l - a - 1) (a - l), by omega⟩
   · -- The value is μ(φ^{m+1} x), and the exponent is 0.
-    simp only [shiftedOrders, show a < a + m + 1 by omega, ↓reduceIte]
-    simpa only [valueAt_def, LinearMap.coe_mk, AddHom.coe_mk, inv_pow, ← mul_smul, pow_add,
-      mul_assoc, inv_mul_cancel_left] using apply_phi_pow_succ_smul_mem_hodgeFil_zero hμ.1 hx_loc m
+    simpa [valueAt, pow_add, mul_smul, Nat.lt_succ_iff] using
+      apply_phi_pow_succ_smul_mem_hodgeFil_zero hμ.1 hx_loc m
   · -- The value is that of x at level m.
     rw [show i.stepBack (l + m) = (i.stepBack l).stepBack m by simp [pow_add]] at hu hμ
-    simp only [shiftedOrders, show ¬ l + m < l by omega, ↓reduceIte, add_tsub_cancel_left]
-    simpa only [valueAt_def, LinearMap.coe_mk, AddHom.coe_mk, inv_pow, ← mul_smul, pow_add,
-      _root_.mul_inv_rev, mul_assoc, inv_mul_cancel, mul_one] using hx_value m u hu μ hμ
+    simpa [valueAt, pow_add, mul_smul] using hx_value m u hu μ hμ
 
 /-! ### The standard exponents -/
 
@@ -352,15 +341,11 @@ lemma mem_withOrders_stdOrders_iff :
         (i := ((k.letterFrob ^ (n + 1)) i).stepBack l)
         (smul_mem_fracSpan _ (kisinLocAinf_le_fracSpan (withOrders_le_kisinLocAinf h_shift)))
         fun κ ν hν D _ hD ↦ ?_
-      have hD_mem :=
+      simpa [valueAt] using mul_mem_hodgeFil
         (mem_hodgeFil_zero_and_mem_valueField_zero_of_fixed fun g ↦ hD μ μ g fun t ↦ hμ t g).1
-      have hν_mem := valueAt_mem_of_hodgeFil_le (hodgeFil 0) h_shift hν
-        (fun v _ _ ↦ hodgeFil_anti (by simp only [shiftedOrders, stdOrders]; split_ifs <;> omega))
-      dsimp only [valueAt] at hν_mem ⊢
-      exact zero_add (0 : ℤ) ▸ mul_mem_hodgeFil hD_mem hν_mem
-    rw [valueAt_def, smul_smul, smul_smul, mul_assoc, pow_mul_comm φ (n + 1) l, ← mul_assoc,
-      inv_mul_cancel, one_mul] at h_int
-    exact h_int
+        (valueAt_mem_of_hodgeFil_le _ h_shift hν fun _ _ _ ↦
+          hodgeFil_anti (by simp only [shiftedOrders, stdOrders]; split_ifs <;> omega))
+    simpa [valueAt, smul_smul, pow_mul_comm] using h_int
   · -- Conversely, x has exponents -u since τⁿ x ∈ `L.ainfLattice` and τ is prime to φ^a(E).
     refine phi_pow_smul_mem_withOrders (c := fun _ u ↦ -u)
       ⟨⟨mem_saturateBy_of_mem hx_kisin, hx_letter⟩, fun a u _ μ hμ ↦ ?_⟩
@@ -385,13 +370,11 @@ lemma letterProj_mem_withOrders (hx : x ∈ L.frobKisinAinf l) :
     L.letterProj i x ∈ L.withOrders i (stdOrders l) := by
   -- `letterProj i x` is a multiple of a sum of powers of `letterOp i` applied to `x`, and ζ
   -- preserves `frobKisinAinf l`
-  have h_op : MapsTo (L.letterOp i) (L.frobKisinAinf l) (L.frobKisinAinf l) :=
-    fun _ hz ↦ smul_mem _ (k.letterTeich i⁻¹).val (mulZeta.wittMap_mem_frobKisinAinf hz)
+  have h_iter (n : ℕ) : L.mulZeta.wittMap^[n] x ∈ L.frobKisinAinf l :=
+    MapsTo.iterate (fun _ ↦ mulZeta.wittMap_mem_frobKisinAinf) n hx
   refine mem_withOrders_stdOrders_iff.2 ⟨?_, letterProj_mem_letterPart⟩
-  rw [letterProj, LinearMap.smul_apply, LinearMap.sum_apply]
-  refine smul_of_tower_mem _ _ (sum_mem fun n _ ↦ ?_)
-  rw [pow_apply_eq_iterate]
-  exact h_op.iterate n hx
+  simp [letterProj, letterOp, smul_pow, pow_apply_eq_iterate, sum_mem, smul_of_tower_mem,
+    smul_of_tower_mem _ _ (h_iter _)]
 
 /-- Let `x` lie in `L.frobKisinAinf l`, and let all forms take values in the subfield
 `valueField 0` of `B_dR` on `x` (this is membership in `L.valueFieldPoints _`). Then the projection
@@ -441,24 +424,14 @@ lemma apply_smul_wittPairing_mem_hodgeFil {n : ℤ} {x : L.Ambient}
     -- `b` and `η` are equivariant, so `β (1 ⊗ g t) (1 ⊗ g t') = g • β (1 ⊗ t) (1 ⊗ t')`
     have hβ (t' : L.Carrier) : β (.mk 1 (A.ρ g t)) (.mk 1 (L.ρ g t')) =
         toGp g.val • β (.mk 1 t) (.mk 1 t') := by
-      dsimp only [β, LinearMap.compr₂_apply]
-      change η (wittPairing b (.mk 1 (A.ρ g t)) (.mk 1 (L.ρ g t'))) =
-        toGp g.val • η (wittPairing b (.mk 1 t) (.mk 1 t'))
-      simp only [wittPairing, DiagTensor.pair_mk, mul_one]
-      change η (.mk 1 (b (A.ρ g t) (L.ρ g t'))) = toGp g.val • η (.mk 1 (b t t'))
-      rw [hb g t t']
-      exact hη (b t t') g
+      simpa [β, hb g t t'] using hη (b t t') g
     exact h_inv (β (.mk 1 t)) (β (.mk 1 (A.ρ g t))) g hβ
   have hσ_type (hu : η ∈ C.formsOfType j u) : σ ∈ A.formsOfType j (u - κ) := by
     refine ⟨hσ, fun t ↦ ?_⟩
     -- `β (e_j (1 ⊗ t)) (1 ⊗ t') = η (e_j (1 ⊗ b (t, t')))`, and `η` has type `u`
     have hβ (t' : Rep.of (overZp L.ρ)) :
         β (A.letterProj j (.mk 1 t)) (.mk 1 t') ∈ hodgeFil (-u) := by
-      dsimp only [β, LinearMap.compr₂_apply]
-      change η (wittPairing b (A.letterProj j (.mk 1 t)) (.mk 1 t')) ∈ hodgeFil (-u)
-      rw [wittPairing_letterProj_left]
-      simp only [wittPairing, DiagTensor.pair_mk, mul_one]
-      exact hu.2 (b t t')
+      simpa [β, wittPairing_letterProj_left] using hu.2 (b t t')
     exact hodgeFil_anti (by omega) (h_fil (β (A.letterProj j (.mk 1 t))) (-u) hβ)
   exact h_terms κ ν hν σ hσ hσ_type
 
@@ -469,12 +442,7 @@ lemma wittPairing_mem_ainfLattice {x : L.Ambient}
     (hy : y ∈ A.ainfLattice) (hx : x ∈ L.ainfLattice) :
     wittPairing b y x ∈ C.ainfLattice :=
   LinearMap.BilinMap.apply_apply_mem_of_mem_span C.ainfLattice _ _
-    ((wittPairing b).restrictScalars₁₂ Ainf Ainf)
-    (by
-      rintro _ ⟨t₁, rfl⟩ _ ⟨t₂, rfl⟩
-      change wittPairing b (.mk 1 t₁) (.mk 1 t₂) ∈ C.ainfLattice
-      simp only [wittPairing, DiagTensor.pair_mk, mul_one]
-      exact mk_one_mem_ainfLattice (b t₁ t₂)) y x hy hx
+    ((wittPairing b).restrictScalars₁₂ Ainf Ainf) (by simp [mk_one_mem_ainfLattice]) y x hy hx
 
 /-- The extension of an equivariant bilinear map `b` of lattices maps `A.kisinAinf × L.kisinAinf`
 into `C.kisinAinf`. -/
@@ -492,7 +460,7 @@ lemma wittPairing_mem_kisinAinf {x : L.Ambient}
   -- Products of values of forms are integral; letter and type play no role, any choice will do.
   refine apply_smul_wittPairing_mem_hodgeFil hb hμ hx_frac (φ ^ (n + 1))
     (Classical.arbitrary Letter) 0 fun κ ν hν σ hσ _ ↦ ?_
-  exact zero_add (0 : ℤ) ▸ mul_mem_hodgeFil (hy_int n σ hσ) (hx_int n ν hν.1)
+  simpa using mul_mem_hodgeFil (hy_int n σ hσ) (hx_int n ν hν.1)
 
 /-- Let `b : A × L → C` be an `O`-bilinear equivariant map of crystalline lattices and
 `wittPairing b` its `W(C^♭)`-bilinear extension. An element `x` of `L.kisinLocAinf` in the
@@ -579,14 +547,10 @@ lemma exists_thetaBdR_sub_sum_smul_eq_zero {N r : ℕ} (t : Fin N → Fin r → 
   refine ⟨d, h_rank, s, A, fun j m ↦ ?_⟩
   -- expand column `m` in the basis `z` and read the entry in row `j`
   let col : U := ⟨fun i ↦ thetaBdR (t i m), Pi.single m 1, by ext; simp⟩
-  have h_expand : thetaBdR (t j m) = ∑ i, (z i).val j * thetaBdR (t (s i) m) := by
-    have hz : col.val j = (∑ i, z.repr col i • z i : U).val j := by rw [z.sum_repr]
-    simpa only [col, Submodule.coe_sum, Finset.sum_apply, Submodule.coe_smul_of_tower,
-      Pi.smul_apply, smul_eq_mul, ← z.coord_apply, h_coord, entry, LinearMap.comp_apply,
-      LinearMap.proj_apply, Submodule.coe_subtype, ← mul_comm] using hz
-  simp only [map_sub, map_sum, sub_eq_zero]
-  refine h_expand.trans (Finset.sum_congr rfl fun i _ ↦ ?_)
-  simp [Algebra.smul_def, hA]
+  have h_expand : thetaBdR (t j m) = ∑ i, thetaBdR (t (s i) m) * (z i).val j := by
+    simpa [← z.coord_apply, h_coord, entry, col] using
+      congrFun (congrArg Subtype.val (z.sum_repr col).symm) j
+  simp [smul_def', hA, mul_comm, h_expand]
 
 /-- Let `o` be a system of exponents. Let `i = l.stepBack b` and assume `o b u < o b v` for all
 `v < u` in `L.jumpSet i`. Among points `x j` with exponents `o` at `l` there are `d` points
@@ -601,10 +565,8 @@ lemma exists_sub_sum_smul_mem_withOrders_raiseOrder (o : ℕ → ℤ → ℤ) {u
   -- Modulo type `u - 1` the forms of type `u` are spanned by forms `ν m`. The leading terms of
   -- their values at all `x j` are integral combinations of those at a few points `x (s m)`.
   obtain ⟨r, hr, ν, h_red⟩ := exists_span_formsOfType_mod_pred (L := L) (l.stepBack b) u
-  have h_jump_le : ∀ v ∈ L.jumpSet (l.stepBack b), v ≤ u →
-      hodgeFil (o b v) ≤ hodgeFil (o b u) :=
-    fun v hv hvu ↦ hodgeFil_anti (hvu.eq_or_lt.elim (fun h ↦ h ▸ le_rfl)
-      fun h ↦ (h_lt_lower v hv h).le)
+  have h_jump_le : ∀ v ∈ L.jumpSet (l.stepBack b), v ≤ u → hodgeFil (o b v) ≤ hodgeFil (o b u) :=
+    fun v hv hvu ↦ hodgeFil_anti <| hvu.eq_or_lt.elim (· ▸ le_rfl) fun h ↦ (h_lt_lower v hv h).le
   have h_lead (j : Fin N) (m : Fin r) :
       ∃ t : BdRPlus, algebraMap BdRPlus BdR t * (tUnit ^ o b u).val = valueAt b (ν m).val (x j) :=
     mem_hodgeFil.1 (valueAt_mem_of_hodgeFil_le _ (hx j) (ν m).property h_jump_le)
@@ -619,8 +581,7 @@ lemma exists_sub_sum_smul_mem_withOrders_raiseOrder (o : ℕ → ℤ → ℤ) {u
   rw [show raiseOrder o b u b u = 1 + o b u by simp [raiseOrder, add_comm]]
   -- the leading terms of the `ν m` cancel on `x'`
   have h_coeff (a : Ainf) (y : BdR) : phiInvToBdR b (φ ^ b • a) * y = a • y := by
-    rw [Algebra.smul_def]
-    exact congrArg (algebraMap Ainf BdR · * y) (inv_smul_smul (φ ^ b) a)
+    simp [phiInvToBdR, Algebra.smul_def]
   have h_gen (m : Fin r) : valueAt b (ν m).val x' ∈ hodgeFil (1 + o b u) := by
     have h_eq : valueAt b (ν m).val x' = algebraMap BdRPlus BdR
         (t j m - ∑ i : Fin d, A j i • t (s i) m) * (tUnit ^ o b u).val := by
@@ -635,9 +596,7 @@ lemma exists_sub_sum_smul_mem_withOrders_raiseOrder (o : ℕ → ℤ → ℤ) {u
     fun v hv hvu ↦ hodgeFil_anti (by have := h_lt_lower v hv (by omega); omega)
   have h_rest : valueAt b μ x' - ∑ m : Fin r, κ m • valueAt b (ν m).val x' ∈
       hodgeFil (1 + o b u) := by
-    simpa only [valueAt_def, LinearMap.coe_mk, AddHom.coe_mk, map_sub, map_sum,
-      LinearMap.sub_apply, LinearMap.sum_apply, LinearMap.smul_apply] using
-      valueAt_mem_of_hodgeFil_le _ hx' hκ h_lower
+    simpa [valueAt] using valueAt_mem_of_hodgeFil_le _ hx' hκ h_lower
   have h_sum : ∑ m : Fin r, κ m • valueAt b (ν m).val x' ∈ hodgeFil (1 + o b u) :=
     sum_mem fun m _ ↦ smul_of_tower_mem _ (κ m) (h_gen m)
   exact (sub_mem_iff_left _ h_sum).1 h_rest
@@ -652,9 +611,7 @@ lemma exists_eq_one_and_sum_smul_eq_zero {d n : ℕ} (hd : d ≤ n)
   have h_dep : ¬LinearIndependent ℤ_[p] w := fun h_indep ↦ by
     have h_card : k.f * n + 1 ≤ d * k.f := by
       simpa [finrank_wittFq, finrank_pi_fintype] using h_indep.fintype_card_le_finrank
-    rw [Nat.mul_comm d k.f] at h_card
-    have := Nat.mul_le_mul_left k.f hd
-    omega
+    nlinarith
   obtain ⟨a, h_rel, j₁, hj₁⟩ := Fintype.not_linearIndependent_iff.1 h_dep
   -- divide the relation by its coefficient `a j₀` of least valuation
   obtain ⟨j₀, h_dvd⟩ : ∃ j₀, ∀ j, ∃ c : ℤ_[p], a j = a j₀ * c := by
@@ -714,63 +671,35 @@ lemma exists_sum_smul_mem_locKisinPart_sup (o : ℕ → ℤ → ℤ) (h_unram : 
   let point (j : Fin (k.f * n + 1)) : L.kisinLocAinf :=
     ⟨x j, withOrders_le_kisinLocAinf (hx j)⟩
   let comb (a : Fin d → Ainf) : L.kisinLocAinf :=
-    ⟨∑ m, a m • (x (s m) : L.Ambient), withOrders_le_kisinLocAinf (h_comb a)⟩
-  let u_amb (j : Fin (k.f * n + 1)) : L.Ambient :=
-    (k.E : Ainf) • ∑ m, (y j m : Ainf) • (x (s m) : L.Ambient)
-  let v_amb (j : Fin (k.f * n + 1)) : L.Ambient := (coordRetract (point j - comb (A j)) : L.Ambient)
-  have hu_kisin (j : Fin (k.f * n + 1)) : u_amb j ∈ L.kisinLoc :=
-    smul_mem L.kisinLoc k.E (sum_mem fun m _ ↦ smul_mem L.kisinLoc (y j m) (x (s m)).property)
-  have hu_ord (j : Fin (k.f * n + 1)) : u_amb j ∈ L.withOrders l (raiseOrdersAt o 0) := by
-    have h_E : k.frobEUnit 0 ^ (1 : ℤ) • ∑ m, (y j m : Ainf) • (x (s m) : L.Ambient) ∈
-        L.withOrders l (raiseOrdersAt o 0) :=
-      frobEUnit_zpow_smul_mem_withOrders 0 1 (h_comb _) fun a v _ ↦ by
-        simp only [raiseOrdersAt, eq_comm]; split_ifs <;> omega
-    simpa [Chart.frobE] using h_E
-  have hv_ord (j : Fin (k.f * n + 1)) : v_amb j ∈ L.withOrders l (raiseOrder o b u) :=
-    coordRetract_mem_withOrders (point j - comb (A j)) (h_up j)
-  have h_point (j : Fin (k.f * n + 1)) : (coordRetract (point j) : L.Ambient) = x j :=
-    coordRetract_of_mem_kisinLoc (x j).property (point j).property
-  have h_ret (a : Fin d → Ainf) :
-      (coordRetract (comb a) : L.Ambient) = ∑ m, (k.coord₀ (a m) : Ainf) • (x (s m) : L.Ambient) :=
-    coordRetract_sum (fun m ↦ (x (s m)).property) rfl
-  -- `x j` is `u_amb j + v_amb j + ∑ m, w j m • x (s m)`; the last terms cancel by `hc_rel`
+    ⟨∑ m, a m • x (s m), withOrders_le_kisinLocAinf (h_comb a)⟩
+  have h_point (j : Fin (k.f * n + 1)) : coordRetract (point j) = x j := by
+    ext; simp [point, coordRetract_of_mem_kisinLoc]
+  have h_ret (a : Fin d → Ainf) : coordRetract (comb a) = ∑ m, k.coord₀ (a m) • x (s m) :=
+    Subtype.ext (by simpa using coordRetract_sum (fun m ↦ (x (s m)).property) rfl)
+  -- `x j` is `E • ∑ m, y j m • x (s m)`, plus the image under `coordRetract` of the element of
+  -- `h_up`, plus `∑ m, w j m • x (s m)`; the last terms cancel in the combination by `hc_rel`
   have h_term (j : Fin (k.f * n + 1)) :
-      u_amb j + v_amb j =
-        (x j : L.Ambient) - ∑ m, algebraMap (WittFq k.f) Ainf (w j m) • (x (s m) : L.Ambient) := by
-    have h_w (m : Fin d) :
-        (k.coord₀ (A j m) : Ainf) - algebraMap (WittFq k.f) Ainf (w j m) =
-          (k.E : Ainf) * (y j m : Ainf) := by
-      have h1 : (k.coord₀ (A j m) : Ainf) - ((w j m • (1 : k.S) : k.S) : Ainf) =
-          (k.E : Ainf) * (y j m : Ainf) := congrArg Subtype.val (hw j m)
-      rw [Algebra.smul_def, mul_one] at h1
-      exact h1
-    simp only [u_amb, v_amb, map_sub, Submodule.coe_sub, h_point, h_ret, smul_sum, smul_smul,
-      ← h_w, sub_smul, sum_sub_distrib]
+      k.E • ∑ m, y j m • x (s m) + coordRetract (point j - comb (A j)) =
+        x j - ∑ m, (w j m • (1 : k.S)) • x (s m) := by
+    simp only [map_sub, h_point, h_ret, smul_sum, smul_smul, ← hw, sub_smul, sum_sub_distrib]
     abel
-  have h_cancel :
-      ∑ j, c j • ∑ m, algebraMap (WittFq k.f) Ainf (w j m) • (x (s m) : L.Ambient) = 0 := by
-    have h_col (m : Fin d) : ∑ j, c j • algebraMap (WittFq k.f) Ainf (w j m) = 0 := by
-      let f := IsScalarTower.toAlgHom ℤ_[p] (WittFq k.f) Ainf
-      calc ∑ j, c j • algebraMap (WittFq k.f) Ainf (w j m)
-          = ∑ j, f (c j • w j m) := Finset.sum_congr rfl fun j _ ↦ (map_smul f (c j) _).symm
-        _ = f (∑ j, c j • w j m) := (map_sum f _ _).symm
-        _ = 0 := by rw [hc_rel, map_zero]
-    calc _ = ∑ m, (∑ j, c j • algebraMap (WittFq k.f) Ainf (w j m)) • (x (s m) : L.Ambient) := by
-          simp only [smul_sum, sum_smul, ← smul_assoc]
-          exact Finset.sum_comm
-      _ = 0 := by simp only [h_col, zero_smul, Finset.sum_const_zero]
-  have h_eq : ∑ j, c j • u_amb j + ∑ j, c j • v_amb j = ∑ j, c j • (x j : L.Ambient) := by
-    rw [← Finset.sum_add_distrib]
-    simp only [← smul_add, h_term, smul_sub, sum_sub_distrib, h_cancel, sub_zero]
-  refine Submodule.mem_sup.2
-    ⟨⟨∑ j, c j • u_amb j, sum_mem fun j _ ↦ smul_of_tower_mem _ _ (hu_kisin j)⟩,
-      (sum_mem fun j _ ↦ smul_of_tower_mem _ (c j) (hu_ord j) :
-        ∑ j, c j • u_amb j ∈ L.withOrders l (raiseOrdersAt o 0)),
-      ⟨∑ j, c j • v_amb j, sum_mem fun j _ ↦ smul_of_tower_mem _ _ (coordRetract _).property⟩,
-      (sum_mem fun j _ ↦ smul_of_tower_mem _ (c j) (hv_ord j) :
-        ∑ j, c j • v_amb j ∈ L.withOrders l (raiseOrder o b u)),
-      Subtype.ext ?_⟩
-  simpa only [Submodule.coe_add, Submodule.coe_sum, Submodule.coe_smul_of_tower] using h_eq
+  have h_cancel : ∑ j, c j • ∑ m, (w j m • (1 : k.S)) • x (s m) = 0 := by
+    calc
+      _ = ∑ m, ((∑ j, c j • w j m) • (1 : k.S)) • x (s m) := by
+        simp only [smul_sum, sum_smul, ← smul_assoc]
+        exact sum_comm
+      _ = 0 := by simp [hc_rel]
+  have h_sum : ∑ j, c j • x j =
+      ∑ j, c j • (k.E • ∑ m, y j m • x (s m) + coordRetract (point j - comb (A j))) := by
+    simp only [h_term, smul_sub, sum_sub_distrib, h_cancel, sub_zero]
+  rw [h_sum]
+  refine sum_smul_mem _ c fun j _ ↦
+    add_mem_sup ?_ (coordRetract_mem_withOrders (point j - comb (A j)) (h_up j))
+  -- multiplication by `E` raises all exponents at level `0`
+  have h_E : k.frobEUnit 0 ^ (1 : ℤ) • ∑ m, (y j m : Ainf) • (x (s m) : L.Ambient) ∈
+      L.withOrders l (raiseOrdersAt o 0) :=
+    frobEUnit_zpow_smul_mem_withOrders 0 1 (h_comb _) fun a v _ ↦ by simp [raiseOrdersAt, eq_comm]
+  simpa [smul_eq_val_smul, Chart.frobE] using h_E
 
 end OneStepGain
 
