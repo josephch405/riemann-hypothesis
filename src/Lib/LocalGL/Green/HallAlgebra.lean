@@ -426,14 +426,42 @@ lemma simClassOf_eq_dualMap : simClassOf g = simClassOf g.dualMap := by
 open scoped Classical in
 /-- For finite `k`, the induction product makes the class functions a commutative ring. -/
 instance : CommRing (Hall k) := by
-  refine' { mul_assoc := _, .. } <;> intros <;> ext _ g
-  -- The laws of `0` and distributivity hold term by term; in `1 * a` only `W = ⊥` contributes,
-  -- in `a * 1` only `W = ⊤`.
-  any_goals solve
-    | simp [simClassOf_endOnQuot (g' := g) 1 _ ⟨⊥, _⟩ surjective_id rfl,
-        simClassOf_endOnSub (g := g) .id, finsum_eq_sum_of_fintype, injective_id, finrank_zero_iff,
-        subsingleton_iff_eq_bot, Subtype.coe_eq_iff, mul_add, sum_add_distrib, add_mul]
-  · -- Associativity. Both sides are sums over chains `U ≤ W` of stable subspaces: those of `W`
+  refine' {
+    left_distrib := ?left_distrib, right_distrib := ?right_distrib,
+    zero_mul := ?zero_mul, mul_zero := ?mul_zero, one_mul := ?one_mul,
+    mul_one := ?mul_one, mul_assoc := ?mul_assoc, mul_comm := ?mul_comm, .. }
+  case left_distrib =>
+    intro a b c; ext _ g
+    simp only [Hall.mul_simClassOf, Hall.add_apply, mul_add, finsum_eq_sum_of_fintype,
+      sum_add_distrib]
+  case right_distrib =>
+    intro a b c; ext _ g
+    simp only [Hall.mul_simClassOf, Hall.add_apply, add_mul, finsum_eq_sum_of_fintype,
+      sum_add_distrib]
+  case zero_mul =>
+    intro a; ext _ g
+    simp only [Hall.mul_simClassOf, Hall.zero_apply, zero_mul, finsum_eq_sum_of_fintype,
+      sum_const_zero]
+  case mul_zero =>
+    intro a; ext _ g
+    simp only [Hall.mul_simClassOf, Hall.zero_apply, mul_zero, finsum_eq_sum_of_fintype,
+      sum_const_zero]
+  case one_mul =>
+    intro a; ext _ g
+    simp only [Hall.mul_simClassOf, Hall.one_apply, implies_true, dim_simClassOf,
+      finrank_zero_iff, subsingleton_iff_eq_bot, Subtype.coe_eq_iff, mem_bot, forall_eq, map_zero,
+      exists_true_left, ite_mul, one_mul, zero_mul, finsum_eq_sum_of_fintype, sum_ite_eq',
+      mem_univ, ↓reduceIte, one_apply_eq_self,
+      simClassOf_endOnQuot (g' := g) 1 _ ⟨⊥, _⟩ surjective_id rfl]
+  case mul_one =>
+    intro a; ext _ g
+    simp only [Hall.mul_simClassOf, id_coe, id_eq, implies_true, injective_id, Hall.one_apply,
+      dim_simClassOf, finrank_zero_iff, Submodule.Quotient.subsingleton_iff, Subtype.coe_eq_iff,
+      mem_top, exists_true_left, mul_ite, mul_one, mul_zero, finsum_eq_sum_of_fintype,
+      sum_ite_eq', mem_univ, ↓reduceIte, range_id, simClassOf_endOnSub (g := g) .id]
+  case mul_assoc =>
+    intro a b c; ext _ g
+    -- Associativity. Both sides are sums over chains `U ≤ W` of stable subspaces: those of `W`
     -- are those of the whole space below `W`, those of a quotient are those above its kernel.
     have h_sums_sub (W : StableSubspace g) :=
       sum_comap (g := W.endOnSub) W.val.subtype (congrFun rfl)
@@ -444,35 +472,43 @@ instance : CommRing (Hall k) := by
       Subtype.coe_eta, simClassOf_endOnSub_comap, sum_mul, ite_mul, mul_assoc, zero_mul, sum_comm,
       simClassOf_endOnQuot_comap, mul_sum]
     -- For `U ≤ W`, the quotient of `W` by `U` is the image of `W` in the quotient by `U`.
-    congr!
+    refine sum_congr rfl fun U _ ↦ sum_congr rfl fun W _ ↦ ?_
+    refine congrArg (a _ * ·) (congrArg (· * c _) (congrArg b ?_))
     apply simClassOf_endOnQuot ((mkQ _).submoduleComap _) ?h_comm _ ?h_surj
-    case h_comm => tauto
-    case h_surj =>
-      rintro ⟨⟨x⟩⟩
-      tauto
-    simp [submoduleComap, ker_restrict]
+    case h_comm => rintro ⟨x, hx⟩; rfl
+    case h_surj => rintro ⟨⟨x⟩, hx⟩; exact ⟨⟨x, hx⟩, rfl⟩
+    simp only [submoduleComap, ker_restrict, ker_mkQ]
     rfl
-  · -- Commutativity. Replace `g` by its transpose on the right. Taking annihilators matches the
+  case mul_comm =>
+    intro a b; ext _ g
+    -- Commutativity. Replace `g` by its transpose on the right. Taking annihilators matches the
     -- stable subspaces of `g` and of its transpose, and exchanges restriction and quotient up to
     -- transposition.
     nth_rw 2 [simClassOf_eq_dualMap]
     rw [Hall.mul_simClassOf, Hall.mul_simClassOf, finsum_eq_sum_of_fintype,
       finsum_eq_sum_of_fintype]
-    refine sum_nbij' (⟨dualAnnihilator ·, by aesop⟩)
-      (⟨dualCoannihilator ·, by grind [mem_dualCoannihilator, g.dualMap_apply]⟩) ?_ ?_ ?_ ?_ ?_
+    refine sum_nbij'
+      (fun W ↦ ⟨dualAnnihilator W, fun f hf ↦
+        (mem_dualAnnihilator _).2 fun x hx ↦ (mem_dualAnnihilator _).1 hf _ (W.prop x hx)⟩)
+      (fun W ↦ ⟨dualCoannihilator W, fun x hx ↦
+        (mem_dualCoannihilator _).2 fun f hf ↦ (mem_dualCoannihilator _).1 hx _ (W.prop f hf)⟩)
+      ?_ ?_ ?_ ?_ ?_
     all_goals simp_intro W [Subspace.dualCoannihilator_dualAnnihilator_eq]
     rw [simClassOf_eq_dualMap, mul_comm, simClassOf_eq_dualMap,
       simClassOf_endOnSub W.val.mkQ.dualMap, simClassOf_endOnQuot W.val.subtype.dualMap]
     · -- The transpose of the inclusion of `W` intertwines the transposes.
-      aesop
+      intro f; rfl
     · exact dualMap_surjective_of_injective (Submodule.injective_subtype _)
     · -- The kernel of the transposed inclusion is the annihilator of `W`.
-      aesop
+      refine SetLike.ext fun f ↦ ?_
+      simp only [LinearMap.mem_ker, LinearMap.ext_iff, LinearMap.dualMap_apply,
+        LinearMap.zero_apply, Submodule.subtype_apply, Subtype.forall,
+        Submodule.mem_dualAnnihilator]
     · -- The transpose of the quotient map intertwines the transposes.
-      aesop
+      intro f; exact LinearMap.ext fun x ↦ rfl
     · exact dualMap_injective_of_surjective (mkQ_surjective _)
     · -- The image of the transposed quotient map is the annihilator of `W`.
-      aesop (add simp [range_dualMap_mkQ_eq])
+      exact range_dualMap_mkQ_eq _
 
 /-! ### The constant function 1 is a unit -/
 
@@ -495,8 +531,12 @@ lemma Hall.one_sub_constOne_pow_apply_eq_zero (m : ℕ) :
 /-- The class functions form a `ℂ`-algebra: scalars act pointwise. -/
 instance : Algebra ℂ (Hall k) := by
   -- At each class, a scalar comes out of every term of the finite sum defining the product.
-  refine Algebra.ofModule ?_ ?_ <;>
-    aesop (add simp [mul_sum, finsum_eq_sum_of_fintype]) (add 1% (by ring))
+  refine Algebra.ofModule (fun r x y ↦ ?_) (fun r x y ↦ ?_)
+  · ext _ g
+    simp only [Hall.smul_apply, Hall.mul_simClassOf, finsum_eq_sum_of_fintype, mul_sum, mul_assoc]
+  · ext _ g
+    simp only [Hall.smul_apply, Hall.mul_simClassOf, finsum_eq_sum_of_fintype, mul_sum,
+      mul_left_comm]
 
 /-- Over a finite field `k`, the constant function `𝟙` on similarity classes of square matrices of
 all sizes is invertible for the induction product. -/
@@ -664,19 +704,21 @@ lemma blockAverage_mul :
             Pi.add_apply, LinearMap.sub_apply, coe_comp, Function.comp_apply, LinearMap.zero_apply,
             Prod.mk_add_mk, add_zero, LinearEquiv.coe_coe, LinearEquiv.skewProd_apply,
             one_apply_eq_self, map_add, Prod.mk.injEq, true_and]
-          grind)
+          abel)
         ⟨.prod B A, fun _ hx ↦
           ⟨add_mem (B.prop _ hx.1) (zero_mem _), add_mem (y.prop hx.1) (A.prop _ hx.2)⟩⟩⟩
   have mem_φ (P : StableSubspace a × StableSubspace b) (y : S P) (s : (W →ₗ[k] V) ⧸ S P) (w : W)
       (v : V) : (w, v) ∈ (φ ⟨P, y, s⟩).snd.val ↔ w ∈ P.snd.val ∧ v + s.out w ∈ P.fst.val := by
-    simp [φ, comap]
+    simp only [coprod_apply, comap, Submodule.mem_comap, LinearEquiv.coe_coe,
+      LinearEquiv.skewProd_apply, one_apply_eq_self, Submodule.mem_prod, φ]
   have φ_inj : φ.Injective := by
     rintro ⟨⟨A, B⟩, y, s⟩ ⟨⟨A', B'⟩, y', s'⟩ h
     obtain ⟨hx, hU⟩ := Sigma.subtype_ext_iff.1 h
     have mem_iff (w : W) (v : V) :
         w ∈ B.val ∧ v + s.out w ∈ A.val ↔ w ∈ B'.val ∧ v + s'.out w ∈ A'.val := by
       rw [← mem_φ (A, B) y, ← mem_φ (A', B') y', hU]
-    have hA (v : V) : v ∈ A.val ↔ v ∈ A'.val := by simpa using mem_iff 0 v
+    have hA (v : V) : v ∈ A.val ↔ v ∈ A'.val := by
+      simpa only [zero_mem, map_zero, add_zero, true_and] using mem_iff 0 v
     obtain rfl : A = A' := Subtype.ext (SetLike.ext hA)
     -- at `v = -s w` the left side holds for `w ∈ B`, and at `v = -s' w` the right side for `w ∈ B'`
     have h_left (w : W) (hw : w ∈ B.val) : w ∈ B'.val ∧ -s.out w + s'.out w ∈ A.val :=
@@ -687,7 +729,7 @@ lemma blockAverage_mul :
       Subtype.ext (SetLike.ext fun w ↦ ⟨fun hw ↦ (h_left w hw).left, h_right w⟩)
     -- `-s w + s' w ∈ A` for `w ∈ B`: the two classes agree
     obtain rfl : s = s' := s.out_equiv_out.1 (leftRel_apply.2 fun w hw ↦ (h_left w hw).right)
-    simpa [φ] using hx
+    cases Subtype.ext (add_left_cancel hx); rfl
   have φ_surj : φ.Surjective := by
     rintro ⟨x, U⟩
     -- `A` is the preimage of `U` under `inr` and `B` the first projection of `U`; the map `t`
@@ -722,15 +764,16 @@ lemma blockAverage_mul :
   have h_lhs : (F * H).blockAverage (simClassOf a) (simClassOf b) =
       (∑ i, F (simClassOf (φ i).2.endOnSub) * H (simClassOf (φ i).2.endOnQuot)) /
         (Fintype.card (W →ₗ[k] V) : ℂ) := by
-    simp [mul_simClassOf, blockAverage_simClassOf, finMean_eq, finsum_eq_sum_of_fintype,
-      ← sum_sigma', ← φ_bij.sum_comp]
+    simp only [blockAverage_simClassOf, mul_simClassOf, coprod_apply, finsum_eq_sum_of_fintype,
+      finMean_eq, ← sum_sigma', ← φ_bij.sum_comp]
   -- The right side is a sum over the pairs `(A, B)`; compare the terms of one pair.
   rw [h_lhs, sum_blockAverage_mul_blockAverage_eq, sum_sigma, Finset.sum_div]
   congr with ⟨⟨A, hA⟩, ⟨B, hB⟩⟩
   -- The number of all `x` is that of the `y` times that of the classes `s`.
   have h_card : Fintype.card (W →ₗ[k] V) =
       Fintype.card (B.compatibleMaps A) * Fintype.card ((W →ₗ[k] V) ⧸ B.compatibleMaps A) := by
-    simpa using (B.compatibleMaps A).card_eq_card_quotient_mul_card
+    simpa only [Submodule.mem_compatibleMaps, Nat.card_eq_fintype_card] using
+      (B.compatibleMaps A).card_eq_card_quotient_mul_card
   simp_rw [S, h_card, ← card_prod, ← finMean_eq]
   -- So both sides are averages. The term at `(y, s)` depends only on the maps `B → A` and
   -- `W ⧸ B → V ⧸ A` that `y` induces, and every pair of such maps occurs.
@@ -738,7 +781,8 @@ lemma blockAverage_mul :
       B.compatibleMaps A × (_ ⧸ B.compatibleMaps A) →+ (B →ₗ[k] A) × (_ ⧸ B →ₗ[k] _ ⧸ A) :=
     -- (`clear * -` keeps `aesop` fast: the context here is large.)
     .mk' (fun (⟨y, hy⟩, _) ↦ (y.restrict fun w hw ↦ hy hw, B.mapQ A y fun w hw ↦ hy hw))
-      (by clear * -; aesop)
+      (fun ⟨⟨y₁, hy₁⟩, _⟩ ⟨⟨y₂, hy₂⟩, _⟩ ↦ Prod.ext
+        (LinearMap.ext fun _ ↦ rfl) (LinearMap.ext fun w ↦ Quotient.inductionOn w fun _ ↦ rfl))
   have induced_surj : Function.Surjective induced := fun ⟨α, β⟩ ↦
     have ⟨y, hy, hα, hβ⟩ := exists_restrict_eq_and_mapQ_eq α β
     ⟨(⟨y, hy⟩, 0), Prod.ext hα hβ⟩
@@ -747,8 +791,20 @@ lemma blockAverage_mul :
   -- for `B × A`; these are block maps on `B × A` and on the product of the quotients.
   rw [simClassOf_endOnSub_comap, simClassOf_endOnQuot_comap,
       simClassOf_endOnSub (B.subtype.prodMap A.subtype),
-      simClassOf_endOnQuot (B.mkQ.prodMap A.mkQ)] <;>
-    simp [induced, endOnSub, endOnQuot, ← ker_eq_bot, ← range_eq_top]
+      simClassOf_endOnQuot (B.mkQ.prodMap A.mkQ)]
+  · simp only [coprod_apply, LinearMap.prod_apply, Function.prod_apply, LinearMap.zero_apply,
+      Prod.mk_add_mk, add_zero, prodMap_apply, Submodule.mkQ_apply, Submodule.Quotient.mk_add,
+      endOnQuot, AddMonoidHom.mk'_apply, Submodule.mapQ_apply, implies_true, induced]
+  · simp only [← range_eq_top, range_prodMap, Submodule.range_mkQ, Submodule.prod_top]
+  · simp only [ker_prodMap, Submodule.ker_mkQ]
+  · simp only [endOnSub, AddMonoidHom.mk'_apply, coprod_apply, LinearMap.prod_apply,
+      Function.prod_apply, LinearMap.zero_apply, Prod.mk_add_mk, add_zero, prodMap_apply,
+      Submodule.subtype_apply, coe_restrict_apply, Submodule.coe_add, implies_true, induced]
+  · simp only [← ker_eq_bot, ker_prodMap, Submodule.ker_subtype, Submodule.prod_bot]
+  · simp only [range_prodMap, Submodule.range_subtype]
+  · simp only [LinearEquiv.range]
+  · simp only [LinearEquiv.ker]
+  · simp only [LinearEquiv.range, le_top]
 
 /-- If the class `o` has dimension `0`, the block average of `F` at `(o, a)` and at `(a, o)` is
 `F a`. -/
@@ -758,11 +814,16 @@ lemma blockAverage_of_dim_eq_zero {o : SimClass k} (h_dim : o.dim = 0) (a : SimC
   have h_empty : IsEmpty (Fin o.out.1) := (Fin.cast h_dim).isEmpty
   have h_left (x : (Fin a.out.1 → k) →ₗ[k] Fin o.out.1 → k) :
       simClassOf (blockTriangularEnd o.out.2 a.out.2 x) = simClassOf a.out.2 :=
-    simClassOf_eq_of_equiv .prodUnique (by simp)
+    simClassOf_eq_of_equiv .prodUnique (by
+      simp only [coprod_apply, LinearMap.prod_apply, Function.prod_apply, LinearMap.zero_apply,
+        Prod.mk_add_mk, add_zero, LinearEquiv.prodUnique_apply, implies_true])
   have h_right (x : (Fin o.out.1 → k) →ₗ[k] Fin a.out.1 → k) :
       simClassOf (blockTriangularEnd a.out.2 o.out.2 x) = simClassOf a.out.2 :=
-    simClassOf_eq_of_equiv .uniqueProd (by simp [Subsingleton.elim x 0])
-  simp [blockAverage, h_left, h_right]
+    simClassOf_eq_of_equiv .uniqueProd (by
+      simp only [Subsingleton.elim x 0, coprod_apply, LinearMap.prod_apply, Function.prod_apply,
+        LinearMap.zero_apply, Prod.mk_add_mk, add_zero, zero_add, LinearEquiv.uniqueProd_apply,
+        implies_true])
+  simp only [blockAverage, h_left, simClassOf_out, finMean_const, h_right, and_self]
 
 omit [Finite k] in
 /-- For an `a`-stable subspace `U`, the characteristic polynomial of `a` is the product of those of
@@ -778,9 +839,18 @@ lemma charpoly_endOnSub_mul_endOnQuot (U : StableSubspace a) :
       M = .fromBlocks (toMatrix bU bU U.endOnSub) M.toBlocks₁₂ 0 (toMatrix bQ bQ U.endOnQuot) := by
     -- For the lower right block, `bQ j` is the class of the lifted basis vector. (Without
     -- `-Basis.sumQuot_inr` the reversed rewrite loops.)
-    ext (i | i) (j | j) <;>
-      simp [M, U.property, endOnSub, restrict_apply, (mk_eq_zero _).2, Matrix.toBlocks₁₂, endOnQuot,
-        ← Basis.sumQuot_inr bU bQ, -Basis.sumQuot_inr, toMatrix_apply]
+    ext (i | i) (j | j)
+    · simp only [toMatrix_apply, Basis.sumQuot_inl, SetLike.coe_mem, U.property,
+        Basis.sumQuot_repr_inl_of_mem, endOnSub, Matrix.toBlocks₁₂, endOnQuot,
+        Matrix.fromBlocks_apply₁₁, restrict_apply, M]
+    · simp only [toMatrix_apply, endOnSub, Matrix.toBlocks₁₂, endOnQuot,
+        Matrix.fromBlocks_apply₁₂, Matrix.of_apply, M]
+    · simp only [toMatrix_apply, Basis.sumQuot_inl, Basis.sumQuot_repr_inr, Submodule.mkQ_apply,
+        SetLike.coe_mem, U.property, (mk_eq_zero _).2, map_zero, Finsupp.coe_zero, Pi.zero_apply,
+        endOnSub, Matrix.toBlocks₁₂, endOnQuot, Matrix.fromBlocks_apply₂₁, Matrix.zero_apply, M]
+    · simp only [toMatrix_apply, Basis.sumQuot_repr_inr, Submodule.mkQ_apply, endOnSub,
+        Matrix.toBlocks₁₂, endOnQuot, Matrix.fromBlocks_apply₂₂, ← Basis.sumQuot_inr bU bQ,
+        Submodule.mapQ_apply, M]
   have h_charpoly : a.charpoly = M.charpoly := (charpoly_toMatrix a _).symm
   rw [h_charpoly, h_block, Matrix.charpoly_fromBlocks_zero₂₁, charpoly_toMatrix, charpoly_toMatrix]
 
@@ -850,14 +920,19 @@ lemma rankInner_mul_eq_sum_skew :
     exact mem_image.2 ⟨_, mem_univ _, (finrank_range_of_inj hf).trans (finrank_fin_fun k)⟩
   have sum_dim (M : ℕ → ℂ) : ∑ p ∈ .range (n + 1), M p = ∑ U, M (d U) / #{Y | d Y = d U} := by
     rw [sum_comp (fun p ↦ M p / (#{Y | d Y = p} : ℂ)) d]
-    exact sum_congr image_d (by simp [field])
+    exact sum_congr image_d (by
+      simp only [mem_image, mem_univ, true_and, nsmul_eq_mul, fieldEq, forall_exists_index,
+        forall_apply_eq_imp_iff, ne_eq, Nat.cast_eq_zero, card_eq_zero, filter_eq_empty_iff,
+        forall_const, not_forall, Decidable.not_not, exists_apply_eq_apply,
+        mul_div_cancel_right₀])
   rw [Nat.sum_antidiagonal_eq_sum_range_succ_mk, rankInner, finMean_eq, sum_dim]
   -- Expanding the product, the left side is a sum over the pairs `(g, U)`.
   suffices h_pairs : (∑ x : Σ g : (End k (Fin n → k))ˣ, StableSubspace g.val,
         starRingEnd ℂ (A (simClassOf x.2.endOnSub)) * starRingEnd ℂ (B (simClassOf x.2.endOnQuot)) *
           X (simClassOf x.1.val)) / (Fintype.card (End k (Fin n → k))ˣ : ℂ) =
       ∑ U, rankInner (d U) A (skew (n - d U) B X) / (#{Y | d Y = d U} : ℂ) by
-    simpa [mul_simClassOf, sum_mul, sum_sigma', finsum_eq_sum_of_fintype] using h_pairs
+    simpa only [mul_simClassOf, finsum_eq_sum_of_fintype, map_sum, map_mul, sum_mul,
+      sum_sigma', univ_sigma_univ] using h_pairs
   -- Reindex the pairs `(g, U)` by `U` first, then `g` in its stabiliser.
   let pairs : (Σ U : Submodule k (Fin n → k), stabilizer (End k (Fin n → k))ˣ U) ≃
       Σ g : (End k (Fin n → k))ˣ, StableSubspace g.val :=
@@ -880,7 +955,10 @@ lemma rankInner_mul_eq_sum_skew :
   have skewProd_mem (a : (End k U)ˣ) (b : (End k Z)ˣ) (x : Z →ₗ[k] U) (u : U) :
       (congrLinearEquiv e (ofLinearEquiv (.skewProd (toLinearEquiv b) (toLinearEquiv a) x)) :
         End k (Fin n → k)) u ∈ U := by
-    simp [e]
+    simp only [congrLinearEquiv_apply, coe_ofLinearEquiv, LinearEquiv.trans_apply,
+      prodEquivOfIsCompl_symm_apply, projectionOnto_apply_right, projectionOnto_apply_left,
+      coe_toLinearEquiv, LinearEquiv.skewProd_apply, map_zero, add_zero,
+      coe_prodEquivOfIsCompl', ZeroMemClass.coe_zero, zero_add, SetLike.coe_mem, e]
   have map_eq (g : (End k (Fin n → k))ˣ) (hg : g ∈ stabilizer (End k (Fin n → k))ˣ U) :
       U.map (toLinearEquiv g : (Fin n → k) →ₗ[k] Fin n → k) = U := hg
   let blocks : (End k U)ˣ × (End k Z)ˣ × (Z →ₗ[k] U) ≃ stabilizer (End k (Fin n → k))ˣ U :=
@@ -892,11 +970,40 @@ lemma rankInner_mul_eq_sum_skew :
           congrLinearEquiv (U.quotientEquivOfIsCompl Z hZ)
             (ofLinearEquiv (Quotient.equiv U U (toLinearEquiv g) (map_eq g hg))),
           U.projectionOnto Z hZ ∘ₗ domRestrict g Z)
-      left_inv _ := by ext <;> simp [e]
-      right_inv _ := by
-        ext : 2
-        simp [e, LinearMap.ext_iff]
-        grind [projection_add_projection_eq_self] }
+      left_inv _ := by
+        ext x
+        · simp only [congrLinearEquiv_apply, coe_ofLinearEquiv, LinearEquiv.ofSubmodules_apply,
+            coe_toLinearEquiv, LinearEquiv.trans_apply, prodEquivOfIsCompl_symm_apply,
+            projectionOnto_apply_right, projectionOnto_apply_left, LinearEquiv.skewProd_apply,
+            map_zero, add_zero, coe_prodEquivOfIsCompl', ZeroMemClass.coe_zero, Pi.add_apply,
+            Pi.zero_apply, zero_add, e]
+        · simp only [congrLinearEquiv_apply, coe_ofLinearEquiv, LinearEquiv.trans_apply,
+            quotientEquivOfIsCompl_symm_apply, coe_toLinearEquiv, Quotient.equiv_apply,
+            mapQ_apply, LinearEquiv.coe_coe, prodEquivOfIsCompl_symm_apply,
+            projectionOnto_apply_left, projectionOnto_apply_right, LinearEquiv.skewProd_apply,
+            map_zero, zero_add, coe_prodEquivOfIsCompl', Quotient.mk_add, map_add,
+            quotientEquivOfIsCompl_apply_mk, add_zero, e]
+        · simp only [congrLinearEquiv_apply, coe_comp, Function.comp_apply, domRestrict_apply,
+            coe_ofLinearEquiv, LinearEquiv.trans_apply, prodEquivOfIsCompl_symm_apply,
+            projectionOnto_apply_left, projectionOnto_apply_right, coe_toLinearEquiv,
+            LinearEquiv.skewProd_apply, map_zero, zero_add, coe_prodEquivOfIsCompl', map_add, e]
+      right_inv g := by
+        refine Subtype.ext (Units.ext (LinearMap.ext fun v ↦ ?_))
+        simp only [e, congrLinearEquiv_apply, coe_ofLinearEquiv, LinearEquiv.trans_apply,
+          coe_toLinearEquiv, LinearEquiv.skewProd_apply, prodEquivOfIsCompl_symm_apply,
+          coe_prodEquivOfIsCompl', LinearEquiv.ofSubmodules_apply,
+          quotientEquivOfIsCompl_symm_apply, Quotient.equiv_apply, quotientEquivOfIsCompl_apply_mk,
+          coe_comp, Function.comp_apply, domRestrict_apply, mapQ_apply, Submodule.coe_add]
+        let x₁ : Fin n → k := Z.projectionOnto U hZ.symm v
+        let x₂ : Fin n → k := U.projectionOnto Z hZ v
+        change (Z.projectionOnto U hZ.symm (g.1.1 x₁) : Fin n → k) +
+            (g.1.1 x₂ + (U.projectionOnto Z hZ (g.1.1 x₁) : Fin n → k)) = g.1.1 v
+        have h_proj₁ (y : Fin n → k) :
+            (Z.projectionOnto U hZ.symm y : Fin n → k) + (U.projectionOnto Z hZ y : Fin n → k) =
+              y :=
+          projection_add_projection_eq_self hZ.symm y
+        have h_proj₂ : x₂ + x₁ = v := projection_add_projection_eq_self hZ v
+        rw [add_left_comm, h_proj₁, ← map_add, h_proj₂] }
   -- Orbit-stabiliser: the order of the group is `#{dim = d U}` times that of the stabiliser, so
   -- the term of `U` is the weight times an average over the stabiliser.
   rw [← card_orbit_mul_card_stabilizer_eq_card_group _ U,
@@ -907,19 +1014,35 @@ lemma rankInner_mul_eq_sum_skew :
   have h_sub (a : (End k U)ˣ) (b : (End k Z)ˣ) (x : Z →ₗ[k] U) :
       simClassOf (pairs ⟨U, blocks (a, b, x)⟩).2.endOnSub = simClassOf a.val := by
     refine congrArg simClassOf (LinearMap.ext fun u ↦ Subtype.ext ?_)
-    simp [pairs, blocks, ↓Equiv.coe_fn_mk, e, endOnSub]
+    simp only [↓Equiv.coe_fn_mk, congrLinearEquiv_apply, coe_ofLinearEquiv,
+      LinearEquiv.trans_apply, coe_toLinearEquiv, LinearEquiv.skewProd_apply,
+      coe_prodEquivOfIsCompl', Submodule.coe_add, endOnSub, coe_restrict_apply,
+      prodEquivOfIsCompl_symm_apply, projectionOnto_apply_right, projectionOnto_apply_left,
+      map_zero, add_zero, ZeroMemClass.coe_zero, zero_add, e, pairs, blocks]
   have h_quot (a : (End k U)ˣ) (b : (End k Z)ˣ) (x : Z →ₗ[k] U) :
       simClassOf (pairs ⟨U, blocks (a, b, x)⟩).2.endOnQuot = simClassOf b.val :=
-    simClassOf_endOnQuot _ (by simp [pairs, blocks, ↓Equiv.coe_fn_mk, e]) _
-      (projectionOnto_surjective hZ.symm) (by simp [pairs, ↓Equiv.coe_fn_mk])
+    simClassOf_endOnQuot _ (by
+      simp only [↓Equiv.coe_fn_mk, congrLinearEquiv_apply, coe_ofLinearEquiv,
+        LinearEquiv.trans_apply, coe_toLinearEquiv, LinearEquiv.skewProd_apply,
+        coe_prodEquivOfIsCompl', Submodule.coe_add, prodEquivOfIsCompl_symm_apply, map_add,
+        projectionOnto_apply_left, projectionOnto_apply_right, add_zero, implies_true,
+        e, pairs, blocks]) _
+      (projectionOnto_surjective hZ.symm)
+      (by simp only [↓Equiv.coe_fn_mk, ker_projectionOnto, pairs])
   have h_whole (a : (End k U)ˣ) (b : (End k Z)ˣ) (x : Z →ₗ[k] U) :
       simClassOf (pairs ⟨U, blocks (a, b, x)⟩).1.1 = simClassOf (blockTriangularEnd a.1 b.1 x) :=
-    simClassOf_eq_of_equiv e.symm (by simp [pairs, blocks, ↓Equiv.coe_fn_mk, add_comm])
+    simClassOf_eq_of_equiv e.symm (by
+      simp only [↓Equiv.coe_fn_mk, congrLinearEquiv_apply, coe_ofLinearEquiv,
+        LinearEquiv.trans_apply, coe_toLinearEquiv, LinearEquiv.skewProd_apply,
+        LinearEquiv.symm_apply_apply, coprod_apply, LinearMap.prod_apply, Function.prod_apply,
+        LinearMap.zero_apply, add_comm, Prod.mk_add_mk, zero_add, implies_true, pairs, blocks])
   -- Both sides become means over `a`, `b`, `x`: `dim Z = n - dim U`, and `blockAverage_simClassOf`
   -- computes the block average on the representatives `a`, `b`.
-  have dim_eq : n = finrank k Z + finrank k U := by simpa using e.finrank_eq.symm
-  simp [h_sub, h_quot, h_whole, d, finMean_prod, rankInner_eq_classInner_simClassOf,
-    blockAverage_simClassOf, skew, classInner, mul_assoc, ← finMean_const_mul, dim_eq]
+  have dim_eq : n = finrank k Z + finrank k U := by
+    simpa only [finrank_fintype_fun_eq_card, Fintype.card_fin, finrank_prod] using e.finrank_eq.symm
+  simp only [h_sub, h_quot, h_whole, mul_assoc, finMean_prod, rankInner_eq_classInner_simClassOf,
+    classInner, skew, blockAverage_simClassOf, ← finMean_const_mul, dim_eq,
+    add_tsub_cancel_right, d]
 
 end InductionMean
 
@@ -982,16 +1105,18 @@ lemma rankInner_mul_of_isCuspidal :
     rintro ⟨p, q⟩ h_mem ⟨h_ne_d0, h_ne_0d⟩
     -- any other pair of sizes has both positive, and there `blockAverage` of `c` vanishes
     have h_add : p + q = d := HasAntidiagonal.mem_antidiagonal.1 h_mem
-    have hp : p ≠ 0 := by grind
-    have hq : q ≠ 0 := by grind
+    have hp : p ≠ 0 := by intro h0; subst h0; exact h_ne_0d (by rw [zero_add] at h_add; rw [h_add])
+    have hq : q ≠ 0 := by intro h0; subst h0; exact h_ne_d0 (by rw [add_zero] at h_add; rw [h_add])
     have h_cusp : ∀ a b : SimClass k, a.dim ≠ 0 → b.dim ≠ 0 → c.blockAverage a b = 0 := hc
-    simp [rankInner, skew, h_cusp, hp, hq]
+    simp only [rankInner, skew, dim_simClassOf, finrank_fintype_fun_eq_card, Fintype.card_fin,
+      ne_eq, hp, not_false_eq_true, hq, h_cusp, mul_zero, finMean_const]
   -- Conjugate; in these two terms `blockAverage` of `c` is `c` at the block of size `d`
   -- (`blockAverage_of_dim_eq_zero`).
   replace h_sum := congrArg star h_sum
   simp_all [← finMean_conj, mul_comm, IsCuspidal, rankInner, skew, blockAverage_of_dim_eq_zero]
   -- what is left is to pull the constant `rankInner 0 constOne H` out of an average
-  simp [finMean_eq, sum_mul, field, mul_assoc]
+  simp only [finMean_eq, univ_unique, sum_singleton, Fintype.card_unique, Nat.cast_one, div_one,
+    fieldEq, sum_mul, mul_assoc]
 
 /-- Take `c` cuspidal in the sense of `New.Hall.IsCuspidal` and `d ≠ 0`. Let `skew d f c` be the
 function x ↦ average over y in GL_d(k) of conj f(y) · δc(x, y), with δ the block average
@@ -1078,14 +1203,22 @@ lemma classInner_evalGL_prod [Finite k] {s : Finset ι} (hs : ∀ i : n, b i ∈
   clear hY
   -- Induction on the set of levels, removing the largest level `m`.
   induction s using induction_on_max generalizing n X with
-  | empty => simp_all [← isEmpty_iff, classInner, Hall.evalGL, eq_simClassOf_zero_of_dim_eq_zero]
+  | empty =>
+    simp_all only [notMem_empty, ← isEmpty_iff, isEmpty_iff_isVoid, classInner, evalGL,
+      dim_simClassOf, Module.finrank_fintype_fun_eq_card, Fintype.card_eq_zero,
+      eq_simClassOf_zero_of_dim_eq_zero, Finset.prod_empty, Hall.one_apply, ↓reduceIte, map_one,
+      one_mul, finMean_const, Finset.prod_apply, Function.comp_apply]
   | insert m s hm ih => ?_
   -- With the indices of level `m` put first by `e`, the matrix `M g` of an element of `parabolic b`
   -- has a zero upper right block and invertible diagonal blocks.
   let e := sumCompl (b · = m)
   let M (g : parabolic (R := k) b) := g.val.val.submatrix e e
-  have h_zero (g : parabolic (R := k) b) : (M g).toBlocks₁₂ = 0 :=
-    ext fun _ _ ↦ g.property (by grind [sumCompl_apply_inl, sumCompl_apply_inr])
+  have h_zero (g : parabolic (R := k) b) : (M g).toBlocks₁₂ = 0 := by
+    ext i j
+    refine g.property ?_
+    simp only [e, sumCompl_apply_inl, sumCompl_apply_inr]
+    rw [i.2]
+    exact hm (b j.1) ((mem_insert.1 (hs j.1)).resolve_left j.2)
   have h_blocks (g : parabolic (R := k) b) :
       fromBlocks (M g).toBlocks₁₁ 0 (M g).toBlocks₂₁ (M g).toBlocks₂₂ =
         g.val.val.submatrix e e := by
@@ -1093,55 +1226,85 @@ lemma classInner_evalGL_prod [Finite k] {s : Finset ι} (hs : ∀ i : n, b i ∈
   have h_unit (g : parabolic (R := k) b) : IsUnit (M g).toBlocks₁₁ ∧ IsUnit (M g).toBlocks₂₂ := by
     have h_M_unit :
         IsUnit (fromBlocks (M g).toBlocks₁₁ 0 (M g).toBlocks₂₁ (M g).toBlocks₂₂) := by
-      simp [h_blocks g]
+      simp only [h_blocks g, isUnit_submatrix_equiv, Units.isUnit]
     exact isUnit_fromBlocks_zero₁₂.1 h_M_unit
   -- Move the factor of level `m` to the other side (`rankInner_mul_eq_rankInner_skew`) and apply
   -- the induction hypothesis to the indices of the other levels.
   let b' (i : {i // ¬b i = m}) := b i
+  have h_notMem : m ∉ s := fun h ↦ lt_irrefl m (hm m h)
+  have hs' (i : {i // ¬b i = m}) : b' i ∈ s := (mem_insert.1 (hs i.1)).resolve_left i.2
   have h_card (a : ι) (ha : a ∈ s) : card {i // b i = a} = card {i // b' i = a} :=
-    card_congr (subtypeSubtypeEquivSubtype (q := (b · = a)) (by grind)).symm
+    card_congr (subtypeSubtypeEquivSubtype (p := (¬b · = m)) (q := (b · = a))
+      fun hba hbm ↦ absurd (hba.symm.trans hbm) (ne_of_lt (hm a ha))).symm
   have h_prod : ∏ a ∈ s, (F a).rankPart (card {i // b i = a}) =
       ∏ a ∈ s, (F a).rankPart (card {i // b' i = a}) :=
     prod_congr rfl fun a ha ↦ by rw [h_card a ha]
-  have hs' (i : {i // ¬b i = m}) : b' i ∈ s := by grind
-  have h_notMem : m ∉ s := by grind
   rw [classInner_evalGL, prod_insert h_notMem, ← card_congr e, card_sum,
-    rankInner_mul_eq_rankInner_skew (by grind [rankPart]), ← classInner_evalGL, h_prod, ih b' hs']
-  simp [skew, ← classInner_evalGL, classInner, blockAverage_simClassOf, ← finMean_const_mul,
-    ← finMean_prod (Prod.rec _), Hall.evalGL]
+    rankInner_mul_eq_rankInner_skew (fun c hc ↦ by dsimp only [rankPart]; exact ite_eq_right hc),
+    ← classInner_evalGL, h_prod, ih b' hs']
+  simp only [classInner, Finset.prod_apply, Function.comp_apply, evalGL, map_prod, skew,
+    ← classInner_evalGL, rankPart, dim_simClassOf, Module.finrank_fintype_fun_eq_card, ↓reduceIte,
+    blockAverage_simClassOf, ← finMean_const_mul, ← finMean_prod (Prod.rec _)]
   -- A matrix with invertible diagonal blocks and a zero upper right block is invertible, and it is
   -- block triangular for the levels `b` when its block of the levels in `s` is so for `b'`.
   have h_unit_inv (t : parabolic (R := k) b' × GL {i // b i = m} k ×
       (({i // b i = m} → k) →ₗ[k] {i // ¬b i = m} → k)) :
       IsUnit (reindex e e (fromBlocks t.2.1 0 t.2.2.toMatrix' t.1.val)) := by
-    simp
+    rw [Matrix.reindex_apply, isUnit_submatrix_equiv]
+    exact isUnit_fromBlocks_zero₁₂.2 ⟨Units.isUnit _, Units.isUnit _⟩
   have h_tri_inv (t : parabolic (R := k) b' × GL {i // b i = m} k ×
       (({i // b i = m} → k) →ₗ[k] {i // ¬b i = m} → k)) :
       BlockTriangular (fromBlocks t.2.1 0 t.2.2.toMatrix' t.1.val) (b ∘ e) := by
-    have h_tri : BlockTriangular t.1.val.val b' := t.1.property
-    simp [e, BlockTriangular]
-    grind [BlockTriangular]
+    intro i j hij
+    rcases i with i | i <;> rcases j with j | j
+    · exact absurd hij fun h ↦ lt_irrefl m (by
+        simpa only [Function.comp_apply, e, sumCompl_apply_inl, i.2, j.2] using h)
+    · rfl
+    · refine absurd hij (not_lt.mpr (le_of_lt ?_))
+      simpa only [Function.comp_apply, e, sumCompl_apply_inl, sumCompl_apply_inr, j.2] using
+        hm (b i.1) (hs' i)
+    · exact t.1.property (by simpa only [Function.comp_apply, e, sumCompl_apply_inr] using hij)
   -- The left side is now a mean over the two diagonal blocks and the lower left block, which
   -- parametrise `parabolic b`.
   let blocks : parabolic (R := k) b ≃ parabolic (R := k) b' ×
       GL {i // b i = m} k × (({i // b i = m} → k) →ₗ[k] {i // ¬b i = m} → k) :=
     { toFun g := (⟨(h_unit g).2.unit, g.2.submatrix⟩, (h_unit g).1.unit, (M g).toBlocks₂₁.toLin')
       invFun t := ⟨(h_unit_inv t).unit, blockTriangular_reindex_iff.2 (h_tri_inv t)⟩
-      left_inv := by aesop_cat
-      right_inv := by aesop_cat }
+      left_inv g := by
+        refine Subtype.ext (Units.ext ?_)
+        simp only [IsUnit.unit_spec, LinearMap.toMatrix'_toLin', h_blocks g, Matrix.reindex_apply,
+          submatrix_submatrix, Equiv.self_comp_symm, submatrix_id_id]
+      right_inv t := by
+        rcases t with ⟨a, c, x⟩
+        refine Prod.ext (Subtype.ext (Units.ext ?_)) (Prod.ext (Units.ext ?_) ?_)
+        · simp only [M, IsUnit.unit_spec, Matrix.reindex_apply, submatrix_submatrix,
+            Equiv.symm_comp_self, submatrix_id_id, toBlocks_fromBlocks₂₂]
+        · simp only [M, IsUnit.unit_spec, Matrix.reindex_apply, submatrix_submatrix,
+            Equiv.symm_comp_self, submatrix_id_id, toBlocks_fromBlocks₁₁]
+        · simp only [M, IsUnit.unit_spec, Matrix.reindex_apply, submatrix_submatrix,
+            Equiv.symm_comp_self, submatrix_id_id, toBlocks_fromBlocks₂₁, Matrix.toLin'_toMatrix'] }
   apply finMean_equiv blocks
   simp_intro g [blocks, ← mul_assoc, h_notMem]
   rw [mul_comm (∏ x ∈ s, _)]
-  symm
-  congr!
-  · -- The blocks of the levels in `s` agree up to a bijection of their index sets.
-    exact (simClassOf_submatrix (subtypeSubtypeEquivSubtype (by grind)) _).symm
-  -- The matrix `g` is similar to the block triangular matrix of its blocks.
-  rw [← simClassOf_submatrix e, ← h_blocks, simClassOf_eq_iff]
-  use LinearEquiv.sumArrowLequivProdArrow _ _ k k
-  simp [fromBlocks_mulVec]
-  -- both sides are the pair of the two parts of `x`
-  exact fun x ↦ rfl
+  congr 1
+  · congr 1
+    refine prod_congr rfl fun a ha ↦ congrArg (starRingEnd ℂ ∘ F a) ?_
+    let e_a := subtypeSubtypeEquivSubtype (p := (¬b · = m)) (q := (b · = a))
+      fun hba hbm ↦ absurd (hba.symm.trans hbm) (ne_of_lt (hm a ha))
+    have h_eq :
+        (↑((blockHom b' a) ⟨(h_unit g).2.unit, g.2.submatrix⟩) : Matrix _ _ k) =
+          (↑((blockHom b a) g) : Matrix _ _ k).submatrix e_a e_a := by
+      ext i j
+      exact congrFun (congrFun (IsUnit.unit_spec (h_unit g).2) i.1) j.1
+    rw [h_eq, simClassOf_submatrix]
+  · refine congrArg X ?_
+    rw [← simClassOf_submatrix e, ← h_blocks, simClassOf_eq_iff]
+    use (LinearEquiv.sumArrowLequivProdArrow _ _ k k).symm
+    simp only [Matrix.toLin'_apply, fromBlocks_mulVec, zero_mulVec, add_zero,
+      LinearMap.coprod_apply, LinearMap.prod_apply, Function.prod_apply, LinearMap.zero_apply,
+      Prod.mk_add_mk]
+    intro v
+    ext (i | i) <;> rfl
 
 end New
 
