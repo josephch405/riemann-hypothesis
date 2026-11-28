@@ -910,14 +910,12 @@ lemma weylNormSq_cartanProduct (hkp : HasColumnsBelow n N kp) (hkm : HasColumnsB
   have h_norm {k : Type} [Fintype k] [DecidableEq k] {κ : Φ → ℕ → ℕ} (hκ : HasColumnsBelow n k κ)
       {f : k → n} (hf : f.Injective) (v : WeylIndex k κ → ℂ) :
       weylNormSq (schur κ (fun _ : Φ ↦ inclMatrix ℂ f) *ᵥ v) = weylNormSq v := by
-    have h_incl : (inclMatrix ℂ f)ᴴ * inclMatrix ℂ f = 1 := by
-      ext i j
-      simp [inclMatrix, Matrix.mul_apply, Matrix.one_apply, hf.eq_iff, eq_comm]
+    have h_incl : (inclMatrix ℂ f)ᴴ * inclMatrix ℂ f = 1 := inclMatrix_gram_eq_one hf
     simp [weylNormSq, star_mulVec_dotProduct, schur_conjTranspose_weylGram_schur hκ.fitsRanks,
       hκ.schurDetExp_eq_zero, h_incl, schur_one]
   calc weylNormSq c
-      = (star c ⬝ᵥ (Mᴴ * G * M) *ᵥ c).re := by rw [weylNormSq, h_gram]
-    _ = (star (M *ᵥ c) ⬝ᵥ G *ᵥ M *ᵥ c).re := by
+      = (star (M *ᵥ c) ⬝ᵥ G *ᵥ M *ᵥ c).re := by
+        rw [weylNormSq, h_gram]
         simp only [star_mulVec_dotProduct, mulVec_mulVec, Matrix.mul_assoc]
     _ = (star (vecMulVec a b)ᵀ.vec ⬝ᵥ G *ᵥ (vecMulVec a b)ᵀ.vec).re := by
         rw [mixedCartan_mulVec_cartanProduct hkp hkm]

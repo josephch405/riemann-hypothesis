@@ -2,6 +2,7 @@ module
 
 public import Aesop.BuiltinRules
 public import Lib.GLn.SchurModule.Basic
+import TauCeti.Order.Hom.Basic
 import Lib.GLn.SchurModule.SchurMatrix
 import Lib.General.LinearAlgebra.MinorProducts
 
@@ -63,15 +64,10 @@ lemma det_mul_eq_sum_increasing {N h : ℕ}
     (A * B).det =
       ∑ I : IncreasingMap N h, (A.submatrix id I.val).det * (B.submatrix I.val id).det := by
   -- A set `S` of `h` indices is the same as its increasing enumeration `enumSubset S`.
-  let enum (S : Set.powersetCard (Fin N) h) : IncreasingMap N h :=
-    ⟨enumSubset S, (Set.powersetCard.ofFinEmbEquiv.symm S).strictMono⟩
-  have h_bij : Function.Bijective enum :=
-    ⟨fun S S' h_eq ↦ Set.powersetCard.ofFinEmbEquiv.symm.injective
-        (DFunLike.coe_injective (congrArg Subtype.val h_eq)),
-      fun ⟨f, hf⟩ ↦ ⟨Set.powersetCard.ofFinEmbEquiv (.ofStrictMono f hf),
-        by simp [enum, enumSubset]⟩⟩
   rw [det_mul_eq_sum_minors]
-  exact Fintype.sum_bijective enum h_bij _ _ fun _ ↦ mul_comm _ _
+  exact Fintype.sum_equiv
+    (Set.powersetCard.ofFinEmbEquiv.symm.trans OrderEmbedding.equivSubtypeStrictMono)
+    _ _ fun _ ↦ mul_comm _ _
 
 /-- For an `h` by `n τ` matrix `c`, the determinant of `c y`, where `y` consists of the first `h`
 columns of the variables at the place `τ`, is the sum over increasing row numbers `I` of the minor
@@ -253,21 +249,15 @@ variable (R n κ) in
 lemma span_fillingPoly :
     Submodule.span R (Set.range fun T : ColumnFilling n κ ↦ fillingPoly R T) =
       nablaFamily R n κ := by
-  apply le_antisymm
-  · exact Submodule.span_le.2 <| Set.range_subset_iff.2 fun T ↦
-      prod_tableauPoly_mem_nabla (T := fillingRows T)
-  · rw [← range_nablaCombination, Fintype.range_linearCombination, Submodule.span_le,
-      Set.range_subset_iff]
-    intro i
-    -- Substituting the identity matrices into a basis element, a product of minors with rows in
-    -- any order, expands it in the products with increasing rows.
-    have h_expand : nablaBasis R n κ i =
-        ∑ T : ColumnFilling n κ, (∏ τ : Φ, ∏ h : Fin (rankAt n τ), ∏ j : Fin (κ τ h),
-          ((1 : Matrix (n τ) (n τ) R).submatrix ((i τ).val h j) (fillingRows T τ h j)).det) •
-            fillingPoly R T :=
-      (rowSubst_one _).symm.trans (rowSubst_prod_tableauPoly (fun _ ↦ 1) fun τ : Φ ↦ (i τ).val)
-    rw [h_expand]
-    exact Submodule.sum_mem _ fun T _ ↦ Submodule.smul_mem _ _ (Submodule.subset_span ⟨T, rfl⟩)
+  refine le_antisymm (Submodule.span_le.2 <| Set.range_subset_iff.2 fun T ↦
+    prod_tableauPoly_mem_nabla (T := fillingRows T)) ?_
+  rw [← range_nablaCombination, Fintype.range_linearCombination, Submodule.span_le]
+  refine Set.range_subset_iff.2 fun i ↦ ?_
+  -- Substituting the identity matrices into a basis element, a product of minors with rows in
+  -- any order, expands it in the products with increasing rows.
+  rw [(rowSubst_one (nablaBasis R n κ i)).symm.trans <|
+    rowSubst_prod_tableauPoly (fun τ ↦ (1 : Matrix (n τ) (n τ) R)) fun τ ↦ (i τ).val]
+  exact Submodule.sum_mem _ fun T _ ↦ Submodule.smul_mem _ _ (Submodule.subset_span ⟨T, rfl⟩)
 
 /-- The integral matrix `fillingMatrix`, which embeds the Weyl module of the diagram `κ` (with basis
 indexed by `WeylIndexFamily n κ`) into tensors (with basis indexed by column fillings), has an

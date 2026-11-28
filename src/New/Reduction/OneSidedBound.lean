@@ -12,14 +12,18 @@ public import TauCeti.NumberTheory.DirichletCharacter.LFunction.ZeroReflection -
 /-!
 # The one-sided bound, and the theorem in half-plane form
 
-For admissible data at an integer `x`, the main inequality and the prime number theorem at a much
-larger cut-off `x₁` give the bound `R_{q₀}(x) ≤ (128 φ(q₀) + 32) x ^ (-1/2 + ε)` for large `x`.
-The one-sided criterion gives non-vanishing of Dirichlet `L`-functions in `re s > 1/2`.
+For `0 < δ < 1/100` and all sufficiently large integers `x`, choose admissible data with
+`log b ≤ 2 x ^ δ` and `m ≥ √x`. The term `log⁶ b / m` from the main inequality
+then gives the exponent `-1/2 + 6 δ`. The prime number theorem bounds both remainders at the
+larger cut-off `x₁` by `x ^ (-2)` in absolute value. Together these estimates give
+`R_{q₀}(x) ≤ (64 φ(q₀) + 3) x ^ (-1/2 + 6 δ)`.
 
-The exponent `-1/2 + 6 ε` comes from the term `log⁶ b / m`: choose `log b ≤ 2 x^ε` and
-`m ≥ √x`. The auxiliary cutoff is large enough for the prime number theorem to bound both
-remainders there by `x^(-2)`. The passage to real `x` and the choice of a smaller `ε` preserve
-the resulting exponent bound.
+Given `ε > 0`, choose `0 < δ < 1/100` with `6 δ ≤ ε`.
+For real `y ≥ 2`, compare `R_{q₀}(y)` with `R_{q₀}(⌊y⌋)`, allowing an error of `26 / y`
+and a factor of two in the bound for the power of the floor. This gives
+`R_{q₀}(y) ≤ (128 φ(q₀) + 32) y ^ (-1/2 + ε)` for all large real `y`. The one-sided criterion
+then gives non-vanishing of Dirichlet `L`-functions in `re s > 1/2`, with the pole of the
+principal character at `s = 1` excluded.
 
 Notions from other files:
 * `Parameters`: a multiple `q₀ = P.q₀` of `18480` and a prime `d = P.d ≡ q₀ / 2 - 1` modulo `q₀`.
@@ -111,22 +115,21 @@ lemma eventually_abs_primeRemainder_exp_le (P : Parameters) {ε : ℝ} (hε : 0 
   obtain ⟨B, hB⟩ : ∃ B : ℕ, 24 / ε ≤ B := exists_nat_ge (24 / ε)
   have hd : P.d ≠ 2 := by linarith [P.sixty_four_lt_d]
   have h_cop : P.q₀.Coprime P.d := (P.coprime_q₁_d 0).coprime_mul_right
-  obtain ⟨Y, hY⟩ : ∃ Y : ℝ, ∀ y ≥ Y,
-      |primeRemainder P.d P.q₀ y| ≤ 1 / log y ^ B ∧ |primeRemainder P.d 1 y| ≤ 1 / log y ^ B :=
-    eventually_atTop.1 ((eventually_abs_primeRemainder_le hd h_cop B).and
-      (eventually_abs_primeRemainder_le hd P.d.coprime_one_left B))
-  have h_large : ∀ᶠ x : ℕ in atTop, Y ≤ (x : ℝ) ^ (ε / 12) :=
-    ((tendsto_rpow_atTop (by positivity)).comp tendsto_natCast_atTop_atTop).eventually_ge_atTop Y
-  filter_upwards [h_large, eventually_ge_atTop 1] with x hY_le hx_one l hl
+  have h_cutoff : Tendsto (fun x : ℕ ↦ (x : ℝ) ^ (ε / 12)) atTop atTop :=
+    (tendsto_rpow_atTop (by positivity)).comp tendsto_natCast_atTop_atTop
+  have h_pnt := (eventually_abs_primeRemainder_exp_le_inv_pow hd h_cop B).and
+    (eventually_abs_primeRemainder_exp_le_inv_pow hd P.d.coprime_one_left B)
+  filter_upwards [h_cutoff.eventually_forall_ge_atTop h_pnt, eventually_ge_atTop 1]
+    with x hx_bound hx_one l hl
   have hx_ge : (1 : ℝ) ≤ x := mod_cast hx_one
   have hx_pos : (0 : ℝ) < x := one_pos.trans_le hx_ge
   have h_exp : -(ε / 12 * B) ≤ -2 := by linarith [(div_le_iff₀ hε).1 hB]
-  have h_small : 1 / log (exp l) ^ B ≤ (x : ℝ) ^ (-2 : ℝ) :=
-    calc 1 / log (exp l) ^ B ≤ 1 / ((x : ℝ) ^ (ε / 12)) ^ B := by grw [log_exp, ← hl]
+  have h_small : 1 / l ^ B ≤ (x : ℝ) ^ (-2 : ℝ) :=
+    calc 1 / l ^ B ≤ 1 / ((x : ℝ) ^ (ε / 12)) ^ B := by grw [← hl]
       _ = (x : ℝ) ^ (-(ε / 12 * B)) := by
         rw [← rpow_mul_natCast hx_pos.le, rpow_neg hx_pos.le, one_div]
       _ ≤ (x : ℝ) ^ (-2 : ℝ) := rpow_le_rpow_of_exponent_le hx_ge h_exp
-  exact (hY (exp l) (by linarith [add_one_le_exp l])).imp h_small.trans' h_small.trans'
+  exact (hx_bound l hl).imp h_small.trans' h_small.trans'
 
 /-- The one-sided bound at integers. Let `q₀ = P.q₀` and `d = P.d` be the modulus and the prime of
 the parameters `P`, and let `0 < ε < 1/100`. Let

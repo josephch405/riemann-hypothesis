@@ -7,6 +7,7 @@ public import New.OneLift.HeckeValues.AlgebraicPartSize
 public import Lib.DiscreteSeries.Bruhat.ComplexPlace
 public import New.OneLift.HeckeValues.TwistedRatio
 public import New.UpperBound.Size.ShortColumns
+import Lib.SiegelWeil.Mass
 import New.Congruences.GaloisRepresentations.SelmerHypotheses
 import New.Derivatives.Sharpness.BoundAttained
 import New.OneLift.FalseLifts.PeriodsOfFalseLifts
@@ -479,42 +480,11 @@ theorem inner_pointForm_kernelForm (hq : q.HasEmptyRow (Fin (2 * p.z - 20)))
         simp only [← Matrix.ext_iff, testColumn, Matrix.map_apply, Matrix.submatrix_apply, id_eq,
           Function.comp_apply, Matrix.fromRows_apply_inl, Matrix.fromRows_apply_inr, Sum.forall]
         exact and_congr (and_congr Matrix.ext_iff .rfl) .rfl
-      have h_red₀ (i : (k : Fin 2) × D.ChosenPlace k) :
-          (((T.map (Ideal.Quotient.mk 𝔪.ideal)).submatrix (.inl ∘ .inl) id).map
-            (Ideal.Quotient.factor h_first)).map
-              (modulusResidue (X.levelModulus 1 false)
-                (Modulus.mem_places_of_ideal_eq_prod X.ideal_levelModulus_one_false i)) =
-            (T.submatrix (.inl ∘ .inl) id).map
-              (algebraMap _ (ResField (D.chosenPlace i))) := by
-        ext a b; rfl
-      have h_red₂ (i : (k : Fin 2) × D.ChosenPlace k) :
-          (((T.map (Ideal.Quotient.mk 𝔪.ideal)).submatrix ((.inl ∘ .inr) ∘ .inl) id).map
-            (Ideal.Quotient.factor le_rfl)).map
-              (levelResidueAt (S := (lValueData hq₂.hasLiftRank ϑ).toLevelPlaces) (.inl i)) =
-            (T.submatrix ((.inl ∘ .inr) ∘ .inl) id).map
-              (algebraMap _ (ResField (D.chosenPlace i))) := by
-        ext a b; rfl
-      have h_red₃ (i : (k : Fin 2) × D.ChosenPlace k) :
-          (((T.map (Ideal.Quotient.mk 𝔪.ideal)).submatrix ((.inl ∘ .inr) ∘ .inr) id).map
-            (Ideal.Quotient.factor h_untwisted)).map
-              (levelResidueAt (S := (lValueData hq₃.hasLiftRank u).toLevelPlaces) (.inl i)) =
-            (T.submatrix ((.inl ∘ .inr) ∘ .inr) id).map
-              (algebraMap _ (ResField (D.chosenPlace i))) := by
-        ext a b; rfl
-      have h_red₁ (i : (k : Fin 2) × D.ChosenPlace k) :
-          (((T.map (Ideal.Quotient.mk 𝔪.ideal)).submatrix .inr id).map
-            (Ideal.Quotient.factor h_untwisted)).map
-              (levelResidueAt (S := (lValueData hq.hasLiftRank u).toLevelPlaces) (.inl i)) =
-            (T.submatrix .inr id).map
-              (algebraMap _ (ResField (D.chosenPlace i))) := by
-        ext a b; rfl
-      refine ⟨fun h ↦ ?_, fun ⟨h1, ⟨h3, h2⟩, h0⟩ (i : (k : Fin 2) × D.ChosenPlace k) ↦
-          (h_test_eq i).2 ⟨⟨(h_red₀ i).symm.trans (h0 i), (h_red₂ i).symm.trans (h2 i),
-            (h_red₃ i).symm.trans (h3 i)⟩, (h_red₁ i).symm.trans (h1 i)⟩⟩
-      exact ⟨fun (i : (k : Fin 2) × D.ChosenPlace k) ↦ (h_red₁ i).trans ((h_test_eq i).1 (h i)).2,
-        ⟨fun (i : (k : Fin 2) × D.ChosenPlace k) ↦ (h_red₃ i).trans ((h_test_eq i).1 (h i)).1.2.2,
-          fun (i : (k : Fin 2) × D.ChosenPlace k) ↦ (h_red₂ i).trans ((h_test_eq i).1 (h i)).1.2.1⟩,
-        fun (i : (k : Fin 2) × D.ChosenPlace k) ↦ (h_red₀ i).trans ((h_test_eq i).1 (h i)).1.1⟩
+      refine ⟨fun h ↦ ?_, fun ⟨h1, ⟨h3, h2⟩, h0⟩ i ↦ ?_⟩
+      · exact ⟨fun i ↦ ((h_test_eq i).1 (h i)).2,
+          ⟨fun i ↦ ((h_test_eq i).1 (h i)).1.2.2, fun i ↦ ((h_test_eq i).1 (h i)).1.2.1⟩,
+          fun i ↦ ((h_test_eq i).1 (h i)).1.1⟩
+      · exact (h_test_eq i).2 ⟨⟨h0 i, h2 i, h3 i⟩, h1 i⟩
     · refine Finset.prod_congr rfl fun i _ ↦ ?_
       have h_tw : ((T.map (Ideal.Quotient.mk 𝔪.ideal)).map (levelResidueAt (.inr i))).submatrix
           (arbitraryIndexEmbedding.trans (.trans .inl (.trans .inr .inl))) id =
@@ -703,8 +673,6 @@ theorem isTestForm_trivialLiftClassSum_pointForm {l : ℕ} [Fact l.Prime]
   simp only [h_period]
   simp only [classSum, smul_zero, finsum_zero, mul_zero]
 
--- Keeps definitional checks from unfolding the finite sums.
-seal Finset.sum Finset.prod Finset.univ in
 open MvPolynomial Ideal.Quotient Selmer Nat LevelPlaces in
 /-- Seesaw factorisation. Let `l` be a prime with a chosen embedding `ℂ → ℂ_l`. Let `p` be a main
 pair for `j` with point `z = p.z`, and let `X` be the lift data of `p` at the twist `ϑ`, with `l`
@@ -760,7 +728,8 @@ theorem exists_isTestForm_inner_kernelForm_eq {l : ℕ} [Fact l.Prime]
   -- integrality and orthogonality to the false lifts.
   have h_test (h₂ h₃ : Gf D.E (Fin 4)) :
       X.descentPair.IsTestForm l (trivialLiftClassSum hq u fun h₁ ↦ F h₁ h₂ h₃) := by
-    dsimp only [F, X, u]
+    -- `h_fix` is stated with `X`: unfold it there too, so that `exact` compares equal terms
+    dsimp only [F, X, u] at h_fix ⊢
     exact isTestForm_trivialLiftClassSum_pointForm hq hp ϑ x₀ h_fix h₂ h₃
   refine ⟨trivialLiftClassSum hq₂ ϑ fun h₂ ↦ trivialLiftClassSum hq₃ u fun h₃ ↦
     trivialLiftClassSum hq u fun h₁ ↦ F h₁ h₂ h₃, fun g ↦ ?_,

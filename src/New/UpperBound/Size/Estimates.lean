@@ -77,16 +77,6 @@ lemma localPrimeSum_eq_tsum {p : ℕ} (hp : p.Prime) (y : ℝ) (σ : D.Φ) :
   rw [map_pow, Int.cast_pow, one_sub_chiK_pow_div_two]
   split_ifs <;> simp
 
-/-- For `y ≤ a` and `x₁ ≤ t` we have `(y / t - κ(τ))₊ = 0`, since the weight `κ(τ)` of every
-infinite place `τ` is at least `a / x₁`. -/
-lemma posPart_div_sub_weight_eq_zero {y t : ℝ} (hy : y ≤ D.a) (ht : D.x₁ ≤ t) (τ : D.Φ) :
-    (y / t - D.weight τ)⁺ = 0 := by
-  have ht_pos : 0 < t := (exp_pos _).trans_le ht
-  refine posPart_eq_zero.2 (sub_nonpos.2 ?_)
-  calc y / t ≤ D.a / t := by gcongr
-    _ ≤ D.a / D.x₁ := by gcongr
-    _ ≤ D.weight τ := (D.weight_mem_Icc τ).1
-
 /-- For a natural number `p ≥ x₁` and `y ≤ a` the local term `D.localPrimeSum p y σ` vanishes,
 since every weight is at least `a / x₁`. -/
 lemma localPrimeSum_eq_zero {p : ℕ} (hp : D.x₁ ≤ p) {y : ℝ} (hy : y ≤ D.a) (σ : D.Φ) :
@@ -360,7 +350,8 @@ lemma sum_allowedLoss_mul_log_le (U : Finset ℕ) :
       calc 2 * D.m * D.f * D.b * Real.log p
         _ ≤ T / (1 : ℕ) := by
           rw [hN]
-          exact D.le_of_hasLogBound (by grind [log_nonneg, scale_inequalities])
+          have h_log : 0 ≤ Real.log D.logX₁ := Real.log_nonneg (by scale_arith D)
+          exact D.le_of_hasLogBound (by scale_arith D)
         _ ≤ _ := h_single (r := 0) le_rfl (le_floor (by simpa)) (by norm_num) hN.symm
     · exact (zero_mul _).trans_le (by positivity)
   have h_harmonic : ∑ c ∈ Icc 1 ⌊D.x₁⌋₊, (c : ℝ)⁻¹ ≤ 1 + D.logX₁ := by

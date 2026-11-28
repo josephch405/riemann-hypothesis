@@ -189,16 +189,31 @@ section
 
 variable {E : Type*} [Field E] [NumberField E] [IsCMField E] (g : G E s)
 
-/-- The adelic unitary group `G E s` acts on 𝔸^n through `G.toUnitary`, by its matrix. -/
-instance : DistribMulAction (G E s) (n → 𝔸 E) := .compHom _ toUnitary.toMonoidHom
+/-- The adelic unitary group `G E s` acts on 𝔸^n by its matrix `G.adeleMatrix`. The action and its
+continuity and measurability are declared on `n → 𝔸 E` itself: the coordinatewise instances for
+function types would otherwise be tried first and look for an action of `G E s` on `𝔸 E`. -/
+instance : SMul (G E s) (n → 𝔸 E) := ⟨fun g x ↦ g.adeleMatrix *ᵥ x⟩
 
 @[simp]
 lemma smul_eq_adeleMatrix_mulVec (x : n → 𝔸 E) : g • x = g.adeleMatrix *ᵥ x := rfl
+
+instance : DistribMulAction (G E s) (n → 𝔸 E) where
+  one_smul _ := by simp
+  mul_smul _ _ _ := by simp [G.adeleMatrix_mul, mulVec_mulVec]
+  smul_zero _ := mulVec_zero _
+  smul_add _ _ _ := mulVec_add _ _ _
 
 instance : ContinuousSMul (G E s) (n → 𝔸 E) := by
   refine ⟨?_⟩
   simp only [smul_eq_adeleMatrix_mulVec]
   fun_prop
+
+instance : ContinuousConstSMul (G E s) (n → 𝔸 E) := by
+  refine ⟨fun g ↦ ?_⟩
+  simp only [smul_eq_adeleMatrix_mulVec]
+  fun_prop
+
+instance : MeasurableConstSMul (G E s) (n → 𝔸 E) := ⟨fun g ↦ (continuous_const_smul g).measurable⟩
 
 end
 
@@ -283,6 +298,21 @@ def vacElem : 𝒮 V := IsVacuum.vacElem
 
 end Space
 
+/-- The space `V` is standard: all its signs are `+1` and its point is the identity matrix. This
+describes the standard space `stdSpace E n` without fixing the form in which the signs are
+written. -/
+class Space.IsStd {E : Type} [Field E] [CMType E] {n : Type} [Fintype n] [DecidableEq n]
+    {s : n → ℤˣ} (V : Space E n s) where
+  /-- All signs at the infinite places are `+1`. -/
+  signs_eq_one : s = 1
+  /-- The point of `V` is the identity matrix. -/
+  point_eq_one : V.x = 1
+
+instance {E : Type} [Field E] [CMType E] {n : Type} [Fintype n] [DecidableEq n] :
+    (stdSpace E n).IsStd where
+  signs_eq_one := rfl
+  point_eq_one := rfl
+
 /-! ### Real and finite coordinates -/
 
 /-- The additive map from complex vectors indexed by pairs (infinite place τ, coordinate i) to 𝔸^n
@@ -303,6 +333,10 @@ abbrev finCoord (i : n) : 𝔸f E := α⁻¹.val * (y i).2
 /-- The adelic vector with finite part αx (α the finite idele of the Weil data) and zero real part,
 for a finite adelic vector x. -/
 def finVec (x : n → 𝔸f E) (i : n) : (InfinitePlace E → ℂ) × 𝔸f E := ((0, α.val * x i) : 𝔸 E)
+
+omit [Fintype n] [DecidableEq n] in
+@[simp]
+lemma finVec_zero : finVec (0 : n → 𝔸f E) = 0 := by simp [funext_iff, finVec]
 
 omit [Fintype n] [DecidableEq n] in
 /-- An adelic vector `y` is the real vector of its archimedean coordinates plus its finite part. -/

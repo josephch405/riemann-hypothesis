@@ -124,7 +124,7 @@ lemma norm_natCast_le_norm_sub_of_pow_eq_one {x y : PadicAlgCl ℓ} {N : ℕ} :
   -- Roots of unity closer than `N` in the valuation are equal.
   have h_val : intQpBar ℓ (x - y) < intQpBar ℓ N :=
     lt_of_not_ge fun h_le ↦ h_lt.not_ge ((valuation_intQpBar_le_iff _ _).1 h_le)
-  exact hxy (eq_of_pow_eq_one_of_val_sub_lt hx hy h_val)
+  exact hxy (eq_of_pow_eq_of_val_sub_lt (hx.trans hy.symm) (by rw [hy, map_one]) h_val)
 
 @[fun_prop]
 lemma continuous_cyclotomicInv : Continuous (cyclotomicInv ℓ D.E (PadicAlgCl ℓ)) :=
@@ -401,10 +401,8 @@ lemma length_selmerCocycles_le_crystallineSelmerLength {n : Type} [Fintype n] [D
         (crysRelations ρ ∪ {Finsupp.single γ 1}) (QuotSpan (ℓ ^ M : ↑O)) := by
     rintro z ⟨⟨hz_obey, hz_const⟩, hzγ⟩
     refine ⟨mem_obeying.2 ?_, hz_const⟩
-    rintro f (hf | hf | rfl)
-    · exact mem_obeying.1 hz_obey f (.inl hf)
-    · exact mem_obeying.1 hz_obey f (.inr hf)
-    · simpa using hzγ
+    rw [← Set.union_assoc, Set.forall_mem_union]
+    exact ⟨mem_obeying.1 hz_obey, by simpa using hzγ⟩
   exact (length_mono h_sub).trans (length_le_divisibleSelmerLength (NeZero.ne _))
 
 omit [PadicIso ℓ] in

@@ -110,13 +110,9 @@ lemma summable_norm_vacuumCoeff_univ (h_rank : 2 * card n < card m) :
   have h_pos : 0 < I := by
     rw [setIntegral_pos_iff_support_of_nonneg_ae (.of_forall fun _ ↦ norm_nonneg _)
       h_coeff.norm.integrableOn]
-    let U : Set (G E (1 : n → ℤˣ)) := (L : Set _) ∩ {g | weilMatrixCoeff 1 f f g ≠ 0}
-    have hU_open : IsOpen U := hL_open.inter (isOpen_ne_fun h_cont continuous_const)
-    have h_mem : (1 : G E (1 : n → ℤˣ)) ∈ U :=
-      ⟨one_mem L, by simp [weilMatrixCoeff, f, Prod.mk_one_one, dataInner_vacElem_vacElem]⟩
-    refine (hU_open.measure_pos _ ⟨1, h_mem⟩).trans_le (measure_mono ?_)
-    rintro g ⟨hg_L, hg⟩
-    exact ⟨norm_ne_zero_iff.2 hg, hg_L⟩
+    exact (h_cont.norm.isOpen_support.inter hL_open).measure_pos volume
+      ⟨1, by simp [Function.mem_support, weilMatrixCoeff, f, Prod.mk_one_one,
+        dataInner_vacElem_vacElem], L.one_mem⟩
   exact (summable_mul_right_iff h_pos.ne').1 (h_sum.congr_fun fun q ↦ (h_terms q).symm).summable
 
 /-- For `2 * card n < card m`, consider the numbers `vacuumCoeff (card m) b g = (b(det g) *
@@ -129,10 +125,7 @@ theorem summable_norm_vacuumCoeff (h_rank : 2 * card n < card m) (b : AutChar E)
   classical
   -- The norms do not see `b`, and the cosets at `A` inject into the cosets at all places.
   let ι (q : Gf E n ⧸ localLevel n A) : Gf E n ⧸ localLevel n Set.univ := ((cosetRep q).val : _)
-  have hι : Function.Injective ι := by
-    intro q₁ q₂ h
-    rw [← mk_cosetRep q₁, ← mk_cosetRep q₂, QuotientGroup.eq]
-    exact fun w _ ↦ QuotientGroup.eq.1 h w (Set.mem_univ w)
+  have hι : Function.Injective ι := cosetRep_injective_of_subset (Set.subset_univ A)
   refine ((summable_norm_vacuumCoeff_univ (E := E) h_rank).comp_injective hι).congr fun q ↦ ?_
   have h_supp : (cosetRep q).val ∈ Gf.supportedOn n Set.univ := by simp
   simp only [Function.comp_apply, ι, norm_vacuumCoeff]

@@ -3,7 +3,6 @@ module
 public import Lib.Weil.DualPair.ShortIsotropicVectors
 import Lib.Adelic.Reduction.DefiniteClassSums
 import Lib.Base
-import Lib.General.LinearAlgebra.PartnerAlgebra
 import Lib.Weil.DualPair.ThetaLiftConvergence
 import Lib.Weil.DualPair.WeilAction
 
@@ -363,6 +362,29 @@ lemma exists_norm_pairWeil_schrodingerOp_mul_pow_le {S : Space E n s} {T : Space
     _ = C' * |Y| * 2 ^ (N + A) * m * ρ ^ (N + 2 * A) := by
       simp [mul_pow, div_pow, pow_add, two_mul, field]
 
+/-- For the datum `v ⊗ Ψ ⊗ vac`, suppose the Fock vector `v` has finite moment of order `A`.
+When the functional grows at most as `Y * ‖f‖ * H ^ A` and admits a short pair with length product
+at most `2 Z / H` for `H > 2`, its value on the translated datum is bounded uniformly in `H`.
+The bound depends on `v` through its moment. This is
+`exists_norm_pairWeil_schrodingerOp_mul_pow_le` at `N = 0` and `ρ = 1`. -/
+lemma exists_norm_pairWeil_schrodingerVacuum_le {S : Space E n s} {T : Space E n' s'}
+    (a b : AutChar E) {P : Set (FinPlace E)} (hP : Set.IsConjDisjoint P)
+    {Ψ : (n' × n → 𝔸f E) → ℂ} [IsSchwartzBruhat P Ψ]
+    (A : ℕ) (Y Z : ℝ) {v : fockSpace (realSigns E (homSigns s s'))}
+    (hv : fockMoment A v ≠ ⊤) :
+    ∃ K : ℝ, ∀ (g : G E s) (h : G E s') (ℓ : 𝒮 (S.hom T) →L[ℂ] ℂ) (H : ℝ),
+      0 < H →
+      (∀ f : 𝒮 (S.hom T), ‖ℓ (pairWeil S T a b (g, h) f)‖ ≤ Y * ‖f‖ * H ^ A) →
+      (2 < H → ∃ (d : Matrix n' p E) (c : Matrix n q E) (x y : ℝ),
+        IsShortPair g h ℓ Ψ d c x y (Z * (2 / H))) →
+      ‖ℓ (pairWeil S T a b (g, h)
+        (integrated (S.hom T) v (schrodingerOp (S.hom T) P Ψ (vacElem (S.hom T)))))‖ ≤ K := by
+  obtain ⟨C, h_decay⟩ := exists_norm_pairWeil_schrodingerOp_mul_pow_le (p := p) (q := q)
+    (S := S) (T := T) (Ψ := Ψ) a b hP vacElem_mem_finitePart 0 A Y Z
+  refine ⟨C * (fockMoment A v).toReal, fun g h ℓ H hH h_growth h_short ↦ ?_⟩
+  simpa using h_decay v g h ℓ 1 H (by simpa using hv) le_rfl hH
+    (by simpa using h_growth) (by simpa using h_short)
+
 /-- The adelic coordinate matrix of a rational basis at `g`, as an invertible matrix. -/
 private noncomputable def basisCoordMatrix (S : Space E n s) (g : G E s) (c : GL n E) :
     GL n (𝔸 E) := g⁻¹.toUnitary.val * (S.x⁻¹ * c.map toAdele)
@@ -487,34 +509,30 @@ lemma Rows.isPrimitiveMatrix_of_liftFn_ne_zero {ι : Type*} {Ψ : (ι → 𝔪.R
     (e : Matrix n' n ι) (h_inv : ∀ y : ι → 𝔪.ResidueRing, Ψ y ≠ 0 → HasLeftInv (e.map y))
     ⦃w : FinPlace E⦄ ⦃x : ι → 𝔸f E⦄ (hw : w ∈ 𝔪.places) (h_ne : 𝔪.liftFn Ψ x ≠ 0) :
     IsPrimitiveMatrix (LocInt w).toSubring ((e.map x).map (evalAt w)) := by
-  -- Reduce a left inverse `L` modulo `𝔪` to the residue field at `w` and lift it to the local ring:
-  -- the lift times the matrix is invertible, since it is `1` in the residue field.
+  -- Reduce the left inverse modulo `𝔪` to the residue field at `w`, then lift it to the local ring.
   obtain ⟨h_int, hΨ⟩ :
       ∃ h : ∀ i : ι, idem 𝔪.places * x i ∈ Ô E, Ψ (fun i ↦ 𝔪.reduction ⟨_, h i⟩) ≠ 0 := by
     simpa only [Modulus.liftFn_apply, dite_ne_right_iff] using h_ne
-  obtain ⟨L, hL⟩ := h_inv _ hΨ
   let r : 𝔪.ResidueRing →+* ResidueField (LocInt w) := modulusResidue 𝔪 hw
-  let L' : Matrix n n' (LocInt w) := L.map (surjInv residue_surjective ∘ r)
   let Y : Matrix n' n (LocInt w) := e.map fun i ↦ ⟨_, mem_Ô.1 (h_int i) w⟩
-  have hL' : L'.map (residue _) = L.map r := Matrix.ext fun _ _ ↦ surjInv_eq ..
   have hY : Y.map (residue _) = (e.map fun i ↦ 𝔪.reduction ⟨_, h_int i⟩).map r :=
     Matrix.ext fun _ _ ↦ (modulusResidue_reduction 𝔪 hw ⟨_, h_int _⟩).symm
-  have h_unit : IsUnit (L' * Y) := isUnit_of_mapMatrix (residue _) <| by
-    rw [RingHom.mapMatrix_apply, Matrix.map_mul, hL', hY, ← Matrix.map_mul, hL]
-    simp
-  obtain ⟨U, hU⟩ : ∃ U : Matrix n n (LocInt w), U * (L' * Y) = 1 := h_unit.exists_left_inv
+  obtain ⟨L, hL⟩ : HasLeftInv Y := by
+    apply (hasLeftInv_map_iff_of_surjective (residue _) residue_surjective).1
+    rw [hY]
+    exact (h_inv _ hΨ).map r
   -- The idempotent `idem 𝔪.places` in the entries of `Y` is `1` at `w`.
   have hY_coe : Y.map (LocInt w).subtype = (e.map x).map (evalAt w) := by
     ext
     simp [Y, hw]
-  refine ⟨fun _ _ ↦ idem_mul_mem_Ô.1 (h_int _) w hw, (U * L').map (LocInt w).subtype,
+  refine ⟨fun _ _ ↦ idem_mul_mem_Ô.1 (h_int _) w hw, L.map (LocInt w).subtype,
     by simp [IsIntMatrix], ?_⟩
-  rw [← hY_coe, ← Matrix.map_mul, Matrix.mul_assoc, hU, Matrix.map_one _ (map_zero _) (map_one _)]
+  rw [← hY_coe, ← Matrix.map_mul, hL, Matrix.map_one _ (map_zero _) (map_one _)]
 
 /-- The height on the orthogonal sum of `S` and `T` is at most the product of the heights. -/
 lemma Space.height_sum_le (g : G E s) (h : G E s') :
     (S.sum T).height (G.sum (g, h)) ≤ S.height g * T.height h := by
-  simp [height, field, firstMinimum_pos, inf_le_firstMinimum_sum.trans']
+  simp [height, field, firstMinimum_pos, Rows.firstMinimum_sum]
 
 variable [WeilData E]
 

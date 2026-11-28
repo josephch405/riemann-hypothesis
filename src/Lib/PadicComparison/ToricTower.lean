@@ -240,6 +240,92 @@ lemma TimesBNat.shortExact_wangComplex : (wangComplex Y).ShortExact :=
 abbrev KoszulExact {A : Sort*} {B : Type*} [Sub B] (i : A → B) (g : B → B) : Prop :=
   Injective i ∧ fixedPoints g ⊆ Set.range i ∧ Surjective (g - id)
 
+/-- For `e : ψ ⋙ reprBy E ≅ incl C ⋙ Y`, the projection `Y × ℕ → Y` composed with `e⁻¹` on
+`C × Bℕ`, giving a map `(Y × ℕ) ⟶ Hom(E, ψ ∘ fst −)`. -/
+private abbrev TimesBNat.wangProj {Y : TimesBNat C ⥤ Type 1} {ψ : C ⥤ C'} {E : C'}
+    (e : ψ ⋙ reprBy E ≅ incl C ⋙ Y) :
+    (TimesBNat.fst C ⋙ incl C ⋙ Y) ⊗ natWithShift ⟶ TimesBNat.fst C ⋙ ψ ⋙ reprBy E :=
+  SemiCartesianMonoidalCategory.fst _ natWithShift ≫ (TimesBNat.fst C).whiskerLeft e.inv
+
+/-- If `ψ` is acyclic at `E` for `F'` (`IsAcyclicAt ψ F' E`), then pulling back along
+`TimesBNat.wangProj e : Y × ℕ ⟶ Hom(E, ψ ∘ fst −)` is bijective on cohomology. -/
+private lemma TimesBNat.isBijective_wangProj {Y : TimesBNat C ⥤ Type 1} {ψ : C ⥤ C'} {E : C'}
+    (e : ψ ⋙ reprBy E ≅ incl C ⋙ Y) (hψ : IsAcyclicAt ψ F' E) :
+    (Comparison.restrict (TimesBNat.fst C ⋙ ψ) F').IsBijective
+      (freeAbMap (Y := reprBy E) (wangProj e)) := by
+  refine (hψ.precomp_of_bijective _ rfl fun D ↦ (e.app D).toEquiv.symm.bijective).trans
+    isLine_fst ?_
+  exact freeAb.hom_ext fun _ _ ↦ rfl
+
+/-- Under `z ↦ homOfValue … (wangProj e) z`, precomposition with `wangSub Y` (the map
+`(x, k) ↦ (γ x, k) - (x, k + 1)`) acts as `F'(g) - 1`. -/
+private lemma TimesBNat.wangSub_comp_homOfValue_wangProj {Y : TimesBNat C ⥤ Type 1} {ψ : C ⥤ C'}
+    {E : C'} (e : ψ ⋙ reprBy E ≅ incl C ⋙ Y) {g : E ⟶ E}
+    (h_shift_square : CommSq (ψ.whiskerLeft (reprMap g)) e.hom e.hom (shiftEnd Y 1).asHom)
+    (z : F'.obj E) :
+    wangSub Y ≫ homOfValue (.restrict (TimesBNat.fst C ⋙ ψ) F') (wangProj e) z =
+      homOfValue (.restrict (TimesBNat.fst C ⋙ ψ) F') (wangProj e) (F'.map g z - z) := by
+  let r := homOfValue (.restrict (TimesBNat.fst C ⋙ ψ) F') (wangProj e)
+  have r_app (D : TimesBNat C) (x : (incl C ⋙ Y).obj D.1) (k : natWithShift.obj D) (w : F'.obj E) :
+      (r w).app D (.of (x, k)) = F'.map (e.inv.app D.1 x).down w := homOfValue_app ..
+  refine hom_ext fun D ⟨x, k⟩ ↦ ?_
+  -- the square `h_shift_square` at `x`: `e⁻¹ (t x) = g ≫ e⁻¹ x`, with `t = shiftEnd Y 1`
+  have h_square :
+      (e.inv.app D.1 ((shiftEnd Y 1).asHom.app D.1 x)).down = g ≫ (e.inv.app D.1 x).down :=
+    congrArg (fun α ↦ (α.app D.1 x).down) h_shift_square.vert_inv.w
+  calc (wangSub Y ≫ r z).app D (.of (x, k))
+      = (r z).app D (.of ((shiftEnd Y 1).asHom.app D.1 x, k)) -
+          (r z).app D (.of (x, k.map .succ)) :=
+        (congrArg ((r z).app D) (congrArg₂ HSub.hSub (freeAb.map_of _ _ _)
+          (freeAb.map_of _ _ _))).trans (map_sub ((r z).app D).hom _ _)
+    _ = (r (F'.map g z - z)).app D (.of (x, k)) := by
+        refine (congrArg₂ HSub.hSub (r_app D _ k z) (r_app D x (k.map .succ) z)).trans ?_
+        rw [r_app, h_square, map_sub, F'.map_comp_apply]
+
+/-- Pulling a section `y ∈ F'(ψ A)` back along `q : Y ⟶ Hom(A, −)` and then along
+`wangPow Y : ℤ[Y × ℕ] ⟶ ℤ[Y]` gives the section on `ℤ[Y × ℕ]` associated to `F'(i) y` via
+`wangProj e`. -/
+private lemma TimesBNat.wangPow_comp_homOfValue {Y : TimesBNat C ⥤ Type 1} {ψ : C ⥤ C'} {A : C}
+    {E : C'} {q : Y ⟶ TimesBNat.fst C ⋙ reprBy A} (e : ψ ⋙ reprBy E ≅ incl C ⋙ Y)
+    {i : ψ.obj A ⟶ E}
+    (hq_eq_comp : ∀ (D : C) (f : (ψ ⋙ reprBy E).obj D),
+      ψ.map (q ((incl C).obj D) (e.hom D f)).down = i ≫ f.down)
+    (y : (ψ ⋙ F').obj A) :
+    wangPow Y ≫ homOfValue (.restrict _ (ψ ⋙ F')) q y =
+      homOfValue (.restrict (TimesBNat.fst C ⋙ ψ) F') (wangProj e) (F'.map i y) := by
+  refine hom_ext fun D ⟨x, k⟩ ↦ (homOfValue_app (c := .restrict ..) q y D _).trans ?_
+  let shift : (incl C).obj D.1 ⟶ D := (𝟙 D.1, k.down)
+  have h_shift : q.app D ((shiftEnd Y k.down).asHom.app D.1 x) = q.app ((incl C).obj D.1) x := by
+    change q.app D (Y.map shift x) = q.app ((incl C).obj D.1) x
+    simp [shift]
+  have h_comp : ψ.map (q.app ((incl C).obj D.1) x).down = i ≫ (e.inv.app D.1 x).down := by
+    simpa using hq_eq_comp D.1 (e.inv.app D.1 x)
+  have r_app : (homOfValue (.restrict (TimesBNat.fst C ⋙ ψ) F') (wangProj e) (F'.map i y)).app D
+      (.of (x, k)) = F'.map (e.inv.app D.1 x).down (F'.map i y) := homOfValue_app ..
+  change F'.map (ψ.map (q.app D ((shiftEnd Y k.down).asHom.app D.1 x)).down) y = _
+  calc
+    _ = F'.map (i ≫ (e.inv.app D.1 x).down) y := by rw [h_shift, h_comp]
+    _ = _ := (F'.map_comp_apply _ _ _).trans r_app.symm
+
+/-- For a short exact sequence `0 → S.X₁ → S.X₂ → S.X₃ → 0` and coefficients `G`, if all higher
+cohomology of `S.X₁` vanishes, `H^{n+1}(S.X₂, G)` vanishes, and precomposition with `S.f` is
+surjective on `Hom(S.X₂, G) → Hom(S.X₁, G)`, then `H^{n+1}(S.X₃, G)` vanishes. -/
+private lemma subsingleton_H_succ_of_shortExact {D : Type 1} [Category D]
+    {S : ShortComplex (AbFunctor D)} (hS : S.ShortExact) (G : AbFunctor D)
+    (h_high₁ : ∀ m : ℕ, Subsingleton (H S.X₁ G (m + 1)))
+    (h_surj₀ : Surjective fun φ : S.X₂ ⟶ G ↦ S.f ≫ φ)
+    {n : ℕ} (h_high₂ : Subsingleton (H S.X₂ G (n + 1))) :
+    Subsingleton (H S.X₃ G (n + 1)) := by
+  have hf_surj : ∀ m : ℕ, Surjective (H.map G S.f m)
+    | 0, x => by
+      obtain ⟨φ, rfl⟩ : ∃ φ, mk₀ φ = x := (mk₀_bijective ..).surjective x
+      obtain ⟨ψ, rfl⟩ := h_surj₀ φ
+      exact ⟨mk₀ ψ, mk₀_comp_mk₀ _ _⟩
+    | m + 1, x => ⟨0, (h_high₁ m).elim _ x⟩
+  have hg_inj : Injective (H.map G S.g (n + 1)) :=
+    (contravariant hS _).f_injective_of_g_surjective fun m _ ↦ hf_surj m
+  exact ⟨fun _ _ ↦ hg_inj (h_high₂.elim _ _)⟩
+
 /-- Let `Y` be a set-valued functor on `C × Bℕ`, let `ψ : C ⥤ C'`, `A : C` and `E : C'`, and let
 `F'` be an abelian-group-valued functor on `C'`. Let `e` identify the restriction of `Y` to `C` with
 `Hom(E, ψ −)`, let `q : Y → Hom(A, −)` be induced by `i : ψ A → E` (`hq_eq_comp`), and let the
@@ -262,52 +348,17 @@ lemma IsLine.of_acyclic {Y : TimesBNat C ⥤ Type 1} {ψ : C ⥤ C'} {A : C} {E 
   -- `h_koszul` gives the cohomology of `Y`.
   let S : ShortComplex (TimesBNat C ⥤ AddCommGrpCat.{1}) := wangComplex Y
   have hS : S.ShortExact := shortExact_wangComplex Y
-  -- `r z` is the section `(x, k) ↦ F'(e⁻¹ x) z` on `S.X₂` (`r_app`). By `isBijective_reprBy_iff`, a
+  -- `r z` is the section `(x, k) ↦ F'(e⁻¹ x) z` on `S.X₂`. By `isBijective_reprBy_iff`, a
   -- comparison from `reprBy E` is bijective iff this map is and the higher cohomology vanishes.
-  let u : (TimesBNat.fst C ⋙ incl C ⋙ Y) ⊗ natWithShift ⟶ TimesBNat.fst C ⋙ ψ ⋙ reprBy E :=
-    SemiCartesianMonoidalCategory.fst _ natWithShift ≫ (TimesBNat.fst C).whiskerLeft e.inv
   let r : F'.obj E →+ (S.X₂ ⟶ TimesBNat.fst C ⋙ ψ ⋙ F') :=
-    homOfValue (.restrict (TimesBNat.fst C ⋙ ψ) F') u
-  -- Restriction along `ψ` composed with the projection from `Y × ℕ`, which `e` makes bijective.
-  have h_restrict : (Comparison.restrict (TimesBNat.fst C ⋙ ψ) F').IsBijective
-      (freeAbMap (Y := reprBy E) u) := by
-    refine (hψ.precomp_of_bijective _ rfl fun D ↦ (e.app D).toEquiv.symm.bijective).trans
-      isLine_fst ?_
-    exact freeAb.hom_ext fun _ _ ↦ rfl
+    homOfValue (.restrict (TimesBNat.fst C ⋙ ψ) F') (wangProj e)
   obtain ⟨hr_bij, h_high⟩ :
       Bijective r ∧ ∀ n : ℕ, Subsingleton (H S.X₂ (TimesBNat.fst C ⋙ ψ ⋙ F') (n + 1)) :=
-    isBijective_reprBy_iff.mp h_restrict
-  have r_app (D : TimesBNat C) (x : (incl C ⋙ Y).obj D.1) (k : natWithShift.obj D) (z : F'.obj E) :
-      (r z).app D (.of (x, k)) = F'.map (e.inv.app D.1 x).down z := homOfValue_app ..
-  -- Under `r`, the map `S.f` acts as `F'.map g - 1` and pull-back from `reprBy A` as `F'.map i`.
-  have hf (z : F'.obj E) : S.f ≫ r z = r (F'.map g z - z) := by
-    refine hom_ext fun D ⟨x, k⟩ ↦ ?_
-    -- the square `h_shift_square` at `x`: `e⁻¹ (t x) = g ≫ e⁻¹ x`, with `t = shiftEnd Y 1`
-    have h_square :
-        (e.inv.app D.1 ((shiftEnd Y 1).asHom.app D.1 x)).down = g ≫ (e.inv.app D.1 x).down :=
-      congrArg (fun α ↦ (α.app D.1 x).down) h_shift_square.vert_inv.w
-    calc (S.f ≫ r z).app D (.of (x, k))
-        = (r z).app D (.of ((shiftEnd Y 1).asHom.app D.1 x, k)) -
-            (r z).app D (.of (x, k.map .succ)) :=
-          (congrArg ((r z).app D) (congrArg₂ HSub.hSub (freeAb.map_of _ _ _)
-            (freeAb.map_of _ _ _))).trans (map_sub ((r z).app D).hom _ _)
-      _ = (r (F'.map g z - z)).app D (.of (x, k)) := by
-          refine (congrArg₂ HSub.hSub (r_app D _ k z) (r_app D x (k.map .succ) z)).trans ?_
-          rw [r_app, h_square, map_sub, F'.map_comp_apply]
-  have hq (y : (ψ ⋙ F').obj A) : S.g ≫ homOfValue (.restrict _ (ψ ⋙ F')) q y = r (F'.map i y) := by
-    refine hom_ext fun D ⟨x, k⟩ ↦ (homOfValue_app (c := .restrict ..) q y D _).trans ?_
-    let shift : (incl C).obj D.1 ⟶ D := (𝟙 D.1, k.down)
-    have h_shift : q.app D ((shiftEnd Y k.down).asHom.app D.1 x) =
-        q.app ((incl C).obj D.1) x := by
-      change q.app D (Y.map shift x) = q.app ((incl C).obj D.1) x
-      simp [shift]
-    have h_comp : ψ.map (q.app ((incl C).obj D.1) x).down =
-        i ≫ (e.inv.app D.1 x).down := by
-      simpa using hq_eq_comp D.1 (e.inv.app D.1 x)
-    change F'.map (ψ.map (q.app D ((shiftEnd Y k.down).asHom.app D.1 x)).down) y = _
-    calc
-      _ = F'.map (i ≫ (e.inv.app D.1 x).down) y := by rw [h_shift, h_comp]
-      _ = _ := (F'.map_comp_apply _ _ _).trans (r_app D x k (F'.map i y)).symm
+    isBijective_reprBy_iff.mp (isBijective_wangProj e hψ)
+  have hf (z : F'.obj E) : S.f ≫ r z = r (F'.map g z - z) :=
+    wangSub_comp_homOfValue_wangProj e h_shift_square z
+  have hq (y : (ψ ⋙ F').obj A) : S.g ≫ homOfValue (.restrict _ (ψ ⋙ F')) q y = r (F'.map i y) :=
+    wangPow_comp_homOfValue e hq_eq_comp y
   obtain ⟨h_inj, h_ker, h_surj⟩ : Injective (F'.map i) ∧
       fixedPoints (F'.map g) ⊆ Set.range (F'.map i) ∧
       Surjective fun z : F'.obj E ↦ F'.map g z - z := h_koszul
@@ -321,16 +372,10 @@ lemma IsLine.of_acyclic {Y : TimesBNat C ⥤ Type 1} {ψ : C ⥤ C'} {A : C} {E 
     obtain ⟨y, rfl⟩ : z ∈ Set.range (F'.map i) := h_ker (sub_eq_zero.mp hz_fixed)
     exact ⟨y, hS.epi_g.left_cancellation _ _ ((hq y).trans hz)⟩
   · -- `S.f` is onto on cohomology in all degrees, so that of `Y` embeds in that of `S.X₂`.
-    have hf_surj : ∀ m : ℕ, Surjective (H.map (TimesBNat.fst C ⋙ ψ ⋙ F') S.f m)
-      | 0, x => by
-        -- a class of degree `0` is some `r (F'.map g z - z)`, the image of `r z`
-        obtain ⟨φ, rfl⟩ : ∃ φ, mk₀ φ = x := (mk₀_bijective ..).surjective x
-        obtain ⟨z, rfl⟩ : ∃ z : F'.obj E, r (F'.map g z - z) = φ := hr_bij.surjective.comp h_surj φ
-        exact ⟨mk₀ (r z), (mk₀_comp_mk₀ _ _).trans (congrArg mk₀ (hf z))⟩
-      | m + 1, x => ⟨0, (h_high m).elim _ x⟩
-    have hg_inj : Injective (H.map (TimesBNat.fst C ⋙ ψ ⋙ F') S.g (n + 1)) :=
-      (contravariant hS _).f_injective_of_g_surjective fun m _ ↦ hf_surj m
-    exact ⟨fun _ _ ↦ hg_inj ((h_high n).elim _ _)⟩
+    refine subsingleton_H_succ_of_shortExact hS _ h_high (fun φ ↦ ?_) (h_high n)
+    -- a class of degree `0` is some `r (F'.map g z - z)`, the image of `r z`
+    obtain ⟨z, rfl⟩ : ∃ z : F'.obj E, r (F'.map g z - z) = φ := hr_bij.surjective.comp h_surj φ
+    exact ⟨r z, hf z⟩
 
 end New.Variety
 
@@ -659,28 +704,28 @@ private lemma PadicTest.untilt_map_eq_mul_of_forall {c D : PadicTest}
     simpa [ev_j, untilt_tiltMap, ← tiltMap_baseOfHom_apply] using congrArg untilt hy
   rw [Pi.mul_apply, h_at_k w (hk 0), h_at_k w' (hk 1), hw, map_mul, Pi.mul_apply]
 
-/-- Let `ζ` be the character `a ↦ (ε ^ a)^♯`, `r` a character of `ℚ≥0` with `r 1` a unit, and let
-the periodic sequences `x n` over the tilt of `c` have untilts `k ↦ ζ n ^ k * r n`. For a map of
-tests `f : c ⟶ D` and a character `u` in the ring of `D` with `u 1 = f (r 1)`, exactly one `ϕ`
-from the periodic sequences to the tilt of `D` has `baseOfHom ϕ = f` and `(ϕ (x n))^♯ = u n`. -/
+/-- The character `a ↦ (ε ^ a)^♯` of `ℚ≥0` valued in the ring of a `p`-adic test `c`. -/
+private def PadicTest.epsChar (c : PadicTest) : Multiplicative ℚ≥0 →* c.ProdRing :=
+  c.structureMap.toMonoidHom.comp (untilt.comp epsPowNNRat)
+
+/-- Let `r` be a character of `ℚ≥0` in `c.ProdRing` with `r 1` a unit, and let the periodic
+sequences `x n` over the tilt of `c` have untilts `k ↦ c.epsChar n ^ k * r n`. For a map of tests
+`f : c ⟶ D` and a character `u` in the ring of `D` with `u 1 = f (r 1)`, exactly one `ϕ` from the
+periodic sequences to the tilt of `D` has `baseOfHom ϕ = f` and `(ϕ (x n))^♯ = u n`. -/
 private lemma PadicTest.existsUnique_baseOfHom_eq_and_untilt_eq {c D : PadicTest}
-    (ζ r : Multiplicative ℚ≥0 →* c.ProdRing)
-    (hζ_def : ζ = c.structureMap.toMonoidHom.comp (untilt.comp epsPowNNRat))
-    (hr_unit : IsUnit (r (ofAdd 1)))
+    (r : Multiplicative ℚ≥0 →* c.ProdRing) (hr_unit : IsUnit (r (ofAdd 1)))
     (x : Multiplicative ℚ≥0 → periodicSeq c.TiltRing)
-    (hx : ∀ (n : Multiplicative ℚ≥0) (k : ℕ), ((x n).val k).untilt = ζ n ^ k * r n)
+    (hx : ∀ (n : Multiplicative ℚ≥0) (k : ℕ), ((x n).val k).untilt = c.epsChar n ^ k * r n)
     (f : c ⟶ D) (u : Multiplicative ℚ≥0 →* D.ProdRing) (hu : u (ofAdd 1) = f.1 (r (ofAdd 1))) :
     ∃! ϕ : periodicSeq c.TiltRing →ₐ[OFlat] D.TiltRing,
       baseOfHom ϕ = f ∧ ∀ n : Multiplicative ℚ≥0, (ϕ (x n)).untilt = u n := by
-  subst hζ_def
-  -- On one cell this is `existsUnique_hom`; `ζ` stays faithful as `OC` embeds in the cell.
+  -- On one cell this is `existsUnique_hom`; `c.epsChar` stays faithful as `OC` embeds in the cell.
   have h_cell (j : D.Index) : ∃! ϕ : periodicSeq c.TiltRing →+* PreTilt (D.Cell j) p,
       ϕ.comp (algebraMap c.TiltRing (periodicSeq c.TiltRing)) =
           tiltMap ((Pi.evalRingHom D.Cell j).comp f.toRingHom) ∧
         ∀ n : Multiplicative ℚ≥0, (ϕ (x n)).untilt = u n j := by
     let g : c.ProdRing →+* D.Cell j := (Pi.evalRingHom D.Cell j).comp f.toRingHom
-    let ζ_j : Multiplicative ℚ≥0 →* D.Cell j :=
-      g.toMonoidHom.comp (c.structureMap.toMonoidHom.comp (untilt.comp epsPowNNRat))
+    let ζ_j : Multiplicative ℚ≥0 →* D.Cell j := g.toMonoidHom.comp c.epsChar
     have h_inj : Injective (g.comp c.structureMap) := injective_of_isCell _
     have hx_j (n : Multiplicative ℚ≥0) (k : ℕ) :
         untilt (tiltMap g ((x n).val k)) = (ζ_j ^ k * g.toMonoidHom.comp r) n := by
@@ -721,15 +766,14 @@ private lemma PadicTest.existsUnique_baseOfHom_eq_and_untilt_eq {c D : PadicTest
     exact AlgHom.ext fun y ↦
       D.tiltPiEquiv.eq_symm_apply.mpr (funext fun j ↦ RingHom.congr_fun (h_eq j) y)
 
-/-- Let `v` be a unit of the ring of the test `c`, and `ζ` the character `a ↦ (ε ^ a)^♯` of `ℚ≥0`
-in that ring. There are a root system `r` of `v` (a character of `ℚ≥0` with `r 1 = v`) and periodic
-sequences `x n` over the tilt of `c` whose untilts are `k ↦ ζ n ^ k * r n`. -/
+/-- Let `v` be a unit of the ring of the test `c`. There are a root system `r` of `v` (a character
+of `ℚ≥0` with `r 1 = v`) and periodic sequences `x n` over the tilt of `c` whose untilts are
+`k ↦ c.epsChar n ^ k * r n`. -/
 private lemma PadicTest.exists_rootSystem_periodicSeq (c : PadicTest) {v : c.ProdRing}
     (hv : IsUnit v) :
     ∃ (r : Multiplicative ℚ≥0 →* c.ProdRing) (x : Multiplicative ℚ≥0 → periodicSeq c.TiltRing),
       r (ofAdd 1) = v ∧ ∀ (n : Multiplicative ℚ≥0) (k : ℕ),
-        ((x n).val k).untilt =
-          (c.structureMap.toMonoidHom.comp (untilt.comp epsPowNNRat)) n ^ k * r n := by
+        ((x n).val k).untilt = c.epsChar n ^ k * r n := by
   have h_untilt_surj : ∀ y : c.ProdRing, ∃ b : c.TiltRing, b.untilt = y :=
     untilt_surjective_of_isAbsIntegrallyClosed (R := c.ProdRing) (p := p)
   choose σ hσ using h_untilt_surj
@@ -743,20 +787,39 @@ private lemma PadicTest.exists_rootSystem_periodicSeq (c : PadicTest) {v : c.Pro
     have h_r : r (ofAdd 1) = ((Additive.toMul hv.unit : c.ProdRingˣ) : c.ProdRing) := by
       simp [r, hs]
     exact h_r.trans hv.unit_spec
-  -- `ζ n` is a root of unity of order dividing the denominator of `n`, a period of `x n`.
-  let ζ : Multiplicative ℚ≥0 →* c.ProdRing :=
-    c.structureMap.toMonoidHom.comp (untilt.comp epsPowNNRat)
-  have hζ (n : Multiplicative ℚ≥0) : ζ n ^ n.toAdd.den = 1 := by
+  -- `c.epsChar n` is a root of unity of order dividing the denominator of `n`, a period of `x n`.
+  have hζ (n : Multiplicative ℚ≥0) : c.epsChar n ^ n.toAdd.den = 1 := by
     -- `(ε ^ n)^♯` is a primitive root of unity of order the denominator of `n`
     have h_root : c.structureMap ((epsPow (ofAdd (n.toAdd : ℚ))).untilt ^ (n.toAdd : ℚ).den) =
         c.structureMap 1 :=
       congrArg c.structureMap (isPrimitiveRoot_untilt_epsPow (ofAdd (n.toAdd : ℚ))).pow_eq_one
-    simpa [ζ, NNRat.den_coe] using h_root
-  have h_periodic (n : Multiplicative ℚ≥0) : Periodic (fun k ↦ σ ((ζ ^ k * r) n)) n.toAdd.den := by
+    simpa [epsChar, NNRat.den_coe] using h_root
+  have h_periodic (n : Multiplicative ℚ≥0) :
+      Periodic (fun k ↦ σ ((c.epsChar ^ k * r) n)) n.toAdd.den := by
     simp [pow_add, hζ]
   let x (n : Multiplicative ℚ≥0) : periodicSeq c.TiltRing :=
-    ⟨fun k ↦ σ ((ζ ^ k * r) n), mem_of_periodic n.toAdd.den n.toAdd.den_pos (h_periodic n)⟩
+    ⟨fun k ↦ σ ((c.epsChar ^ k * r) n), mem_of_periodic n.toAdd.den n.toAdd.den_pos (h_periodic n)⟩
   exact ⟨r, x, h_r_one, fun n k ↦ hσ _⟩
+
+/-- Given periodic sequences `x n` lifting `k ↦ c.epsChar n ^ k * r n`, an `OFlat`-algebra map
+`ϕ : periodicSeq c.TiltRing →ₐ[OFlat] D.TiltRing` induces the character `n ↦ (ϕ (x n))^♯` of `ℚ≥0`
+in `D.ProdRing`. -/
+private def PadicTest.rootSystemOfHom {c D : PadicTest} {r : Multiplicative ℚ≥0 →* c.ProdRing}
+    {x : Multiplicative ℚ≥0 → periodicSeq c.TiltRing}
+    (hx : ∀ (n : Multiplicative ℚ≥0) (k : ℕ), ((x n).val k).untilt = c.epsChar n ^ k * r n)
+    (ϕ : periodicSeq c.TiltRing →ₐ[OFlat] D.TiltRing) : Multiplicative ℚ≥0 →* D.ProdRing where
+  toFun := untilt ∘ ϕ ∘ x
+  map_one' := by
+    have h_x_one (k : ℕ) :
+        ((x 1).val k).untilt = 1 * ((1 : periodicSeq c.TiltRing).val k).untilt := by
+      simp [hx]
+    simpa using untilt_map_eq_mul_of_forall ϕ 1 (x 1) 1 h_x_one
+  map_mul' a b := by
+    have h_x_mul (k : ℕ) :
+        ((x (a * b)).val k).untilt = 1 * ((x a * x b).val k).untilt := by
+      rw [one_mul, Subalgebra.coe_mul, Pi.mul_apply, map_mul, hx, hx, hx, map_mul, map_mul,
+        mul_pow, mul_mul_mul_comm]
+    simpa using untilt_map_eq_mul_of_forall ϕ 1 (x (a * b)) (x a * x b) h_x_mul
 
 /-- Let the coefficients `B ↦ B^♭ ⊗ M` make `Hom(b, (-)^♭)` acyclic for every perfect `b`, and let
 `v` be a unit of the ring of a test `c`. The root systems of `v` (pairs of a character `u` of `ℚ≥0`
@@ -773,51 +836,37 @@ lemma PadicTest.isLine_compatibleRoots
     IsLine (tilt ⋙ moduleCoeff (tensorCoeff M)) (Y := compatibleRootsAt algFunctor v)
       (fiberProd.snd ..) := by
   -- The functor of root systems of `v` is `Hom(periodicSeq c.TiltRing, (-)^♭)`: choose one system
-  -- `r`; the periodic sequences `x n` lifting `k ↦ (ζ ^ k * r) n` along the untilt give the
+  -- `r`; the periodic sequences `x n` lifting `k ↦ (c.epsChar ^ k * r) n` along the untilt give the
   -- universal system. As `periodicSeq c.TiltRing` is perfect, both claims follow, `shift` acting as
-  -- multiplication by the character `ζ : a ↦ (ε ^ a)^♯`.
+  -- multiplication by the character `c.epsChar : a ↦ (ε ^ a)^♯`.
   obtain ⟨r, x, hr_one, hx⟩ := exists_rootSystem_periodicSeq c hv
   obtain rfl : (⟨r (ofAdd 1)⟩ : (algFunctor ⋙ underlyingSet).obj c) = v := congrArg ULift.up hr_one
   have h_perfect : PerfectRing (periodicSeq c.TiltRing) p := perfectRing
-  let ζ : Multiplicative ℚ≥0 →* c.ProdRing :=
-    c.structureMap.toMonoidHom.comp (untilt.comp epsPowNNRat)
   -- The maps `ϕ` from `periodicSeq c.TiltRing` to the tilt of `D`; on constants each restricts to
-  -- the map of tests `baseOfHom ϕ`.
+  -- the map of tests `baseOfHom ϕ`, and `sys ϕ` is the character `n ↦ (ϕ (x n))^♯`.
   let Hom (D : PadicTest) := periodicSeq c.TiltRing →ₐ[OFlat] D.TiltRing
-  -- So `n ↦ (ϕ (x n))^♯` is a character, a system of roots of the image of `v`.
-  let sys {D : PadicTest} (ϕ : Hom D) : Multiplicative ℚ≥0 →* D.ProdRing :=
-    { toFun := untilt ∘ ϕ ∘ x
-      map_one' := by
-        have h_x_one (k : ℕ) :
-            ((x 1).val k).untilt = 1 * ((1 : periodicSeq c.TiltRing).val k).untilt := by
-          simp [hx]
-        simpa using untilt_map_eq_mul_of_forall ϕ 1 (x 1) 1 h_x_one
-      map_mul' a b := by
-        have h_x_mul (k : ℕ) :
-            ((x (a * b)).val k).untilt = 1 * ((x a * x b).val k).untilt := by
-          rw [one_mul, Subalgebra.coe_mul, Pi.mul_apply, map_mul, hx, hx, hx, map_mul, map_mul,
-            mul_pow, mul_mul_mul_comm]
-        simpa using untilt_map_eq_mul_of_forall ϕ 1 (x (a * b)) (x a * x b) h_x_mul }
+  let sys {D : PadicTest} (ϕ : Hom D) : Multiplicative ℚ≥0 →* D.ProdRing := rootSystemOfHom hx ϕ
   have h_sys_one {D : PadicTest} (ϕ : Hom D) : sys ϕ (ofAdd 1) = (baseOfHom ϕ).1 (r (ofAdd 1)) := by
-    -- `ζ 1 = 1`, so the sequence `x 1` lifts the constant `r 1`
+    -- `c.epsChar 1 = 1`, so the sequence `x 1` lifts the constant `r 1`
     have h_x_one (k : ℕ) : ((x (ofAdd 1)).val k).untilt =
         r (ofAdd 1) * ((1 : periodicSeq c.TiltRing).val k).untilt := by
-      simp [hx]
+      simp [hx, epsChar]
     change (ϕ (x (ofAdd 1))).untilt = _
     simpa using untilt_map_eq_mul_of_forall ϕ (r (ofAdd 1)) (x (ofAdd 1)) 1 h_x_one
   -- The shift multiplies each root `(ϕ (x n))^♯` by `(ε ^ n)^♯`, read in `D`.
   have h_shift {D : PadicTest} (ϕ : Hom D) (n : Multiplicative ℚ≥0) :
       (ϕ (shift _ (x n))).untilt = algebraMap OC D.ProdRing (untilt (epsPowNNRat n)) * sys ϕ n := by
     have h_x_succ (k : ℕ) :
-        ((shift c.TiltRing (x n)).val k).untilt = ζ n * ((x n).val k).untilt := by
-      simp [hx, ζ, _root_.pow_succ', mul_assoc]
-    exact (untilt_map_eq_mul_of_forall ϕ (ζ n) (shift c.TiltRing (x n)) (x n) h_x_succ).trans
+        ((shift c.TiltRing (x n)).val k).untilt = c.epsChar n * ((x n).val k).untilt := by
+      simp [hx, _root_.pow_succ', mul_assoc]
+    exact (untilt_map_eq_mul_of_forall ϕ (c.epsChar n) (shift c.TiltRing (x n)) (x n)
+      h_x_succ).trans
       (congrArg (· * sys ϕ n) ((baseOfHom ϕ).commutes (untilt (epsPowNNRat n))))
   -- Universality: a map `f` of tests and a system `u` of roots of `f v` come from one `ϕ`.
   have h_univ {D : PadicTest} (f : c ⟶ D) (u : Multiplicative ℚ≥0 →* D.ProdRing)
       (hu : u (ofAdd 1) = f.1 (r (ofAdd 1))) : ∃! ϕ : Hom D, baseOfHom ϕ = f ∧ sys ϕ = u := by
     have h_sys_eq (ϕ : Hom D) : sys ϕ = u ↔ ∀ n, (ϕ (x n)).untilt = u n := MonoidHom.ext_iff
-    simpa only [h_sys_eq] using existsUnique_baseOfHom_eq_and_untilt_eq ζ r rfl hv x hx f u hu
+    simpa only [h_sys_eq] using existsUnique_baseOfHom_eq_and_untilt_eq r hv x hx f u hu
   -- So `ϕ ↦ (sys ϕ, baseOfHom ϕ)` is a bijection onto the pairs of the statement.
   let Fib : PadicTest ⥤ Type 1 :=
     TimesBNat.incl PadicTest ⋙ compatibleRootsAt algFunctor ⟨r (ofAdd 1)⟩

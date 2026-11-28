@@ -2,6 +2,7 @@ module
 
 import Mathlib.Algebra.Order.Star.Int
 import Mathlib.Data.Rat.Cast.OfScientific
+public import Lib.Weil.DualPair.Defs
 public import New.Derivatives.Field.ChosenPlaces
 import Lib.ClassField.HeckeCharacter.SplitTameCharacters
 
@@ -66,10 +67,20 @@ lemma weight_mem_Icc : (D.weight σ : ℝ) ∈ Icc (D.a / D.x₁) (D.a / D.x) :=
   split_ifs
   exacts [⟨h_le, le_rfl⟩, ⟨le_rfl, h_le⟩]
 
+/-- For `y ≤ a` and `x₁ ≤ t` we have `(y / t - κ(τ))₊ = 0`, since the weight `κ(τ)` of every
+infinite place `τ` is at least `a / x₁`. -/
+lemma posPart_div_sub_weight_eq_zero {y t : ℝ} (hy : y ≤ D.a) (ht : D.x₁ ≤ t) (τ : D.Φ) :
+    (y / t - D.weight τ)⁺ = 0 := by
+  have ht_pos : 0 < t := (exp_pos _).trans_le ht
+  refine posPart_eq_zero.2 (sub_nonpos.2 ?_)
+  calc y / t ≤ D.a / t := by gcongr
+    _ ≤ D.a / D.x₁ := by gcongr
+    _ ≤ D.weight τ := (D.weight_mem_Icc τ).1
+
 /-- The size of the weight: `b / x₁ ≤ κ ≤ b` (upper bound for `u` true, lower for `u` false). -/
 instance {u : Bool} : D.HasLogBound u (D.weight σ) (D.logB + if u then 0 else -D.logX₁) :=
   .of_mem_Icc (D.a / D.x₁) (D.a / D.x) (D.weight_mem_Icc σ)
-    (by cases u <;> grind [D.scale_inequalities])
+    (by cases u <;> scale_arith D)
 
 /-- The weight `κ = D.weight σ` of an infinite place is at most the scale `b`. -/
 lemma weight_le_b : (D.weight σ : ℝ) ≤ D.b :=
@@ -196,7 +207,16 @@ instance {u : Bool} : D.HasLogBound u (P.bigOmega D.towerExp) (if u then 0 else 
   -- instance search finds `1 ≤ 2 π ≤ exp 6` and `x ^ 10 ≤ rd_E ≤ x ^ 12`; it remains to
   -- compare exponents, and the constants are small against `log x`
   have h_small : |chowlaSelbergConst P.d| + 6 ≤ D.logX := by
-    grind [constantBound, Finset.sum_nonneg, D.scale_inequalities]
+    have h_sum : 0 ≤ ∑ w ∈ primitiveRoots P.q₀ ℂ,
+        |Real.log ‖(Polynomial.cyclotomic P.q₀ ℂ).derivative.eval w‖| :=
+      Finset.sum_nonneg fun w _ ↦ abs_nonneg _
+    have h_const : (0 : ℝ) ≤ P.vacuumBoundConst := P.vacuumBoundConst.cast_nonneg
+    have h_q₀ : (0 : ℝ) ≤ P.q₀ := P.q₀.cast_nonneg
+    have h_d : (0 : ℝ) ≤ P.d := P.d.cast_nonneg
+    have h_le : |chowlaSelbergConst P.d| + 6 ≤ P.constantBound := by
+      rw [constantBound]
+      linarith
+    scale_arith D
   unfold bigOmega
   exact .of_lower_of_upper (by grind)
 

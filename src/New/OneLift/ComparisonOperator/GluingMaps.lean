@@ -356,43 +356,24 @@ sum, over the classes `h` of level `J_Λ` and `h°` of level `J (ϖ²)`, of the 
 class of `(h, h°) 𝗀` formed from the product vector `φ″ (h) · ζ (h°)` (`productForm`). Here `𝗀`
 is the matrix of `glueLattice j ϑ i`, `M = D.M`, and `l₁` is
 `DividedSplitting.denominatorExponent`, the exponent that repays the denominators of `𝗀`. -/
-@[simps -isSimp] def glue : FormTuples j →ₗ[ℂ] (D.descentPair ϑ j).FormV where
-  toFun ζ := (D.M ^ (splittingV j ϑ).denominatorExponent : ℂ) • ∑ b :
-    ChoiceIndex j × D.SecondFactorClasses,
+def glue : FormTuples j →ₗ[ℂ] (D.descentPair ϑ j).FormV :=
+  (D.M ^ (splittingV j ϑ).denominatorExponent : ℂ) • ∑ b : ChoiceIndex j × D.SecondFactorClasses,
     stdClassSum (gluingLevel j ϑ b.1.1) fun h : Gf D.E (FirstFactorIndex j) ↦
-      (splittingV j ϑ).productForm (glueLattice j ϑ b.1) (h, b.2.out) (firstFactor j ϑ b.1 h) (ζ b)
-  map_add' x y := by
-    have h_sum_add {K : Subgroup (Gf D.E (FirstFactorIndex j))} [IsLevel K]
-        (f g : Gf D.E (FirstFactorIndex j) → (D.descentPair ϑ j).FormV) :
-        stdClassSum K (fun h ↦ f h + g h) = stdClassSum K f + stdClassSum K g := by
-      simp only [classSum, finsum_eq_sum_of_fintype, smul_add, sum_add_distrib]
-    rw [← smul_add, ← sum_add_distrib]
-    refine congrArg _ (sum_congr rfl fun b _ ↦ ?_)
-    have h_pt (h : Gf D.E (FirstFactorIndex j)) :
-        (splittingV j ϑ).productForm (glueLattice j ϑ b.1) (h, b.2.out) (firstFactor j ϑ b.1 h)
-            ((x + y) b) =
+      (splittingV j ϑ).productForm (glueLattice j ϑ b.1) (h, b.2.out) (firstFactor j ϑ b.1 h) ∘ₗ
+        PiLp.projₗ 2 _ b
+
+/-- Evaluate the gluing map by evaluating each product form in its class sum. -/
+lemma glue_apply (ζ : FormTuples j) :
+    glue j ϑ ζ = (D.M ^ (splittingV j ϑ).denominatorExponent : ℂ) •
+      ∑ b : ChoiceIndex j × D.SecondFactorClasses,
+        stdClassSum (gluingLevel j ϑ b.1.1) fun h : Gf D.E (FirstFactorIndex j) ↦
           (splittingV j ϑ).productForm (glueLattice j ϑ b.1) (h, b.2.out) (firstFactor j ϑ b.1 h)
-            (x b) +
-          (splittingV j ϑ).productForm (glueLattice j ϑ b.1) (h, b.2.out) (firstFactor j ϑ b.1 h)
-            (y b) :=
-      map_add _ (x b : WeylIndex _ (D.descentPair ϑ j).colsMinus → ℂ) (y b)
-    exact (congrArg (stdClassSum _) (funext h_pt)).trans (h_sum_add _ _)
-  map_smul' a x := by
-    have h_sum_smul {K : Subgroup (Gf D.E (FirstFactorIndex j))} [IsLevel K]
-        (f : Gf D.E (FirstFactorIndex j) → (D.descentPair ϑ j).FormV) :
-        stdClassSum K (fun h ↦ a • f h) = a • stdClassSum K f := by
-      simp only [classSum, finsum_eq_sum_of_fintype, smul_comm a, smul_sum]
-    rw [RingHom.id_apply, smul_comm a]
-    congr 1
-    rw [smul_sum]
-    refine sum_congr rfl fun b _ ↦ ?_
-    have h_pt (h : Gf D.E (FirstFactorIndex j)) :
-        (splittingV j ϑ).productForm (glueLattice j ϑ b.1) (h, b.2.out) (firstFactor j ϑ b.1 h)
-            ((a • x) b) =
-          a • (splittingV j ϑ).productForm (glueLattice j ϑ b.1) (h, b.2.out)
-            (firstFactor j ϑ b.1 h) (x b) :=
-      map_smul _ a (x b : WeylIndex _ (D.descentPair ϑ j).colsMinus → ℂ)
-    exact (congrArg (stdClassSum _) (funext h_pt)).trans (h_sum_smul _)
+            (ζ b) := by
+  let eval : (FormTuples j →ₗ[ℂ] (D.descentPair ϑ j).FormV) →ₗ[ℂ] _ := LinearMap.applyₗ ζ
+  change eval (glue j ϑ) = _
+  unfold glue
+  refine (map_smul eval _ _).trans (congrArg _ ((map_sum eval _ _).trans ?_))
+  exact sum_congr rfl fun b _ ↦ map_classSum eval _
 
 /-- The period is a sum of slices. Let `φ` be a form on `V_j = V″ ⊕ V°` and `ζ` a tuple of forms on
 `V°`. The inner product of `ζ` with the adjoint of the gluing map `glue j ϑ` at `φ` is `M ^ l₁`
@@ -738,7 +719,8 @@ lemma M_pow_denominatorExponent_sq_mul_le_exp :
       card D.Φ * (D.halfGap * ((2 * D.m : ℕ) * (card D.FlatIndex : ℝ)))) + D.b +
       (D.b + log D.chosenGroupOrder))) ≤ D.f * D.m * D.b * D.logB ^ 2 := by
     simpa [ha, he, hL, D.t_eq_five_mul_r, card_firstFactorIndex j, add_assoc] using
-      D.le_of_hasLogBound
+      D.le_of_hasLogBound (by scale_grind D)
+  have h_flat_pos : 0 < card D.FlatIndex := Fintype.card_pos
   grw [h_exponent, h_card, h_ring]
   refine le_exp_of_log_le ?_
   grw [← h_size, ← h_rows]
@@ -913,7 +895,6 @@ lemma sum_slice_eq_zero_of_mem_falseLiftsAt {w : FinPlace D.E} {hw : star w ≠ 
       (cartanProduct (splittingV j ϑ).ε 1 y (star (kernelVector (D.descentPair ϑ j) b
         (D.descentPair ϑ j).chosenModulusSq Ψ (D.descentPair ϑ j).colsMinus g c.out)))
       (Ξ (U.block (splittingV j ϑ).ε (h, c.out) * L.point)) = 0 := by
-  classical
   obtain ⟨⟨hΞ_range, hΞ_ker⟩, hΞ_orth⟩ := hΞ
   have h_gap : 2 * card D.RowIndex + 2 * card (FirstFactorIndex j) + 3 < card
     (D.RowIndex ⊕ Fin D.t) := by

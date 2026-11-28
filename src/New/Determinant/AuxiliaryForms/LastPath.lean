@@ -132,7 +132,6 @@ lemma boxes_le_boxes_of_interlace {n n' : Type} [Fintype n] [Fintype n'] (hn : c
         Icc (e w + diagramWeight (fun _ : Φ ↦ card n') κ (w, q + 1) : ℤ)
           (e w + diagramWeight (fun _ : Φ ↦ card n') κ (w, q))) :
     boxes κ₀ (card n) ≤ boxes κ (card n') := by
-  classical
   -- No height lies strictly between `#n` and `#n + 1`.
   have h_fits : FitsRanks (fun _ : Φ ↦ n) (fun _ : Φ ↦ n') κ := by grind
   rw [← FitsRanks.refl.sum_diagramWeight_eq_boxes, ← h_fits.sum_diagramWeight_eq_boxes]
@@ -410,8 +409,8 @@ theorem exists_isLiftWeight_isHCParam :
     have h_columns : κ τ (card (ι (j + 1))) = D.gap - D.t - z.toNat := by
       simp [h_above τ _ (h_mono j.succ_pos), κ₁]
     simp only [e, h_columns]
-    -- `D.liftWeight` grows by `D.gap` from `j + 1` to `j + 2`, and half the rank by `D.t + z` in
-    -- two steps.
+    -- `D.liftWeight` grows by `D.gap` from `j + 1` to `j + 2`. The rank grows by `2 (D.t + z)`
+    -- from `j` to `j + 2`, so its half grows by `D.t + z`, and `D.t + 1 ≤ D.gap`.
     simp only [gridWeight, card_gridIndex, ι]
     cases z <;> grind
   refine ⟨κ, e, h_up, h_next, fun j hj ↦ ?_⟩

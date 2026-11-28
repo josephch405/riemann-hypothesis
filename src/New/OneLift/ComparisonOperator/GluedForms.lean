@@ -143,6 +143,10 @@ lemma fockPoly_cartanProduct [DecidableEq m] (h_plus : HasColumnsBelow n N O.col
     _ = _ := by
       rw [letterPoly_schur_inclMatrix_mulVec h_plus, letterPoly_schur_inclMatrix_mulVec h_minus]
 
+/-- The integral matrix ϖ γ⁻¹ before reduction at the chosen places. -/
+private def DividedLattice.integralInverse (L : DividedLattice O) : Matrix n n (Ô E) :=
+  of fun i j ↦ ⟨O.genIdele * L.point⁻¹.val.val i j, L.mul_inv_mem i j⟩
+
 namespace DividedSplitting
 
 /-- Let `ϖ` generate the product of the chosen places of `O`, let `Q` be the product of its twist
@@ -196,33 +200,31 @@ lemma liftFn_datum_point_inv_mul (x : n × r → 𝔸f E) :
   classical
   -- Each side is `0` unless its vector, `γ⁻¹ x` or `x`, is integral on the level.
   simp only [liftFn_apply, Function.comp_apply, Prod.forall]
-  have h_entry (hx : ∀ (i : n) (j : r), idem (O.levelModulus 2).places * x (i, j) ∈ Ô E)
-      (i : n) (j : r) :
+  let X (hx : ∀ (i : n) (j : r), idem (O.levelModulus 2).places * x (i, j) ∈ Ô E) :
+      Matrix n r (Ô E) := of fun i j ↦ ⟨_, hx i j⟩
+  have h_entry (hx) (i : n) (j : r) :
       (L.reducedInverse *
           (vecToMatrix fun p ↦ (O.levelModulus 2).reduction
             ⟨idem (O.levelModulus 2).places * x p, hx p.1 p.2⟩).map reduceToChosenModulusSq) i j =
-        O.chosenModulusSq.reduction
-          (∑ k : n, ⟨O.genIdele * L.point⁻¹.val.val i k, L.mul_inv_mem i k⟩ *
-            ⟨idem (O.levelModulus 2).places * x (k, j), hx k j⟩) := by
-    rw [Matrix.mul_apply]
-    change _ = O.chosenModulusSq.reduction.toAddMonoidHom _
-    rw [map_sum]
-    refine sum_congr rfl fun k _ ↦ ?_
-    rw [DividedLattice.reducedInverse, of_apply, Matrix.map_apply, vecToMatrix, of_apply,
-      factor_reduction]
-    exact (RingHom.map_mul ..).symm
-  have h_sum_val (hx : ∀ (i : n) (j : r), idem (O.levelModulus 2).places * x (i, j) ∈ Ô E)
-      (i : n) (j : r) :
-      ((∑ k : n, ⟨O.genIdele * L.point⁻¹.val.val i k, L.mul_inv_mem i k⟩ *
-          ⟨idem (O.levelModulus 2).places * x (k, j), hx k j⟩ : Ô E) : 𝔸f E) =
+        O.chosenModulusSq.reduction ((L.integralInverse * X hx) i j) := by
+    conv_rhs => change ((L.integralInverse * X hx).map O.chosenModulusSq.reduction) i j
+    rw [Matrix.map_mul]
+    have hX : (vecToMatrix fun p ↦ (O.levelModulus 2).reduction
+        ⟨idem (O.levelModulus 2).places * x p, hx p.1 p.2⟩).map reduceToChosenModulusSq =
+        (X hx).map O.chosenModulusSq.reduction :=
+      Matrix.ext fun a b ↦ factor_reduction _ _ levelModulus_ideal_le
+    rw [hX]
+    rfl
+  have h_sum_val (hx) (i : n) (j : r) :
+      (((L.integralInverse * X hx) i j : Ô E) : 𝔸f E) =
         O.genIdele.val *
           (idem (O.levelModulus 2).places * (L.point⁻¹.val.val * vecToMatrix x) i j) := by
-    change (Ô E).subtype.toAddMonoidHom _ = _
-    rw [map_sum, Matrix.mul_apply, mul_sum, mul_sum]
-    refine sum_congr rfl fun k _ ↦ ?_
-    change (O.genIdele.val * L.point⁻¹.val.val i k) * (idem (O.levelModulus 2).places * x (k, j)) =
-      O.genIdele.val * (idem (O.levelModulus 2).places * (L.point⁻¹.val.val i k * x (k, j)))
-    rw [mul_mul_mul_comm, mul_assoc]
+    change ((L.integralInverse * X hx).map (Ô E).subtype) i j = _
+    rw [Matrix.map_mul]
+    change ((O.genIdele.val • L.point⁻¹.val.val) *
+      (idem (O.levelModulus 2).places • vecToMatrix x)) i j = _
+    rw [Matrix.smul_mul, Matrix.mul_smul]
+    rfl
   split
   next h_inv_mul =>
     have hx : ∀ (i : n) (j : r), idem (O.levelModulus 2).places * x (i, j) ∈ Ô E :=
@@ -236,8 +238,7 @@ lemma liftFn_datum_point_inv_mul (x : n × r → 𝔸f E) :
         smul_eq_mul, ← RingHom.map_mul, h_entry hx i j]
       have h_eq : (O.genIntAdele * ⟨idem (O.levelModulus 2).places *
           matrixToVec (L.point⁻¹.val.val * vecToMatrix x) (i, j), h_inv_mul i j⟩ : Ô E) =
-          ∑ k : n, ⟨O.genIdele * L.point⁻¹.val.val i k, L.mul_inv_mem i k⟩ *
-            ⟨idem (O.levelModulus 2).places * x (k, j), hx k j⟩ :=
+          (L.integralInverse * X hx) i j :=
         Subtype.ext (h_sum_val hx i j).symm
       rw [h_eq]
     · -- At a place of `Q` the matrix `γ⁻¹` is `1`, so `γ⁻¹ x` and `x` have the same component.
@@ -262,8 +263,7 @@ lemma liftFn_datum_point_inv_mul (x : n × r → 𝔸f E) :
         exact one_mem _
       refine (h_inv_mul fun i j ↦ ?_).elim
       have h_mul : O.chosenModulusSq.reduction (O.genIntAdele *
-          ∑ k : n, ⟨O.genIdele * L.point⁻¹.val.val i k, L.mul_inv_mem i k⟩ *
-            ⟨idem (O.levelModulus 2).places * x (k, j), hx k j⟩) = 0 := by
+          (L.integralInverse * X hx) i j) = 0 := by
         rw [RingHom.map_mul, ← h_entry hx i j, congrFun₂ h_cond i j, Matrix.smul_apply, smul_eq_mul,
           ← mul_assoc, h_gen_sq, zero_mul]
       have h_mem := reduction_levelModulus_eq_zero_iff.1 h_mul
@@ -625,16 +625,15 @@ lemma norm_schur_inv_cols_le_weylGauge [DecidableEq l]
   -- `A` is integral because `ϖ A` vanishes modulo `ϖ` (on `S`, via `M`) and `ϖ² A` vanishes
   -- modulo `ϖ²` (off `S`, via `hk`).
   have hA (i : n) (j : l) : A i j ∈ Ô E := by
-    let X : Ô E := ∑ c : l, ⟨O.genIdele * L.point⁻¹.val.val i (f c), L.mul_inv_mem i (f c)⟩ *
-      ⟨k.val.val.val c j, k.property.isIntMatrix c j⟩
+    let K : Matrix l l (Ô E) := of fun c d ↦ ⟨_, k.property.isIntMatrix c d⟩
+    let X := (L.integralInverse.submatrix id f * K) i j
     have hX_val : (X : 𝔸f E) =
         O.genIdele.val * (L.point⁻¹.val.val.submatrix id f * k.val.val.val) i j := by
-      change (Ô E).subtype.toAddMonoidHom _ = _
-      rw [map_sum, Matrix.mul_apply, mul_sum]
-      refine sum_congr rfl fun c _ ↦ ?_
-      change (O.genIdele.val * L.point⁻¹.val.val i (f c)) * k.val.val.val c j =
-        O.genIdele.val * (L.point⁻¹.val.val i (f c) * k.val.val.val c j)
-      rw [mul_assoc]
+      change ((L.integralInverse.submatrix id f * K).map (Ô E).subtype) i j = _
+      rw [Matrix.map_mul]
+      change ((O.genIdele.val • L.point⁻¹.val.val.submatrix id f) * k.val.val.val) i j = _
+      rw [Matrix.smul_mul]
+      rfl
     by_cases hj : j ∈ S
     · have h_red : (O.levelModulus 1 false).reduction (X * (M : Ô E)) = 0 := by
         rw [RingHom.map_mul, hM_red, mul_zero]
@@ -644,11 +643,8 @@ lemma norm_schur_inv_cols_le_weylGauge [DecidableEq l]
       simpa only [A, of_apply, hj, ↓reduceIte] using h_mem
     · have hX_red : O.chosenModulusSq.reduction X =
           (L.reducedInverse.submatrix id f * (O.chosenModulusSq.reductionGL k).val) i j := by
-        rw [Matrix.mul_apply]
-        change O.chosenModulusSq.reduction.toAddMonoidHom _ = _
-        rw [map_sum]
-        refine sum_congr rfl fun c _ ↦ ?_
-        exact RingHom.map_mul ..
+        exact congrFun₂ (Matrix.map_mul (L := L.integralInverse.submatrix id f) (M := K)
+          (f := O.chosenModulusSq.reduction)) i j
       have h_red : O.chosenModulusSq.reduction (O.genIntAdele * X) = 0 := by
         rw [RingHom.map_mul, hX_red]
         exact hk i j hj
@@ -689,6 +685,19 @@ lemma norm_schur_inv_cols_le_weylGauge [DecidableEq l]
     _ ≤ _ * ‖w‖ := norm_mulVec_le (norm_schur_diagonal_piecewise_inv_le (M := M) S κ) w
     _ = _ := by simp [weylGauge, weylRep, w, φ, -map_inv]
 
+/-- The inverse of a block diagonal point acts on the included columns of each summand
+by the inverse of that summand's point. -/
+private lemma block_inv_columns [DecidableEq N] [DecidableEq m]
+    (e : N ⊕ m ≃ n) (h : Gf E N) (h' : Gf E m) :
+    (U.block e (h, h'))⁻¹.val.val.submatrix id (e ∘ Sum.inl) =
+      inclMatrix (𝔸f E) (e ∘ Sum.inl) * h⁻¹.val.val ∧
+    (U.block e (h, h'))⁻¹.val.val.submatrix id (e ∘ Sum.inr) =
+      inclMatrix (𝔸f E) (e ∘ Sum.inr) * h'⁻¹.val.val := by
+  rw [← map_inv, Prod.inv_mk, U.block_val]
+  constructor <;> refine Matrix.ext fun i j ↦ ?_ <;>
+    obtain ⟨i | i, rfl⟩ := e.surjective i <;>
+      simp [inclMatrix, Matrix.mul_apply, Matrix.one_apply]
+
 -- Keeps definitional checks from unfolding the finite sums.
 seal Finset.univ in
 /-- Let `V.ε : N ⊕ m ≃ n` split the indices, let `ι` be a p-adic place, and let `M ≠ 0` lie in the
@@ -715,6 +724,7 @@ lemma weylGauge_cartanProduct_le [DecidableEq m] [DecidableEq N]
   -- for each block of `V.ε`; so its norm is at most the product of their norms.
   -- `norm_schur_inv_cols_le_weylGauge` bounds each.
   set g : Gf E n := U.block V.ε (h, h') * L.point
+  obtain ⟨h_cols_big, h_cols_small⟩ := block_inv_columns V.ε h h'
   -- The block `N`: only the columns in the image of `V.dividedEmb` cost a power of `M`.
   have h_big : ‖schur O.colsPlus (fun τ : NumberField.InfinitePlace E ↦
         (g⁻¹.val.val.submatrix id (V.ε ∘ .inl)).map
@@ -722,17 +732,7 @@ lemma weylGauge_cartanProduct_le [DecidableEq m] [DecidableEq N]
       ‖(M : ℂ_[p])‖⁻¹ ^ (∑ τ : NumberField.InfinitePlace E,
           #(univ.map V.dividedEmb) * (range (card N)).sum (O.colsPlus τ)) *
         weylGauge (ι := ι) O.colsPlus 0 h y :=
-    V.norm_schur_inv_cols_le_weylGauge hM L V.hasColumnsBelow.1 hL.exists_cols_eq_zero <| by
-      rw [← map_inv, Prod.inv_mk, U.block_val]
-      refine Matrix.ext fun i j ↦ ?_
-      obtain ⟨i' | i', rfl⟩ := V.ε.surjective i
-      · simp only [submatrix_apply, id_eq, Function.comp_apply, Equiv.symm_apply_apply,
-          fromBlocks_apply₁₁, Matrix.mul_apply, inclMatrix, Matrix.one_apply,
-          EmbeddingLike.apply_eq_iff_eq, Sum.inl.injEq, ite_mul, one_mul, zero_mul,
-          Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte]
-      · simp only [submatrix_apply, id_eq, Function.comp_apply, Equiv.symm_apply_apply,
-          fromBlocks_apply₂₁, Matrix.zero_apply, Matrix.mul_apply, inclMatrix, Matrix.one_apply,
-          EmbeddingLike.apply_eq_iff_eq, reduceCtorEq, ↓reduceIte, zero_mul, Finset.sum_const_zero]
+    V.norm_schur_inv_cols_le_weylGauge hM L V.hasColumnsBelow.1 hL.exists_cols_eq_zero h_cols_big
   -- The block `m`, read through the conjugate embedding: every column may cost a power of `M`.
   have h_small : ‖schur O.colsMinus (fun τ : NumberField.InfinitePlace E ↦
         (g⁻¹.val.val.submatrix id (V.ε ∘ .inr)).map
@@ -741,17 +741,7 @@ lemma weylGauge_cartanProduct_le [DecidableEq m] [DecidableEq N]
           card m * (range (card m)).sum (O.colsMinus τ)) *
         weylGauge (ι := ⟨ιₚ.comp conj⟩) O.colsMinus 0 h' (star η) :=
     V.norm_schur_inv_cols_le_weylGauge (ι := ⟨ιₚ.comp conj⟩) (S := univ) hM L V.hasColumnsBelow.2
-      ⟨1, fun _ _ h ↦ (h (mem_univ _)).elim⟩ <| by
-      rw [← map_inv, Prod.inv_mk, U.block_val]
-      refine Matrix.ext fun i j ↦ ?_
-      obtain ⟨i' | i', rfl⟩ := V.ε.surjective i
-      · simp only [submatrix_apply, id_eq, Function.comp_apply, Equiv.symm_apply_apply,
-          fromBlocks_apply₁₂, Matrix.zero_apply, Matrix.mul_apply, inclMatrix, Matrix.one_apply,
-          EmbeddingLike.apply_eq_iff_eq, reduceCtorEq, ↓reduceIte, zero_mul, Finset.sum_const_zero]
-      · simp only [submatrix_apply, id_eq, Function.comp_apply, Equiv.symm_apply_apply,
-          fromBlocks_apply₂₂, Matrix.mul_apply, inclMatrix, Matrix.one_apply,
-          EmbeddingLike.apply_eq_iff_eq, Sum.inr.injEq, ite_mul, one_mul, zero_mul,
-          Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte]
+      ⟨1, fun _ _ h ↦ (h (mem_univ _)).elim⟩ h_cols_small
   -- Move the action of `g⁻¹` into `cartanProduct` (`weylRep_mulVec_cartanProduct`) and split the
   -- power of `M` by blocks.
   have hη : ιₚ ∘ η = ιₚ.comp conj ∘ star η :=

@@ -2,6 +2,7 @@ module
 
 public import Aesop.BuiltinRules
 import Mathlib.LinearAlgebra.Matrix.Module
+import TauCeti.RingTheory.Valuation.FinsetDvd
 public import Lib.Speed
 import Lib.General.LinearAlgebra.HermiteForm
 
@@ -43,6 +44,11 @@ def ColengthDvd : Prop :=
 @[simp]
 lemma ColengthDvd.of_le (hMN : M ≤ N) : ColengthDvd M N z := fun _ _ hΦ ↦
   ⟨1, by simp, fun i ↦ by simpa [Matrix.one_apply] using hMN (hΦ i)⟩
+
+/-- Enlarging the target submodule preserves a colength divisibility bound. -/
+lemma ColengthDvd.mono_right (hMN : ColengthDvd M N z) (hNP : N ≤ P) :
+    ColengthDvd M P z := fun n Φ hΦ ↦
+  (hMN n Φ hΦ).imp fun _ ⟨hm_det, hm_mem⟩ ↦ ⟨hm_det, fun i ↦ hNP (hm_mem i)⟩
 
 lemma ColengthDvd.of_dvd (hMN : ColengthDvd M N z) (hz : z ∣ z') : ColengthDvd M N z' :=
   fun n Φ hΦ ↦ (hMN n Φ hΦ).imp fun _ ⟨h_det, h_mem⟩ ↦ ⟨h_det.trans hz, h_mem⟩
@@ -130,11 +136,10 @@ lemma IsOntoUpToColength.prod {s : ℕ} {T : ι → End O V} {t : ι → ℝ} (L
 
 /-! ### The image of a square matrix over a valuation domain -/
 
-/-- Let `O` be a valuation domain, `M` a submodule of `V`, `f` a linear form on `V` and `a : O`. The
-vectors of `M` on which `f` is divisible by `a` have colength dividing `a` in `M`, in the sense of
-`ColengthDvd`: every finite family in `M` is carried into them by a square matrix whose determinant
-divides `a`. -/
-lemma colengthDvd_inf_comap_span [IsDomain O] [ValuationRing O] (M : Submodule O V) (f : V →ₗ[O] O)
+/-- Suppose divisibility in the commutative ring `O` is total. The vectors of a submodule `M` on
+which a linear form `f` takes values divisible by `a` have colength dividing `a` in `M`: every
+finite family in `M` is carried into them by a square matrix whose determinant divides `a`. -/
+lemma colengthDvd_inf_comap_span [PreValuationRing O] (M : Submodule O V) (f : V →ₗ[O] O)
     (a : O) : ColengthDvd M (M ⊓ Submodule.comap f (Ideal.span {a})) a := by
   intro n Φ hΦ
   obtain rfl | hn := n.eq_zero_or_pos
@@ -142,9 +147,8 @@ lemma colengthDvd_inf_comap_span [IsDomain O] [ValuationRing O] (M : Submodule O
   -- Take a member `Φ p` whose value divides the others, subtract multiples of it to clear them,
   -- and multiply it by `a`.
   classical
-  obtain ⟨p, -, hp⟩ := exists_max_image univ (fun k ↦ Ideal.span {f (Φ k)}) ⟨⟨0, hn⟩, mem_univ _⟩
-  replace hp (k : Fin n) : f (Φ p) ∣ f (Φ k) :=
-    Ideal.span_singleton_le_span_singleton.1 (hp k (mem_univ k))
+  have : Nonempty (Fin n) := ⟨⟨0, hn⟩⟩
+  obtain ⟨p, hp⟩ := TauCeti.PreValuationRing.exists_forall_dvd (fun k ↦ f (Φ k))
   choose c hc using hp
   let m : Matrix (Fin n) (Fin n) O := updateCol 1 p fun i ↦ if i = p then a else -c i
   have h_det : m.det = a := by simp [m, ← cramer_apply, cramer_one]
@@ -156,6 +160,18 @@ lemma colengthDvd_inf_comap_span [IsDomain O] [ValuationRing O] (M : Submodule O
   refine ⟨m, h_det.dvd, fun i ↦ ⟨sum_smul_mem M _ fun k _ ↦ hΦ k, ?_⟩⟩
   rw [h_comb]
   split_ifs <;> simp [Ideal.mem_span_singleton, hc i, mul_comm]
+
+/-- The simultaneous divisibility conditions `d j ∣ f j x` on finitely many linear forms
+have colength dividing the product of the moduli. -/
+lemma colengthDvd_iInf_comap_span [IsDomain O] [ValuationRing O] (f : ι → V →ₗ[O] O) (d : ι → O)
+    (s : Finset ι) : ColengthDvd ⊤ (⨅ j ∈ s, Submodule.comap (f j) (Ideal.span {d j}))
+      (∏ j ∈ s, d j) := by
+  classical
+  induction s using Finset.induction with
+  | empty => exact .of_le (by simp)
+  | insert j s hj ih =>
+    simpa only [Finset.iInf_insert, inf_comm, prod_insert hj, mul_comm] using
+      ih.trans (colengthDvd_inf_comap_span _ (f j) (d j))
 
 /-- Let `O` be a valuation domain and `A` a square matrix over `O` indexed by `ι` whose determinant
 divides `z`. If the submodule `L` of `ι → O` contains the image of `A`, then `L` has colength
@@ -172,12 +188,8 @@ lemma ColengthDvd.of_det_dvd [IsDomain O] [ValuationRing O] [Fintype ι] [Decida
   let f (j : ι) : (ι → O) →ₗ[O] O := .proj j ∘ₗ g⁻¹.val.mulVecLin
   let S (s : Finset ι) : Submodule O (ι → O) := ⨅ j ∈ s, Submodule.comap (f j) (Ideal.span {d j})
   -- Each further coordinate costs `d j`.
-  have h_chain (s : Finset ι) : ColengthDvd ⊤ (S s) (∏ j ∈ s, d j) := by
-    induction s using Finset.induction with
-    | empty => exact .of_le (by simp [S])
-    | insert j s hj ih =>
-      simpa only [S, Finset.iInf_insert, inf_comm, prod_insert hj, mul_comm] using
-        ih.trans (colengthDvd_inf_comap_span _ (f j) (d j))
+  have h_chain (s : Finset ι) : ColengthDvd ⊤ (S s) (∏ j ∈ s, d j) :=
+    colengthDvd_iInf_comap_span f d s
   -- The last module lies in the image of `A`.
   have h_image : S univ ≤ LinearMap.range (g.val * diagonal d * g'.val).mulVecLin := by
     intro x hx
@@ -187,7 +199,7 @@ lemma ColengthDvd.of_det_dvd [IsDomain O] [ValuationRing O] [Fintype ι] [Decida
       funext fun j ↦ by simpa [f, mulVec_diagonal] using (hw j).symm
     exact ⟨g'⁻¹.val *ᵥ w, by simp [mul_assoc, h_diag]⟩
   have h_prod : ∏ j, d j ∣ z := .trans (by simp) h_dvd
-  simpa using ((h_chain univ).of_dvd h_prod).trans (of_le (z := 1) (h_image.trans h_le))
+  exact ((h_chain univ).of_dvd h_prod).mono_right (h_image.trans h_le)
 
 /-- Over a valuation domain `O`, the submodule `a • O ^ ι` of `O ^ ι` has colength dividing
 `a ^ #ι` in the sense of `ColengthDvd`: every finite family in `O ^ ι` is carried into `a • O ^ ι`

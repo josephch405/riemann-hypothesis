@@ -316,12 +316,9 @@ such that `fiberPairing Z p q e` vanishes unless `e` is in the image of `C` unde
 `orbitPoint 𝔰.top`. -/
 lemma exists_isCompact_fiberPairing_support {F : PlaceData ι T (m + 1)} (Z : F.IntermediateGroup)
     (p q : ℕ → Aˣ) [h : P.IsLargeLatticeData F] :
-    ∃ C : Set T.G, IsCompact C ∧
-      C ⊆ T.floorGroup 𝔰.ϱ ∧
+    ∃ C : Set T.G, IsCompact C ∧ C ⊆ T.floorGroup 𝔰.ϱ ∧
       ∀ e : 𝔰.BesselIndex → A, fiberPairing Z p q e ≠ 0 → e ∈ orbitPoint 𝔰.top '' C := by
-  obtain ⟨C, hC, h_supp⟩ : ∃ C : Set T.G, IsCompact C ∧
-      ∀ l ∈ T.floorGroup 𝔰.ϱ, scaledOrbitalIntegral Z p l ≠ 0 → l ∈ C :=
-    exists_isCompact_scaledOrbitalIntegral_support Z p
+  obtain ⟨C, hC, h_supp⟩ := exists_isCompact_scaledOrbitalIntegral_support Z p
   refine ⟨C ∩ T.floorGroup 𝔰.ϱ, hC.inter_right (isClosed_of_entries_eq_one mem_floorGroup),
     inter_subset_right, fun e he ↦ ?_⟩
   obtain ⟨l, hl, rfl⟩ : ∃ l ∈ T.floorGroup 𝔰.ϱ, orbitPoint 𝔰.top l = e :=
@@ -333,8 +330,7 @@ lemma exists_isCompact_fiberPairing_support {F : PlaceData ι T (m + 1)} (Z : F.
     refine he ((fiberPairing_orbitPoint Z p q hl).trans (integral_eq_zero_of_ae ?_))
     filter_upwards [F.ae_measureH_mem_besselH] with k hk
     simp [h_zero k hk]
-  obtain ⟨hk_tri, hk_floor⟩ : k ∈ partialUnitriangularGroup 𝔰.n ∧ k ∈ T.floorGroup 𝔰.ϱ :=
-    partialUnitriangularGroup_inf_floorGroup_last.ge hk
+  obtain ⟨hk_tri, hk_floor⟩ := partialUnitriangularGroup_inf_floorGroup_last.ge hk
   have hkl : k * l ∈ T.floorGroup 𝔰.ϱ := mul_mem hk_floor hl
   have k_fix : orbitPoint 𝔰.top k = Pi.single (𝔰.besselFrame 𝔰.top) 1 :=
     (mem_partialUnitriangularGroup_succ_iff hk_floor).1 hk_tri
@@ -432,15 +428,10 @@ lemma exists_step_function_eqOn_fiberPairing {F : PlaceData ι T (m + 1)} (Z : F
       (∀ k ∈ besselH ⊓ F.congruenceSubgroup, ∀ x : 𝔰.BesselIndex → A,
         Φ ((k : GL 𝔰.BesselIndex A).val *ᵥ x) = Φ x) ∧
       ∀ e ∈ lastVectorQuadric T, Φ e = fiberPairing Z p q e := by
-  obtain ⟨C, hC, hC_floor, h_supp⟩ : ∃ C : Set T.G, IsCompact C ∧ C ⊆ T.floorGroup 𝔰.ϱ ∧
-      ∀ e : 𝔰.BesselIndex → A, fiberPairing Z p q e ≠ 0 → e ∈ orbitPoint 𝔰.top '' C :=
-    exists_isCompact_fiberPairing_support Z p q
-  have h_integral : besselH ⊓ F.congruenceSubgroup ≤ (intGL 𝔰.BesselIndex P.integers).subgroupOf
-    T.G := by
-    intro k hk
-    obtain ⟨-, h_int, -⟩ : k ∈ besselH ∧ (k : GL 𝔰.BesselIndex A) ∈ intGL 𝔰.BesselIndex P.integers ∧
-        IsIntMatrix P.integers (F.levelUnit⁻¹ • ((k : GL 𝔰.BesselIndex A).val - 1)) :=
-      Subgroup.mem_inf.1 hk
+  obtain ⟨C, hC, hC_floor, h_supp⟩ := exists_isCompact_fiberPairing_support Z p q
+  have h_integral : besselH ⊓ F.congruenceSubgroup ≤
+      (intGL 𝔰.BesselIndex P.integers).subgroupOf T.G := by
+    rintro k ⟨-, h_int, -⟩
     exact h_int
   refine exists_step_function_extension h_integral (hC.image (continuous_orbitPoint (b := 𝔰.top)))
     ?_ ?_ ?_
@@ -684,14 +675,11 @@ lemma sum_lastEntryDensity_nonneg {F : PlaceData ι (latticeMiddleGram 𝔰 N) (
     {R : Matrix j j ℂ} (hR : R.PosSemidef) (ω : j → ℕ → Aˣ)
     {t : Aˣ} (ht : ∀ a : j, ω a 𝔰.ϱ = t) :
     0 ≤ ∑ a : j, ∑ b : j, R a b * lastEntryDensity π Z (ω a) (ω b) := by
-  have h_sphere : 0 ≤ ∑ a : j, ∑ b : j, R a b * ∫ x : 𝔰.κ → A,
-      fiberPairing Z (ω a) (ω b) (vectorOfLastEntry π t x) ∂P.normFiberMeasure 𝔰.κ
-        (lastEntrySphereIndex π t) :=
-    sum_sum_mul_integral_nonneg (fun a b ↦
-      integrable_fiberPairing_vectorOfLastEntry Z (ω a) (ω b) hN t)
-      fun x ↦ sum_fiberPairing_nonneg Z hR ω (vectorOfLastEntry π t x)
   rw [sum_lastEntryDensity_eq Z R ω ht]
-  exact mul_nonneg (Complex.zero_le_real.2 toReal_nonneg) h_sphere
+  apply mul_nonneg (Complex.zero_le_real.2 toReal_nonneg)
+  exact sum_sum_mul_integral_nonneg
+    (fun a b ↦ integrable_fiberPairing_vectorOfLastEntry Z (ω a) (ω b) hN t)
+    (fun x ↦ sum_fiberPairing_nonneg Z hR ω (vectorOfLastEntry π t x))
 
 /-- Let `π * star π = N`, and let `F` be a large lattice datum of `latticeMiddleGram 𝔰 N`. Take
 heads `ω a` (sequences of units) with a common last entry `ω a 𝔰.ϱ = t` and a positive semidefinite

@@ -75,6 +75,19 @@ abbrev invLastRows : Matrix a n R := k⁻¹.val.submatrix (e ∘ Sum.inr) id
 block `b`. -/
 abbrev firstCols : Matrix n b R := k.val.submatrix id (e ∘ Sum.inl)
 
+/-- Right multiplication of the last rows of the inverse corresponds to left translation
+of the original matrix by the inverse of the multiplier. -/
+lemma invLastRows_mul (g k : GL n R) :
+    invLastRows e k * g.val = invLastRows e (g⁻¹ * k) := by
+  change k⁻¹.val.submatrix (e ∘ Sum.inr) id * g.val =
+    (g⁻¹ * k)⁻¹.val.submatrix (e ∘ Sum.inr) id
+  rw [_root_.mul_inv_rev, inv_inv, Units.val_mul,
+    submatrix_mul _ _ _ id _ bijective_id, submatrix_id_id]
+
+/-- Left multiplication of the selected columns agrees with selection after multiplication. -/
+lemma mul_firstCols (g k : GL n R) :
+    g.val * firstCols e k = firstCols e (g * k) := rfl
+
 /-- The functions `Φ` on `a × n` matrices and `Ψ` on `n × b` matrices are partners for the
 multiplicative character `χ` over `O` if `Φ` vanishes off the matrices `invLastRows e k` and `Ψ` off
 the matrices `firstCols e k`, for `k` in `GL_n(O)`, and
@@ -111,6 +124,7 @@ lemma transpose_invLastRows :
     (invLastRows e k)ᵀ = firstCols ((Equiv.sumComm a b).trans e) (invTransposeGL k) :=
   rfl
 
+/-- The transpose of `invLastRows e k` has a left inverse. -/
 lemma hasLeftInv_invLastRows_transpose [DecidableEq a] : HasLeftInv (invLastRows e k)ᵀ := by
   rw [transpose_invLastRows]
   exact ⟨_, invFirstRows_mul_firstCols _ _⟩
@@ -136,9 +150,7 @@ lemma isPrimitiveMatrix_iff_mem_intGL : IsPrimitiveMatrix O k.val ↔ k ∈ intG
 /-- A block of columns of a matrix in `GL n O` is primitive over `O`. -/
 lemma isPrimitiveMatrix_firstCols [DecidableEq b] {k : GL n R} (hk : k ∈ intGL n O) :
     IsPrimitiveMatrix O (firstCols e k) :=
-  -- `invFirstRows e k` is an integral left inverse.
-  ⟨fun i j ↦ (mem_intGL.1 hk).1 i (e (Sum.inl j)), invFirstRows e k,
-    fun i j ↦ (mem_intGL.1 hk).2 (e (Sum.inl i)) j, invFirstRows_mul_firstCols e k⟩
+  ((isPrimitiveMatrix_iff_mem_intGL k).2 hk).submatrix_cols (e.injective.comp Sum.inl_injective)
 
 /-! ### Columns of a matrix and rows of its inverse -/
 
@@ -286,18 +298,12 @@ lemma exists_map_coe_eq_firstCols {π : O →+* R} [IsLocalHom π] (hπ : Surjec
     {e : b ⊕ a ≃ n} {y : Matrix n b O} {k : GL n R} (hy_map : y.map π = firstCols e k) :
     ∃ j ∈ intGL n O, y.map (↑) = firstCols e j := by
   -- Lift the other columns of `k`; the resulting matrix is invertible as `π` is local.
-  let M : Matrix n n O := of fun i ↦ extend (e ∘ Sum.inl) (y i) (surjInv hπ ∘ k i)
-  have hM_cols (i : n) (j : b) : M i (e (Sum.inl j)) = y i j :=
-    (e.injective.comp Sum.inl_injective).extend_apply (y i) (surjInv hπ ∘ k i) j
-  have h_map : π.mapMatrix M = k := by
-    refine Matrix.ext fun i c ↦ show π (M i c) = k.val i c from ?_
-    by_cases hc : ∃ j : b, (e ∘ Sum.inl) j = c
-    · obtain ⟨j, rfl⟩ := hc
-      simpa [hM_cols] using congr_fun₂ hy_map i j
-    · simp [M, extend_apply' (y i) (surjInv hπ ∘ k i) c hc, surjInv_eq hπ]
-  obtain ⟨j, hj⟩ : IsUnit M := isUnit_of_mapMatrix π (by simp [h_map])
-  refine ⟨GeneralLinearGroup.map O.subtype j, MonoidHom.mem_range.2 ⟨j, rfl⟩, ?_⟩
-  simp [hj, hM_cols, ← ext_iff]
+  let M : Matrix n n O := of fun i c ↦ (e.symm c).elim (y i) fun _ ↦ surjInv hπ (k i c)
+  have hM : π.mapMatrix M = k := Matrix.ext fun i c ↦ match h : e.symm c with
+    | .inl j => by simpa [M, e.symm_apply_eq.mp h] using congr_fun₂ hy_map i j
+    | .inr _ => by simp [M, h, surjInv_eq hπ]
+  obtain ⟨j, hj⟩ : IsUnit M := isUnit_of_mapMatrix π (hM ▸ k.isUnit)
+  exact ⟨GeneralLinearGroup.map O.subtype j, ⟨j, rfl⟩, Matrix.ext fun i c ↦ by simp [hj, M]⟩
 
 end Lift
 

@@ -5,6 +5,7 @@ import Mathlib.Algebra.Order.Star.Rat
 import Mathlib.Analysis.Matrix.Order
 import Mathlib.LinearAlgebra.Matrix.Charpoly.Eigs
 import Mathlib.RingTheory.Ideal.Quotient.HasFiniteQuotients.Norm
+import TauCeti.NumberTheory.NumberField.RingOfIntegers.Norm
 public import Lib.General.NumberTheory.ImaginaryQuadraticField
 public import Lib.Shimura.Uniformisation.AdelicFrames
 public import Lib.Weil.Unramified.HeckeGL
@@ -248,6 +249,35 @@ lemma roots_map_eq_map_numberedRoots {t : E →+* ℂ} {P : E[X]}
     (h_exists : ∃ r : n ↪ ℂ, (P.map t).roots = Finset.univ.val.map r) :
     (P.map t).roots = Finset.univ.val.map (numberedRoots t P : n ↪ ℂ) :=
   Classical.epsilon_spec h_exists
+
+section
+
+open Equiv Matrix Polynomial Finset Lagrange IsAlgClosed Function
+
+variable {E n : Type} [Field E] [Fintype n] [DecidableEq n] {y : GL n E}
+
+/-- For y in GL_n(E) with separable characteristic polynomial P and an embedding t of E into ℂ,
+the numbering `New.Variety.numberedRoots` lists the complex roots of t(P), each once. -/
+lemma roots_eq_map_numberedRoots (h_sep : y.val.charpoly.Separable) (t : E →+* ℂ) :
+    (y.val.charpoly.map t).roots = (univ : Finset n).val.map (numberedRoots t y.val.charpoly) := by
+  -- A separable polynomial of degree `card n` has `card n` distinct complex roots, so they can be
+  -- numbered by `n`, and `roots_map_eq_map_numberedRoots` applies.
+  obtain ⟨r, hr⟩ : ∃ r : n ↪ ℂ,
+      univ.map r = ⟨(y.val.charpoly.map t).roots, nodup_roots h_sep.map⟩ :=
+    Embedding.exists_of_card_eq_finset (by simp [card_roots_eq_natDegree])
+  exact roots_map_eq_map_numberedRoots ⟨r, (congrArg Finset.val hr).symm⟩
+
+/-- If the characteristic polynomial of y is separable, then each numbered root of its image under t
+is a root of the characteristic polynomial of the image of y under t. -/
+lemma isRoot_numberedRoots (h_sep : y.val.charpoly.Separable) (t : E →+* ℂ) (i : n) :
+    (y.map t).val.charpoly.IsRoot (numberedRoots t y.val.charpoly i) :=
+  isRoot_of_mem_roots (by simp [roots_eq_map_numberedRoots h_sep, charpoly_map])
+
+lemma eval_interpolate_univ_node (r : n ↪ ℂ) (f : n → ℂ) (i : n) :
+    (interpolate univ r f).eval (r i) = f i :=
+  eval_interpolate_at_node _ r.injective.injOn (mem_univ i)
+
+end
 
 open scoped Classical in
 /-- The matrix that describes the signature at `v₀`, written as a polynomial in `Φ v₀ (y)`. The
@@ -743,21 +773,6 @@ section
 variable {E : Type} [Field.{0} E] [NumberField E] [IsCMField E] {x : GL n (𝔸f E)} {y : GL n E}
   {β : Matrix n n E}
 
-omit Ψ in
-/-- An algebraic integer `t` of `E` whose images under all the embeddings `Φ v` have modulus at
-most `B` has norm at most `B ^ [E : ℚ]` in absolute value. -/
-private lemma abs_norm_le_pow_finrank_of_forall_norm_le {E : Type} [Field.{0} E] [CMType E]
-    {t : 𝓞 E} {B : ℝ} (h_le : ∀ v : InfinitePlace E, ‖Φ v (t : E)‖ ≤ B) :
-    |(Algebra.norm ℤ t : ℝ)| ≤ B ^ finrank ℚ E := by
-  -- `|N t| = ∏ v, ‖Φ v t‖ ^ 2`, and `[E : ℚ]` is twice the number of places `v`.
-  rw [← Rat.cast_intCast, Algebra.coe_norm_int, abs_norm_eq_prod_norm_sq]
-  calc ∏ v : InfinitePlace E, ‖Φ v (t : E)‖ ^ 2
-      ≤ ∏ _v : InfinitePlace E, B ^ 2 := by
-        gcongr with v
-        exact h_le v
-    _ = B ^ finrank ℚ E := by
-        simp [finrank_eq_two_mul_card_infinitePlace, pow_mul]
-
 omit [Nonempty n] Ψ in
 /-- Let `x⁻¹ y x` be congruent to `1` modulo the ideal `J` of `Ô E`, where `J` meets `𝓞 E` inside an
 ideal `I` of norm above `(2 * card n) ^ [E : ℚ]`. If the images of the trace of `y - 1` under all
@@ -774,7 +789,9 @@ private lemma trace_eq_card_of_mem_congruenceGL {E : Type} [Field.{0} E] [CMType
   have h_norm_lt : |Algebra.norm ℤ t| < absNorm I := by
     rify at h_large ⊢
     rw [← ht_eq] at h_conj_le
-    exact (abs_norm_le_pow_finrank_of_forall_norm_le h_conj_le).trans_lt h_large
+    refine (NumberField.RingOfIntegers.abs_norm_le_pow t (fun σ ↦ ?_)).trans_lt h_large
+    rw [← InfinitePlace.apply σ (t : E), ← PlaceEmbedding.mk_Φ (.mk σ), InfinitePlace.apply]
+    exact h_conj_le (.mk σ)
   -- The norm of `t` is a multiple of `absNorm I` and smaller in absolute value, hence `0`.
   have h_zero : t = 0 := Algebra.norm_eq_zero_iff.1
     (Int.eq_zero_of_abs_lt_dvd (absNorm_dvd_norm_of_mem ht_mem) h_norm_lt)

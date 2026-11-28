@@ -481,27 +481,6 @@ noncomputable def _root_.New.HCParam.kTypeChar (ν : HCParam ε) : C(maxCompactU
       simp [GeneralLinearGroup.det_ne_zero]))
         isCompact_univ).div_const _
 
-/-- Given unitary matrices `g τ` on the blocks `{i | ε i = τ}`, there is an element `y` of `K` whose
-matrix is the block diagonal matrix of the `g τ`, reindexed by `n`. Its diagonal blocks are the
-`g τ`. -/
-lemma exists_maxCompactU_of_blocks
-    (g : ∀ τ : ℤˣ, Matrix {i : n // ε i = τ} {i : n // ε i = τ} ℂ)
-    (h : ∀ τ : ℤˣ, (g τ)ᴴ * g τ = 1) :
-    ∃ y : maxCompactU ε,
-      (y : Matrix n n ℂ) = reindex (sigmaFiberEquiv ε) (sigmaFiberEquiv ε) (blockDiagonal' g) ∧
-        (y : Matrix n n ℂ).toSquareBlock ε = g := by
-  let e : (Σ τ : ℤˣ, {i : n // ε i = τ}) ≃ n := sigmaFiberEquiv ε
-  let y : Matrix n n ℂ := reindex e e (blockDiagonal' g)
-  have h_block : y ∈ blockDiagAlg ε :=
-    mem_blockDiagAlg.2 (by simp +contextual [y, e, sigmaFiberEquiv, blockDiagonal'_apply_ne])
-  -- `y` is unitary and commutes with `signMatrix ε`, so it preserves the form
-  have h_unitary : yᴴ * y = 1 := by simp [y, ← blockDiagonal'_mul, h, ← Pi.one_def]
-  have h_form : yᴴ * signMatrix ε * y = signMatrix ε := by
-    rw [Commute.right_comm (h_block _ rfl), h_unitary, one_mul]
-  refine ⟨⟨U.of IsHermitianInvolution.isUnit y h_form, mem_maxCompactU.2 h_block⟩, rfl, ?_⟩
-  change (y.submatrix e e).blockDiag' = g
-  simp [y]
-
 omit [DecidableEq n] in
 /-- Let `q τ` enumerate the block `{i | ε i = τ}` by increasing `l`, and let `ν` be dominant:
 `ν j ≤ ν i` if `ε i = ε j` and `l j < l i`. Then on each block, read by decreasing `l`, the weight
@@ -964,9 +943,10 @@ variable {a : ℕ} {ι : Type} [Fintype ι]
 
 /-- If the `r i` are nonzero, a common integer shift `d` of the exponents comes out of
 `det (r i ^ (d + k j))` as the factor `(∏ r i) ^ d`. -/
-lemma det_zpow_add {r : Fin a → ℂ} (h_ne : ∀ i : Fin a, r i ≠ 0) (d : ℤ) (k : Fin a → ℤ) :
-    (of fun i j : Fin a ↦ r i ^ (d + k j)).det =
-      univ.prod r ^ d * (of fun i j : Fin a ↦ r i ^ k j).det := by
+lemma det_zpow_add {K m : Type*} [Field K] [Fintype m] [DecidableEq m]
+    {r : m → K} (h_ne : ∀ i : m, r i ≠ 0) (d : ℤ) (k : m → ℤ) :
+    (of fun i j : m ↦ r i ^ (d + k j)).det =
+      univ.prod r ^ d * (of fun i j : m ↦ r i ^ k j).det := by
   -- Row `i` has the factor `r i ^ d`.
   simp only [zpow_add₀ (h_ne _), ← prod_zpow]
   exact det_mul_column _ _

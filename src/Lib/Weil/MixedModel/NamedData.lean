@@ -137,7 +137,7 @@ lemma projOn_schrodingerOp_vacElem {T : Set (FinPlace E)} (hT : Disjoint S.conjC
       V.projOn T (V.ϱ (finVec (idem S.conjClosure • y)) f) =
         V.ϱ (finVec (idem S.conjClosure • y)) (V.projOn T f) :=
     V.projOn_rho (fun i w hw ↦ by
-      have hw_not : w ∉ S.conjClosure := by grind [star_star]
+      have hw_not := Set.disjoint_right.1 hT.conjClosure_right hw
       simp [finVec, idem_of_notMem hw_not]) f
   simp [schrodingerOp, h_comm, heisenbergCombination, Finsupp.sum]
 
@@ -340,10 +340,6 @@ variable {E : Type*} [Field E] [CMType E] [WeilData E]
   {s₁ : n₁ → ℤˣ} {s₂ : n₂ → ℤˣ} {V : Space E n s} {V₁ : Space E n₁ s₁} {V₂ : Space E n₂ s₂}
   {S : Set (FinPlace E)} {Ψ : (n₁ → 𝔸f E) → ℂ} {Ψ' : (n₂ → 𝔸f E) → ℂ}
   {e : n₁ ⊕ n₂ ≃ n} (hs : s ∘ e = s₁ ⊕ᵥ s₂)
-
-omit [Fintype n] [DecidableEq n] in
-@[simp]
-lemma finVec_zero : finVec (0 : n → 𝔸f E) = 0 := by simp [funext_iff, finVec]
 
 /-- Names are transported by a change of coordinates `D`. Let `S` and `S'` be disjoint from their
 conjugates. Let the finite part `D.finEquiv` carry parts at `S'` to parts at `S`, and parts at

@@ -57,13 +57,17 @@ lemma mem_colSpan_submatrix {F m n n' : Type} [Field F] [Fintype n] [Fintype n']
     {P : Matrix m n F} {e : n' → n} (he : Injective e) {v : m → F} :
     v ∈ colSpan (P.submatrix id e) ↔
       ∃ x : n → F, (∀ a : n, a ∉ Set.range e → x a = 0) ∧ P *ᵥ x = v := by
-  have h_sum (x : n → F) (hx : ∀ a ∉ Set.range e, x a = 0) :
-      P.submatrix id e *ᵥ (x ∘ e) = P *ᵥ x :=
-    funext fun i ↦ Fintype.sum_of_injective e he _ _ (fun a ha ↦ by simp [hx a ha]) fun _ ↦ rfl
-  refine ⟨?_, fun ⟨x, hx, hv⟩ ↦ ⟨x ∘ e, (h_sum x hx).trans hv⟩⟩
-  rintro ⟨c, rfl⟩
-  have h_zero (a : n) (ha : a ∉ Set.range e) : extend e c 0 a = 0 := extend_apply' c _ a ha
-  exact ⟨extend e c 0, h_zero, by rw [← h_sum _ h_zero, extend_comp he, mulVecLin_apply]⟩
+  constructor
+  · rintro ⟨c, rfl⟩
+    exact ⟨extend e c 0, fun a ha ↦ extend_apply' c _ a ha, mulVec_extend_zero he P c⟩
+  · rintro ⟨x, hx, rfl⟩
+    have h_ext : extend e (x ∘ e) 0 = x := by
+      funext a
+      by_cases ha : a ∈ Set.range e
+      · obtain ⟨i, rfl⟩ := ha
+        simp [he]
+      · simp only [extend_apply' _ _ _ ha, hx a ha, Pi.zero_apply]
+    exact ⟨x ∘ e, (mulVec_extend_zero he P (x ∘ e)).symm.trans (congrArg (P *ᵥ ·) h_ext)⟩
 
 namespace Filling
 
@@ -143,15 +147,6 @@ lemma mem_framePerp_iff_orthogonal :
     rw [mulVecLin_apply, h_form, hy, dotProduct_zero]
   · rw [dotProduct_comm, ← star_star c, ← h_form]
     exact hy _ ⟨star c, rfl⟩
-
-/-- For the coefficients `x` of a combination of the frame `e_1, …, e_ϱ, z_N`, the product, for the
-form `S.ratGram`, of this combination with `y` is the sum of `x̄_a y(e*_a)` over `a ≤ ϱ` minus
-`N x̄_z y(z)`, where `x_z` is the last coefficient and `y(·)` are coordinates of `y`. -/
-lemma form_frameImage_one (x : Fin (𝔰.ϱ + 1) → E) (y : 𝔰.BesselIndex → E) :
-    star (frameImage 1 *ᵥ x) ⬝ᵥ S.ratGram *ᵥ y =
-      ∑ a : Fin 𝔰.ϱ, star (x a.castSucc) * y (eStar a) - S.N * (star (x 𝔰.top) * y 𝔰.z) := by
-  rw [frameImage_one_mulVec, splitGram_mulVec]
-  simp [dotProduct, mulVec, Shape.middleGram, init, sub_eq_add_neg, mul_left_comm]
 
 /-- For the form `S.ratGram`, the product of a combination with coefficients `x` of the frame
 `frameImage γ` with `y` equals the product of the same combination of the frame `frameImage 1` with

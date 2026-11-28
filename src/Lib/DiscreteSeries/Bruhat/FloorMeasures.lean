@@ -86,7 +86,7 @@ def _root_.New.Floors.TraceOne.heisenbergElem : U T.splitGram :=
     have h_trace : element * star v ⬝ᵥ T.splitGram *ᵥ v - p.2 +
         star (element * star v ⬝ᵥ T.splitGram *ᵥ v - (p.2 : A)) =
           star (-v) ⬝ᵥ T.splitGram *ᵥ (-v) := by
-      simp [IsHermitianUnit.conjTranspose_eq, ↓ star_dotProduct_mulVec_comm, mulVec_neg]
+      simp [↓ IsHermitian.star_dotProduct_mulVec_comm H.conjTranspose_eq, mulVec_neg]
       grind
     obtain ⟨e, he⟩ :=
       exists_unitary_eq_eichlerMap (x := Pi.single (inl a) 1) H.conjTranspose_eq (by simp)
@@ -174,7 +174,7 @@ lemma heisenbergElem_mul :
   have hv_coord : v (eStar a) = 0 := by simp [v, inclMatrix_val_mulVec]
   have hv'_coord : v' (eStar a) = 0 := by simp [v', inclMatrix_val_mulVec]
   have h_star : star (star v' ⬝ᵥ T.splitGram *ᵥ v) = star v ⬝ᵥ T.splitGram *ᵥ v' :=
-    star_dotProduct_mulVec_comm IsHermitianUnit.conjTranspose_eq v' v
+    IsHermitian.star_dotProduct_mulVec_comm H.conjTranspose_eq v' v
   refine Subtype.ext (Units.ext ?_)
   refine ext_iff_mulVec.2 fun w ↦ ?_
   simp [← hv, ← hv', ← mulVec_mulVec, mulVec_add, mulVec_smul, hv_coord, hv'_coord, h_star,
@@ -405,6 +405,17 @@ lemma simpleRootSum_conj_heisenbergElem (hs : s ∈ floorGroup (a + 1)) :
 
 end FloorGroups
 
+/-- The Heisenberg element `heisenbergElem a p` of floor `a` is a continuous function of its
+parameter `p`, a pair of a vector and a skew element. -/
+@[fun_prop]
+lemma continuous_heisenbergElem [TopologicalSpace A] [IsTopologicalRing A] [ContinuousStar A]
+    [T2Space A] [TraceOne A] {T : 𝔰.Form A} [H : IsHermitianUnit T.splitGram]
+    {a : Fin 𝔰.ϱ} : Continuous (heisenbergElem (T := T) a) := by
+  refine (Matrix.unitaryGroupOf.isClosedEmbedding_val H.isUnit).continuous_iff.2 ?_
+  simp only [↓comp_def, heisenbergElem, eichlerMap, star_neg, mulVec_mulVec, Pi.star_single,
+    star_one, single_vecMul, one_smul, val_of_coe]
+  fun_prop
+
 variable [TopologicalSpace A] [MeasureSpace A] [P : Place A]
   (ι : Type) [Fintype ι] [DecidableEq ι] (T : 𝔰.Form A) (m : ℕ)
   {n k Z : Type} [Fintype n] [Fintype k] [DecidableEq k]
@@ -505,28 +516,33 @@ lemma HyperbolicBasis.gram_floorBasis :
     conjTranspose_inclMatrix_mul_mul_inclMatrix, block]
   simp [F.gram_eq, fromBlocks_conjTranspose, fromBlocks_multiply, ← ext_iff, Matrix.one_apply]
 
-/-- Multiplication by `F.basisMatrix`, the matrix of the hyperbolic basis `F` of `V_ϱ`, preserves
-the volume of coordinate vectors. -/
-lemma HyperbolicBasis.measurePreserving_mulVec : MeasurePreserving (F.basisMatrix *ᵥ ·) := by
-  -- Reindex the columns by `e` to get a square matrix `M`. Its Gram matrix has square one.
-  let e : 𝔰.MiddleIndex ≃ Fin 2 ⊕ SplitIndex m ι := equivOfCardEq (by simp +arith [F.card_eq])
-  let M : Matrix 𝔰.MiddleIndex 𝔰.MiddleIndex A := F.basisMatrix * inclMatrix A e
+/-- A square change of coordinates preserves volume if the original form has determinant
+of modulus one and the Gram matrix of the new coordinates squares to one. -/
+lemma Place.measurePreserving_mulVec_of_gram_sq [DecidableEq n] {B : Matrix n k A}
+    {T : Matrix n n A} (h_card : card n = card k) (hT : P.modulus T.det = 1)
+    (h_gram : (Bᴴ * T * B) ^ 2 = 1) : MeasurePreserving (B *ᵥ ·) := by
+  let e : n ≃ k := equivOfCardEq h_card
+  let M : Matrix n n A := B * inclMatrix A e
   have gram_sq : (Mᴴ * T * M) ^ 2 = 1 := by
-    rw [gram_mul]
-    simp [sq, conjTranspose_inclMatrix_mul_mul_inclMatrix, F.gram_eq, ↓reindex_equiv e.symm,
-      fromBlocks_multiply,
-      fromCols_mul_fromRows, fromCols_mul_fromBlocks, fromBlocks_mul_fromRows, ← ext_iff,
-      Matrix.one_apply]
+    rw [gram_mul, conjTranspose_inclMatrix_mul_mul_inclMatrix, sq, submatrix_mul_equiv,
+      ← sq, h_gram, submatrix_one_equiv]
   have h_left : Mᴴ * T * M * (Mᴴ * T) * M = 1 := by rw [Matrix.mul_assoc _ _ M, ← sq, gram_sq]
   have h_unit : IsUnit M.det := isUnit_det_of_left_inverse h_left
   -- Taking determinants, `modulus M.det ^ 4 = 1`, since `modulus T.det = 1`.
   have h_md : P.modulus M.det = 1 := by
     have h_det : P.modulus ((Mᴴ * T * M) ^ 2).det = 1 := by simp [gram_sq]
-    simpa [F.modulus_det, ← sq, toNNReal_eq_one_iff] using congrArg ENNReal.toNNReal h_det
+    simpa [hT, ← sq, toNNReal_eq_one_iff] using congrArg ENNReal.toNNReal h_det
   have h_vol : volume.map (M *ᵥ ·) = volume := by simp [P.map_mulVec_volume _ M h_unit, h_md]
   refine ⟨by fun_prop, ?_⟩
   simpa (disch :=
     fun_prop) [← (measurePreserving_inclMatrix e).map_eq, Measure.map_map, ↓ comp_def] using h_vol
+
+/-- Multiplication by `F.basisMatrix`, the matrix of the hyperbolic basis `F` of `V_ϱ`, preserves
+the volume of coordinate vectors. -/
+lemma HyperbolicBasis.measurePreserving_mulVec : MeasurePreserving (F.basisMatrix *ᵥ ·) := by
+  apply P.measurePreserving_mulVec_of_gram_sq (by simp +arith [F.card_eq]) F.modulus_det
+  simp [F.gram_eq, sq, fromBlocks_multiply, fromCols_mul_fromRows, fromCols_mul_fromBlocks,
+    fromBlocks_mul_fromRows, ← ext_iff, Matrix.one_apply]
 
 /-- The basis `F.floorBasis b` carries the volume of its coordinates to the Haar measure of
 `V_b`. -/
@@ -611,14 +627,6 @@ lemma measurable_floorWeyl [H : IsHermitianUnit T.splitGram] :
     of_apply]
   -- each entry is constant, `c`, or its conjugate inverse, on pieces cut out by `IsUnit c`
   apply_rules [Measurable.ite] <;> measurability
-
-@[fun_prop]
-lemma continuous_heisenbergElem [H : IsHermitianUnit T.splitGram]
-    {a : Fin 𝔰.ϱ} : Continuous (heisenbergElem (T := T) a) := by
-  refine isClosedEmbedding_unitary_coe.continuous_iff.2 ?_
-  simp only [↓comp_def, heisenbergElem, eichlerMap, star_neg, mulVec_mulVec, Pi.star_single,
-    star_one, single_vecMul, one_smul, val_of_coe]
-  fun_prop
 
 /-- An element `s` of `G_l` acts on the coordinates of floor at least `l` by a block that preserves
 their volume. -/

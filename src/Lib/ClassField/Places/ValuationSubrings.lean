@@ -180,6 +180,20 @@ lemma unique (h : IsPlaceOver A v) (h' : IsPlaceOver A v') : v = v' :=
   -- Both primes are the centre of `A` in `𝓞 Ω`, pulled back to `𝓞 K`.
   v.ext (h.centerPrime_liesOver.over.trans h'.centerPrime_liesOver.over.symm)
 
+include h in
+/-- In a tower of fields `K ⊆ L ⊆ Ω`, if `A` lies over the finite place `v` of `K`, then
+it lies over a finite place of `L` above `v`. -/
+lemma exists_above :
+    ∃ u : FinPlace L, IsPlaceOver A u ∧ u.below K = v := by
+  have := h.centerPrime_liesOver
+  -- The centre on the integers of `Ω` contracts to a nonzero prime on the integers of `L`,
+  -- since its contraction to the integers of `K` is `v`.
+  let u : FinPlace L := ⟨(centerPrime Ω A).under (𝓞 L), inferInstance,
+    Ideal.ne_bot_of_liesOver_of_ne_bot v.ne_bot _⟩
+  have hu : IsPlaceOver A u := fun x ↦
+    (mem_centerPrime (x := algebraMap (𝓞 L) (𝓞 Ω) x)).symm
+  exact ⟨u, hu, hu.isPlaceOver_below.unique h⟩
+
 lemma valuation_natCast_lt_one_iff (h : IsPlaceOver A v) {n : ℕ} : A n < 1 ↔ ↑n ∈ v.asIdeal :=
   mod_cast h n
 
@@ -330,20 +344,6 @@ variable (Γ)
 
 include h
 
-omit [Algebra.IsAlgebraic K Ω] in
-/-- If `A` lies over the prime `v` of `K` (the section hypothesis `h : IsPlaceOver A v`), it lies
-over some prime `u` of `L` above `v`, for `Ω / L` algebraic. -/
-lemma IsPlaceOver.exists_above [Algebra.IsAlgebraic L Ω] :
-    ∃ u : FinPlace L, IsPlaceOver A u ∧ u.below K = v := by
-  -- The norm of `v` is nonzero and of value below `1`, so `A` lies over some place `u` of `L`.
-  -- `↓`: `map_ne_zero` applies before simp unfolds the casts.
-  have h_ne : algebraMap K Ω (absNorm v.asIdeal : 𝓞 K) ≠ 0 := by simp [↓map_ne_zero, v.ne_bot]
-  have h_val : A.valuation (algebraMap K Ω (absNorm v.asIdeal : 𝓞 K)) < 1 :=
-    (h _).mpr (absNorm_mem _)
-  obtain ⟨u, hu⟩ : ∃ u : FinPlace L, IsPlaceOver A u :=
-    exists_isPlaceOver_of_val_ne_one L h_ne h_val.ne
-  exact ⟨u, hu, hu.isPlaceOver_below.unique h⟩
-
 /-- The Galois group acts transitively on the places over `v`: if `A` lies over `v` (the section
 hypothesis `h : IsPlaceOver A v`) and so does `A'`, then `g • A = A'` for some `g` in `Γ`. Here
 `Γ` is a profinite Galois group of `Ω / K` (`G : IsProGalois Γ K Ω`) and `Ω / K` is algebraic. -/
@@ -461,6 +461,19 @@ instance : FiniteDimensional ℚ_[p] (adjoin ℚ_[p] (Set.range σ)) := by
 
 /-! ### Extension to the completion and to finite adeles -/
 
+omit [CharZero F] in
+/-- On `E`, the norm pulled back by `σ` is a fixed positive power of the norm pulled back
+from the completion at `placeOfEmb σ`. -/
+private lemma exists_norm_eq_completion_norm_rpow :
+    ∃ c > (0 : ℝ), ∀ x : E, ‖σ x‖ =
+      ‖algebraMap E (LocField (placeOfEmb σ)) x‖ ^ c := by
+  have h_equiv : (place (algebraMap E (LocField (placeOfEmb σ)))).IsEquiv (place σ) := by
+    intro x y
+    simpa [Valued.toNormedField.norm_le_iff, v_algebraMap_eq_valuation, ← coe_le_coe]
+      using (isEquiv_placeOfEmb σ).symm x y
+  obtain ⟨c, hc, h_pow⟩ := AbsoluteValue.isEquiv_iff_exists_rpow_eq.mp h_equiv
+  exact ⟨c, hc, fun x ↦ (congrFun h_pow x).symm⟩
+
 /-- Let `F` be an ultrametric normed field of characteristic 0 that is a normed `ℚ_p`-algebra, not
 necessarily complete. Let `σ` be an embedding of the number field `E` into `F`, and let
 `New.placeOfEmb σ` be the prime of `E` made of the integers `x` with `‖σ x‖ < 1`. Then `σ` extends
@@ -478,21 +491,13 @@ lemma exists_placeOfEmb_extension :
   set L : IntermediateField ℚ_[p] F := adjoin ℚ_[p] (Set.range σ)
   have h_complete : CompleteSpace L := FiniteDimensional.completeSpace ℚ_[p] L
   let σL : E →+* L := σ.codRestrict L fun x ↦ subset_adjoin _ _ ⟨x, rfl⟩
-  -- The norm of the completion and `‖σ ·‖` order the elements of `E` alike.
-  have h_place_equiv : (place (algebraMap E (LocField (placeOfEmb σ)))).IsEquiv (place σ) := by
-    intro x y
-    simpa [Valued.toNormedField.norm_le_iff, v_algebraMap_eq_valuation, ← coe_le_coe]
-      using (isEquiv_placeOfEmb σ).symm x y
-  -- Equivalent absolute values are powers of each other.
-  obtain ⟨c, hc_pos, h_pow⟩ : ∃ c : ℝ, 0 < c ∧
-      (fun x : E ↦ ‖algebraMap E (LocField (placeOfEmb σ)) x‖ ^ c) = fun x : E ↦ ‖σ x‖ :=
-    AbsoluteValue.isEquiv_iff_exists_rpow_eq.mp h_place_equiv
+  obtain ⟨c, hc_pos, h_pow⟩ := exists_norm_eq_completion_norm_rpow σ
   -- Give `E` the norm of the completion. As `‖σ x‖ = ‖x‖ ^ c`, the map `σL` is uniformly
   -- continuous.
   let seminormed_E : SeminormedRing E :=
     SeminormedRing.induced E (LocField (placeOfEmb σ)) (FinitePlace.embedding (placeOfEmb σ))
   have h_unif : UniformContinuous σL := uniformContinuous_of_tendsto_zero
-    (squeeze_zero_norm (fun x ↦ (congrFun h_pow x).ge)
+    (squeeze_zero_norm (fun x ↦ (h_pow x).le)
       (tendsto_norm_zero.rpow_const_nhds_zero hc_pos))
   -- The uniform structure of `E` is induced from the completion.
   have h_inducing : IsUniformInducing (algebraMap E (LocField (placeOfEmb σ))) := ⟨rfl⟩
@@ -505,7 +510,7 @@ lemma exists_placeOfEmb_extension :
     simp [φ, σL, extendRingHom, extend_eq, h_unif.continuous]
   -- The relation `‖σ x‖ = ‖x‖ ^ c` passes to the completion by density.
   have hφ_norm : ∀ y : LocField (placeOfEmb σ), ‖(φ y : F)‖ = ‖y‖ ^ c :=
-    h_dense.eq (fun x ↦ (congrArg norm (hφ_ext x)).trans (congrFun h_pow x).symm) hφ_cont.norm
+    h_dense.eq (fun x ↦ (congrArg norm (hφ_ext x)).trans (h_pow x)) hφ_cont.norm
       (continuous_norm.rpow_const fun _ ↦ .inr hc_pos.le)
   refine ⟨(algebraMap L F).comp φ, continuous_subtypeVal.comp hφ_cont, hφ_ext,
     fun x ↦ (φ x).prop, fun x y ↦ ?_⟩

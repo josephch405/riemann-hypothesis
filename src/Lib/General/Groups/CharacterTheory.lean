@@ -309,11 +309,14 @@ variable {ι : Type _} [Fintype ι] [DecidableEq ι]
   {x : ∀ i : ι, ℂ[G i]} {V : Type*} [AddCommGroup V] [Module ℂ V]
   (σ : Representation ℂ H V) {e : ℂ[H]} {ρ : Representation ℂ (∀ i : ι, G i) V}
 
+/-- A class function takes the same value on the products `a * b` and `b * a`. -/
+lemma IsClassFunction.apply_mul_comm {f : H → ℂ} (hf : IsClassFunction f) (a b : H) :
+    f (a * b) = f (b * a) := by
+  simpa [mul_assoc] using hf (b * a) a
+
 lemma IsClassFunction.commute (he : IsClassFunction e.coeff) (x : ℂ[H]) : Commute x e := by
-  have h_swap (t g : H) : e.coeff (g * t⁻¹) = e.coeff (t⁻¹ * g) := by
-    simpa [mul_assoc] using he (t⁻¹ * g) t
   ext g
-  simp only [coeff_mul_apply_left x e, coeff_mul_apply_right e x, h_swap, mul_comm]
+  simp only [coeff_mul_apply_left x e, coeff_mul_apply_right e x, he.apply_mul_comm g, mul_comm]
 
 /-- `e` is a central idempotent of the complex group algebra `ℂ[H]` of a group `H`: it is
 idempotent and its coefficients form a class function. -/
@@ -474,7 +477,7 @@ lemma IsIrreducibleChar.mul_classInner_translate (hχ : IsIrreducibleChar χ) {�
         = LinearMap.trace ℂ _ (asAlgebraHom V.ρ (z.val * single y 1)) := by
           rw [asAlgebraHom_eq_sum, map_sum]
           refine Fintype.sum_equiv (Equiv.inv G) _ _ fun x ↦ ?_
-          have h_swap : φ (y * x) = φ (x * y) := by simpa [mul_assoc] using hφ (x * y) y
+          have h_swap : φ (y * x) = φ (x * y) := hφ.apply_mul_comm y x
           rw [V.conj_char]
           simp [z, h_swap, FDRep.character, mul_comm]
       _ = TauCeti.Representation.centralCharacter V.ρ z * V.character y := by
@@ -652,20 +655,14 @@ lemma New.IsCentralProj.isChar_card_mul_coeff (h : IsCentralProj e) :
     IsChar fun g : G ↦ Nat.card G * e.coeff g := by
   -- The pairing of |G|·e with a character χ is the trace of e on a representation with character
   -- conj χ. As e acts there by an idempotent, this trace is a natural number, the rank.
-  have h_class : IsClassFunction fun g ↦ Nat.card G * e.coeff g := by simp [h.isClassFunction _ _]
   -- A class function whose pairing with every character is in `ℕ` is an `ℕ`-combination of
   -- characters, hence a character.
-  suffices h_nat : ∀ χ : G → ℂ, IsChar χ →
-      ∃ m : ℕ, classInner χ (fun g ↦ Nat.card G * e.coeff g) = algebraMap ℕ ℂ m from
-    isChar_of_mem_virtualChars (h_class.mem_virtualChars h_nat)
-  intro χ hχ
-  obtain ⟨ρ, hρ⟩ : ∃ ρ : FDRep ℂ G, ρ.character = fun g ↦ starRingEnd ℂ (χ g) := hχ.star
-  have h_trace :
-      classInner χ (fun g ↦ Nat.card G * e.coeff g) = trace ℂ ρ (asAlgebraHom ρ.ρ e) := by
-    simp [classInner, finMean, finsum_eq_sum_of_fintype, ← congrFun hρ, asAlgebraHom_eq_sum,
-      FDRep.character, sum_div, mul_rotate']
-  use Module.finrank ℂ (range (asAlgebraHom ρ.ρ e))
-  rw [h_trace, (h.isIdempotentElem.map _).isProj_range.trace, eq_natCast]
+  refine isChar_of_mem_virtualChars <|
+    IsClassFunction.mem_virtualChars (by simp [h.isClassFunction _ _]) fun χ hχ ↦ ?_
+  obtain ⟨ρ, hρ⟩ := hχ.star
+  refine ⟨_, by simpa [classInner, finMean, finsum_eq_sum_of_fintype, ← congrFun hρ,
+    asAlgebraHom_eq_sum, FDRep.character, sum_div, mul_rotate', eq_natCast] using
+    (h.isIdempotentElem.map (asAlgebraHom ρ.ρ)).isProj_range.trace⟩
 
 /-- If `e` is a central idempotent of the complex group algebra of a finite group `G`, then
 `g ↦ |G| · e(g)`, with `e(g)` the coefficient of `g`, is the character of a representation of `G` of

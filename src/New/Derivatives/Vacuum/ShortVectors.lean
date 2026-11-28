@@ -3,6 +3,7 @@ module
 import Mathlib.Algebra.GroupWithZero.Submonoid.CancelMulZero
 import Mathlib.Algebra.Order.Star.Int
 import Mathlib.Data.Rat.Cast.OfScientific
+import TauCeti.Algebra.Ring.GeomSum
 public import New.Reduction.Data.AdmissibleData
 import New.Reduction.Data.Magnitudes
 
@@ -156,16 +157,9 @@ lemma exists_cyclotomic_different_factor {R : Type*} [CommRing R] [IsDomain R] [
   have h_root : (cyclotomic N R).eval ζ = 0 := hζ.isRoot_cyclotomic hN_pos
   have h_deriv_N :
       (N : R) = (ζ ^ r - 1) * (cyclotomic N R).derivative.eval ζ * (q.eval ζ * ζ) := by
-    have h_eq := congrArg (fun f : R[X] ↦ f.derivative.eval ζ * ζ) hq
-    simp only [derivative_sub, derivative_X_pow, derivative_one, sub_zero, eval_mul, eval_sub,
-      eval_one, eval_C, eval_pow, eval_X, derivative_mul, eval_add, h_root, zero_mul, mul_zero,
-      add_zero, zero_add] at h_eq
-    have h_pow : ζ ^ (N - 1) * ζ = 1 := by
-      rw [← pow_succ, Nat.sub_add_cancel hN_pos, hζ.pow_eq_one]
-    calc (N : R) = (N : R) * (ζ ^ (N - 1) * ζ) := by rw [h_pow, mul_one]
-      _ = (N : R) * ζ ^ (N - 1) * ζ := by ring
-      _ = (ζ ^ r - 1) * (cyclotomic N R).derivative.eval ζ * (q.eval ζ * ζ) := by
-          rw [h_eq]; ring
+    have hz : ((X ^ r - 1) * cyclotomic N R).eval ζ = 0 := by simp [h_root]
+    simpa [derivative_mul, h_root, mul_assoc] using
+      natCast_eq_eval_derivative_mul hN_ne hζ.pow_eq_one hz hq
   -- Expand `Φ_M(X ^ l) = Φ_{M l}(X) * Φ_M(X)` by `l ^ a` and differentiate at `ζ`.
   have hN_fac : M * l * l ^ a = N := by rw [hN_eq, hr_eq]; ring
   have h_exp_eq : expand R (l ^ a * l) (cyclotomic M R) =
@@ -424,20 +418,11 @@ theorem exists_isTightFrame_coprime (P : Parameters) (s : ℕ) :
       have h_prod_sum :
           (∑ j : Fin (r ℓ), γ ^ j.val) * (∑ i : Fin ℓ.val, (γ ^ r ℓ) ^ i.val) =
             if σ = τ then (N : ℂ) else 0 := by
-        have h_bij :
-            ∑ m : Fin N, γ ^ m.val =
-              (∑ j : Fin (r ℓ), γ ^ j.val) * (∑ i : Fin ℓ.val, (γ ^ r ℓ) ^ i.val) := by
-          let eN : Fin ℓ.val × Fin (r ℓ) ≃ Fin N :=
-            finProdFinEquiv.trans (finCongr (hN_eq ℓ).symm)
-          rw [← eN.sum_comp, Fintype.sum_prod_type, Finset.sum_mul, Finset.sum_comm]
-          refine Finset.sum_congr rfl fun j _ ↦ ?_
-          rw [Finset.mul_sum]
-          refine Finset.sum_congr rfl fun i _ ↦ ?_
-          have hval : (eN (i, j)).val = r ℓ * i.val + j.val := by
-            simp [eN, finProdFinEquiv, add_comm, mul_comm]
-          rw [hval, pow_add, pow_mul, mul_comm]
-        rw [← h_bij]
-        simpa [γ, mul_pow, map_pow] using h_zeta_frame
+        calc
+          _ = ∑ m : Fin N, γ ^ m.val := by
+            simp_rw [Fin.sum_univ_eq_sum_range]
+            rw [← TauCeti.geom_sum_range_mul, ← hN_comm]
+          _ = _ := by simpa [γ, mul_pow, map_pow] using h_zeta_frame
       set W : ℂ := (1 - quadGen P.d + (n : ℂ) * (z : ℂ)) * (M ℓ : ℂ) / (N : ℂ)
       have h_αβ : α * β' = γ ^ r ℓ := by simp [α, β', γ, a, mul_pow, map_pow]
       have h_inner :

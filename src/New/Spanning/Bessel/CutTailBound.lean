@@ -69,9 +69,7 @@ private lemma measurable_norm_U {ι : Type*} [Fintype ι] [DecidableEq ι] {J : 
 /-- The frame is unitary, so passing to it by `frameEquiv` (g ↦ p⁻¹ g p) keeps the operator
 norm. -/
 lemma norm_frameEquiv (g : 𝔰.G₁) : ‖(DiscreteSeries.frameEquiv g).val.val‖ = ‖g.val.val‖ := by
-  have hp : p.matrix.val ∈ unitary (Matrix 𝔰.BesselIndex 𝔰.BesselIndex ℂ) := p.mem_unitary
-  simp [DiscreteSeries.frameEquiv, U.conj, inv_eq_left_inv (Unitary.star_mul_self_of_mem hp), hp,
-    norm_mul_mem_unitary, norm_mem_unitary_mul]
+  exact p.norm_conj g.val.val
 
 /-- Let `G₁` be the unitary group of `r × r` matrices of the shape `𝔰`, and `l` a discrete series
 parameter of gap `500 r ^ 3 + A`, with entries bounded by `L` and formal degree `deg`. For a natural
@@ -419,7 +417,6 @@ lemma lintegral_besselGraph_mul_eq {x : 𝔰.G₁} (φ : 𝔰.G₁ → ℝ≥0�
     (y : 𝔰.G₁) :
     ∫⁻ s : 𝔰.besselGraph, φ (x⁻¹ * (s.val.fst * (t * y))) ∂𝔰.besselGraphMeasure =
       ∫⁻ s : 𝔰.besselGraph, φ (x⁻¹ * (s.val.fst * y)) ∂𝔰.besselGraphMeasure := by
-  have : MeasurableMul ↥𝔰.besselGraph := inferInstance
   obtain ⟨u, hu, k, rfl⟩ := exists_besselU_mul_toBesselH ht isUnit_one
   have h_mem : (u * toBesselH 𝔰 1 k, k) ∈ 𝔰.besselGraph := by
     rw [Shape.mem_besselGraph_iff_mul_inv_mem]

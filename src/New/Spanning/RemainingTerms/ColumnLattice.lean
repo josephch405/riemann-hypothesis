@@ -52,11 +52,13 @@ def conjColumnsAtInfinity : Matrix 𝔰.κ ι E →+ (InfinitePlace E → ι →
   map_zero' := by simp [funext_iff]
   map_add' q q' := by simp [funext_iff]
 
+/-- The evaluation of conjColumnsAtInfinity at an infinite place and matrix indices. -/
 @[simp]
 lemma conjColumnsAtInfinity_apply (q : Matrix 𝔰.κ ι E) (v : InfinitePlace E) (l : ι) (a : 𝔰.κ) :
     conjColumnsAtInfinity E 𝔰 ι q v l a = star (Φ v (q a l)) :=
   rfl
 
+/-- The additive map conjColumnsAtInfinity is injective. -/
 lemma conjColumnsAtInfinity_injective : Function.Injective (conjColumnsAtInfinity E 𝔰 ι) := by
   intro q q' h_eq
   ext a l
@@ -113,17 +115,8 @@ lemma isIntegral_conjTranspose_mul {S : Filling E 𝔰} {c : S.Classes}
     {q q' : Matrix 𝔰.κ ι E} (hq : IsIntMatrix (Ô E) (S.classCoordX₀ c * finAdeleMatrix q))
     (hq' : IsIntMatrix (Ô E) (S.classCoordX₀ c * finAdeleMatrix q')) (l l' : ι) :
     IsIntegral ℤ ((qᴴ * q') l l') := by
-  have h_gram : (S.classCoordX₀ c * finAdeleMatrix q)ᴴ * S.latticeMiddle (𝔸f E) *
-      (S.classCoordX₀ c * finAdeleMatrix q') = finAdeleMatrix (qᴴ * q') := calc
-    _ = (finAdeleMatrix q)ᴴ * ((S.classCoordX₀ c)ᴴ * S.latticeMiddle (𝔸f E) * S.classCoordX₀ c) *
-        finAdeleMatrix q' := by simp only [conjTranspose_mul, Matrix.mul_assoc]
-    _ = finAdeleMatrix (qᴴ * q') := by
-      rw [gram_classCoordX₀, Matrix.mul_one, ← finAdeleMatrix_conjTranspose, ← Matrix.map_mul]
-  have h_int : ((S.classCoordX₀ c * finAdeleMatrix q)ᴴ * S.latticeMiddle (𝔸f E) *
-      (S.classCoordX₀ c * finAdeleMatrix q')) l l' ∈ Ô E :=
-    (hq.conjTranspose.mul S.isUnimodular_latticeMiddle.isIntMatrix).mul hq' l l'
-  rw [h_gram] at h_int
-  exact algebraMap_mem_Ô.1 h_int
+  simpa [← algebraMap_mem_Ô, Matrix.mul_apply] using
+    isIntMatrix_conjTranspose_mul_of_classCoordX₀ hq hq' l l'
 
 /-- A nonzero vector of `Λ ∩ X₀`, for the lattice `Λ` of the class `c`, has length at least `1` at
 some place, so the lattice of columns is discrete. -/

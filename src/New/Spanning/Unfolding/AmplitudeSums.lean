@@ -184,13 +184,13 @@ lemma lintegral_classCutoff_mul_prod [HasPrimitiveRoot5040 E] [S.IsAdmissible]
     _ = ∫⁻ x, (∫⁻ u, S.classCutoff c (fun v ↦ ((u v).val : 𝔰.G₁) * x v)
           ∂(Measure.pi fun _ : InfinitePlace E ↦ 𝔰.besselHaar)) *
         ∏ v, w v (x v) ∂(Measure.pi fun _ : InfinitePlace E ↦ besselQuotMeasure) := by
-      simp (disch := measurability) [lintegral_prod, Pi.mul_def, hw_inv, lintegral_mul_const,
-        ← (measurePreserving_pi_orbitMeasure 𝔰.besselHaar).lintegral_comp]
+      simp (disch := first | fun_prop | simp) [lintegral_prod, Pi.mul_def, hw_inv,
+        lintegral_mul_const, ← (measurePreserving_pi_orbitMeasure 𝔰.besselHaar).lintegral_comp]
     _ = .ofReal S.unipotentCovolume *
         ∫⁻ x, ∏ v, w v (x v) ∂(.pi fun _ : InfinitePlace E ↦ besselQuotMeasure) := by
       simp only [lintegral_classCutoff_eq_unipotentCovolume]
       exact lintegral_const_mul' _ _ ofReal_ne_top
-    _ = _ := by simp (disch := measurability) [TauCeti.lintegral_fintype_prod_eq_prod]
+    _ = _ := by rw [TauCeti.lintegral_fintype_prod_eq_prod _ hw_meas]
 
 /-- Summation by layers. Let `u ≥ 1` and `K ≥ 0`. If the points with `u p ≤ R` have total weight at
 most `(K R ^ e) ^ d` for all `R ≥ 1`, then the weighted sum of `u p ^ (-i)` is at most `2 K ^ d` as
@@ -749,6 +749,7 @@ lemma hasSum_amplitudeSum_of_cutoff (hT : S.IsStable T) (c : S.Classes) (s : S.R
     { smul u γ := ⟨u.1 * γ * u.2⁻¹, mul_mul_inv_mem_inter_termsOver hT u.1 u.2 γ.property⟩
       one_smul := by simp [HSMul.hSMul, Δ]
       mul_smul := by simp [HSMul.hSMul, Δ, mul_assoc] }
+  -- Cache `SMul Δ X` locally to avoid fallback typeclass searches.
   let : SMul Δ X := actX.toSMul
   -- The first component of `u` acts on `y` by left translation.
   let action : MulAction Δ Y := .compHom _ ((S.ratToInf.domRestrict _).comp (.fst _ _))
@@ -934,8 +935,7 @@ lemma amplitudeSum_besselS_one_eq_ite {E : Type} [Field E] [CMType E] {𝔰 : Sh
     exact (tsum_congr fun a ↦ by
       convert tsum_ite_eq (a * γ) (fun _ ↦ S.classCutoff c (S.ratToInf ↑a * y))).trans
       (tsum_classCutoff_eq_one c y)
-  have φ_meas (γ : S.G E) : Measurable (φ γ) := by
-    dsimp only [φ]; split_ifs; exact S.measurable_classCutoff c; exact measurable_const
+  have φ_meas (γ : S.G E) : Measurable (φ γ) := by dsimp only [φ]; split_ifs <;> fun_prop
   obtain ⟨hasSum, integrable, -⟩ :=
     hasSum_amplitudeSum_of_cutoff (side := .full) isStable_besselS c 1 c φ φ_sum φ_meas
   let F (v : InfinitePlace E) (y : 𝔰.G₁) : ℂ :=

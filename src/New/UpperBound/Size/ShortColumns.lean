@@ -198,6 +198,7 @@ lemma IsShort.sub_translate {B : ℝ} {k : Gf E n} {φ : AlgForm n κ e} (hφ : 
     change weylNormSq (σ ∘ (φ.val g - φ.val (g * k))) ≤ 4 * B
     linarith [h_norm σ g, h_norm σ (g * k), weylNormSq_nonneg (σ ∘ (φ.val g + φ.val (g * k)))]
 
+omit [DecidableEq n] in
 /-- Let y be an array over ℂ_p with entries of absolute value at most 1. The evaluation vector
 `New.weylEval` at y has norm at most 1: its coordinates are the values at y of the products of
 minors `New.nablaBasis`, which are polynomials with integer coefficients. -/
@@ -1011,7 +1012,12 @@ lemma span_isShort_eq_top {P : Parameters} (D : Data P) :
     simp [n]
   have h_bound : 4 ^ D.f * (6 * (D.q₁ * P.d) * (D.f * D.k) ^ 2 : ℝ) ^
       (6 * (D.k * D.f + D.f * D.a)) ≤ D.errorUnit.exp :=
-    Real.le_exp_of_log_le D.le_of_hasLogBound
+    Real.le_exp_of_log_le <| D.le_of_hasLogBound (h_exp := by
+      obtain ⟨⟨_, _, _, _⟩, _, _, _, _, _⟩ := New.Data.scale_inequalities' D
+      -- `scale_arith D` splits the `max`es into too many cases; distribute them instead
+      simp only [Bool.false_eq_true, ↓reduceIte, Nat.cast_ofNat, neg_zero, ← max_add_add_right,
+        ← max_add_add_left, ← max_sub_sub_right, max_lt_iff]
+      constructorm* _ ∧ _ <;> linarith)
   have h_rank : Fintype.card (D.X 0) = D.k := by rw [card_X, n, zero_mul, add_zero]
   refine New.span_isShort_eq_top D.classAut_levelX_zero_eq_bot P.conductor_mem_differentIdeal
     (Nat.add_le_add_left h_boxes _) ?_

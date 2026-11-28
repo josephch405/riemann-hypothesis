@@ -186,6 +186,20 @@ def GaloisRep.InducesPlace (K : Type*) [Field K] [Algebra K Ω] (A : ClosurePlac
   -- (c) `j` is an open embedding onto the elements that fix `e K` pointwise
   IsCompletionGroup (e.comp (algebraMap K Ω)) j
 
+include K in
+/-- An element of the Galois group lies in the decomposition group of the place induced by
+`ι : Ω → ℚ̄_p` exactly when it preserves the p-adic norm pulled back along `ι`. -/
+lemma mem_decompGroup_iff_nnnorm_eq (ι : Ω →+* PadicAlgCl p) {σ : Γ} :
+    σ ∈ decompGroup Γ ((intQpBar p).comap ι) ↔ ∀ x : Ω, ‖ι (σ • x)‖₊ = ‖ι x‖₊ := by
+  refine ⟨fun hσ x ↦ ?_, fun hσ ↦ mem_decompGroup_iff.mpr fun x ↦ ?_⟩
+  · exact ((PadicAlgCl.valued p).v.comap ι).isEquiv_valuation_valuationSubring.eq_iff.mpr
+      (decompGroup.val_smul hσ x)
+  · have h_mem (y : Ω) : y ∈ (intQpBar p).comap ι ↔ ‖ι y‖ ≤ 1 := by
+      rw [ValuationSubring.mem_comap, ← ValuationSubring.valuation_le_one_iff,
+        ← map_one (intQpBar p).valuation, valuation_intQpBar_le_iff, norm_one]
+    have h_norm : ‖ι (σ • x)‖ = ‖ι x‖ := congrArg (fun r : NNReal ↦ (r : ℝ)) (hσ x)
+    rw [h_mem, h_mem, h_norm]
+
 /-- Let `Γ` act on `Ω` as the Galois group over `K`, let `ι : Ω → ℚ̄_p`, and let `σ` lie in the
 decomposition group of the place that `ι` induces on `Ω`. If `ι x` lies in the closure of `ι(K)`,
 then `σ` fixes `x`. -/
@@ -193,16 +207,12 @@ lemma smul_eq_self_of_mem_decompGroup_of_mem_closure (ι : Ω →+* PadicAlgCl p
     (hσ : σ ∈ decompGroup Γ ((intQpBar p).comap ι)) {x : Ω}
     (hx : ι x ∈ closure (range (ι.comp (algebraMap K Ω)))) :
     σ • x = x := by
-  -- `σ` preserves the valuation and fixes `K`, so `ι (σ x)` and `ι x` are equally far from each
+  -- `σ` preserves the p-adic norm and fixes `K`, so `ι (σ x)` and `ι x` are equally far from each
   -- point of `ι(K)`; by continuity also from `ι x`, so they are equal.
   let k : K →+* PadicAlgCl p := ι.comp (algebraMap K Ω)
   have h_dist : EqOn (nndist (ι (σ • x))) (nndist (ι x)) (range k) := by
     rintro _ ⟨a, rfl⟩
-    have h_val : ((intQpBar p).comap ι) (σ • (x - algebraMap K Ω a)) =
-        ((intQpBar p).comap ι) (x - algebraMap K Ω a) :=
-      decompGroup.val_smul hσ (x - algebraMap K Ω a)
-    have h_eq : ‖ι (σ • (x - algebraMap K Ω a))‖₊ = ‖ι (x - algebraMap K Ω a)‖₊ :=
-      ((PadicAlgCl.valued p).v.comap ι).isEquiv_valuation_valuationSubring.eq_iff.mpr h_val
+    have h_eq := (mem_decompGroup_iff_nnnorm_eq (K := K) ι).mp hσ (x - algebraMap K Ω a)
     rw [nnDist_eq_nnNorm, nnDist_eq_nnNorm, RingHom.comp_apply, ← map_sub, ← map_sub]
     rwa [smul_sub, smul_algebraMap] at h_eq
   have h_dist_self : nndist (ι (σ • x)) (ι x) = nndist (ι x) (ι x) :=
@@ -670,7 +680,7 @@ lemma ordRat_fixedFieldOf_decompGroup (h : IsPlaceOver A v) :
   · -- A uniformiser `π` of the fixed field has the same valuation as the uniformiser `π₀` of `K`.
     intro hf π hπ
     have h_val : valuationVia K A π₀ = valuationVia (fixedFieldOf (decompGroup Γ A)) A π :=
-      ((hπ _).mp hπ₀.valuationVia_lt_one).antisymm ((hπ₀ _).mp hπ.valuationVia_lt_one)
+      hπ₀.valuationVia_eq hπ
     rw [← h_val]
     exact hf π₀ (h.isUniformizer_iff.mpr hπ₀_val)
 
@@ -686,6 +696,15 @@ lemma exists_isFrob (h : IsPlaceOver A v) : ∃ φ : Γ, IsFrob A v.q φ := by
 
 /-! ### The normalised order -/
 
+/-- Compare powers of a unit with a base-field uniformiser using the order normalised on K. -/
+private lemma valuation_pow_eq_zpow_iff_ordRat (h : IsPlaceOver A v) (G : Type*)
+    [Group G] [TopologicalSpace G] [MulSemiringAction G Ω] [IsProGalois G K Ω] {π : Kˣ}
+    (hπ : v.valuation K π = exp (-1)) {x : DiscreteUnits Ω} (n : ℕ) (a : ℤ) :
+    A.valuation x.toMul ^ n = valuationVia K A π ^ a ↔ n * ordRat K A x = a := by
+  have hπ' := h.isUniformizer_map_fixedFieldOf_decompGroup G (h.isUniformizer_iff.mpr hπ)
+  simpa [valuationVia, ← IsScalarTower.algebraMap_apply, h.ordRat_fixedFieldOf_decompGroup G] using
+    hπ'.valuation_pow_eq_zpow_iff_mul_ordRat_eq (h.isLocalGalois_decompGroup G) (x := x) n a
+
 /-- If A lies over v, an element x of Ωˣ (written additively) has order 0 at A, for the order
 normalised on K, exactly when its valuation at A is 1. -/
 lemma ordRat_eq_zero_iff (h : IsPlaceOver A v) {x : DiscreteUnits Ω} :
@@ -697,17 +716,15 @@ lemma ordRat_eq_zero_iff (h : IsPlaceOver A v) {x : DiscreteUnits Ω} :
 order normalised on K, exactly when x lies in the valuation ring A. -/
 lemma ordRat_nonneg_iff (h : IsPlaceOver A v) (x : DiscreteUnits Ω) :
     0 ≤ ordRat K A x ↔ ↑x.toMul ∈ A := by
-  obtain ⟨π, -, hπ⟩ := h.exists_uniformizer Gal(Ω/K)
+  obtain ⟨π, hπ, h_unif⟩ := h.exists_uniformizer Gal(Ω/K)
   -- Write the order of `x` as `r.num / r.den`; then `x ^ r.den` has the valuation of `π ^ r.num`.
   set r : ℚ := ordRat K A x
   have h_pow : A x.toMul ^ r.den = valuationVia K A π ^ r.num :=
-    (hπ.valuation_pow_eq_zpow_iff_mul_ordRat_eq (h.isLocalGalois_decompGroup Gal(Ω/K)) r.den
-      r.num).mpr <|
-      by rw [h.ordRat_fixedFieldOf_decompGroup Gal(Ω/K), den_mul_eq_num]
+    (h.valuation_pow_eq_zpow_iff_ordRat Gal(Ω/K) hπ r.den r.num).2 (den_mul_eq_num r)
   -- As the valuation of `π` lies in `(0, 1)`, this valuation is `≤ 1` iff `0 ≤ r.num`.
   have h_le : A x.toMul ^ r.den ≤ 1 ↔ 0 ≤ r.num := by
     rw [h_pow]
-    exact zpow_le_one_iff_right_of_lt_one₀ (by simp [pos_iff]) hπ.valuationVia_lt_one
+    exact zpow_le_one_iff_right_of_lt_one₀ (by simp [pos_iff]) h_unif.valuationVia_lt_one
   -- Finally `0 ≤ r ↔ 0 ≤ r.num`, and `A x ^ r.den ≤ 1 ↔ A x ≤ 1`, which says `x ∈ A`.
   rw [← Rat.num_nonneg, ← h_le, pow_le_one_iff r.den_nz]
   exact A.valuation_le_one_iff _
@@ -721,22 +738,18 @@ valuation of x. -/
 lemma ordRat_ofBase (h : IsPlaceOver A v) (x : Kˣ) :
     ordRat K A (ofBase Γ Ω (Additive.ofMul x)) = -(v.valuation K x).log := by
   -- With `π` a uniformiser and `a = -log (v x)`, the elements `x` and `π ^ a` have equal valuation.
-  obtain ⟨π, hπ, h_unif⟩ := h.exists_uniformizer Γ
+  obtain ⟨π, hπ, -⟩ := h.exists_uniformizer Γ
   set a : ℤ := -(v.valuation K x).log
   -- `v (π ^ a) = exp (-1) ^ a = exp (-a) = exp (log (v x)) = v x`.
   have h_val : v.valuation K x = v.valuation K (π ^ a) := by
     rw [map_zpow₀, hπ, ← exp_zsmul, _root_.smul_eq_mul, mul_neg_one]
     simp [a, exp_log]
-  -- By `IsUniformizer.valuation_pow_eq_zpow_iff_mul_ordRat_eq` with exponent `1`, the order of `x`
-  -- is `a`.
-  have h_ord_eq :
-      ((1 : ℕ) : ℚ) * ordRat (fixedFieldOf (decompGroup Γ A)) A (ofBase Γ Ω (.ofMul x)) = a := by
-    apply (h_unif.valuation_pow_eq_zpow_iff_mul_ordRat_eq (h.isLocalGalois_decompGroup Γ) 1 a).mp
-    -- `ofBase` is the map `K → Ω` on units, and the fixed field sits between `K` and `Ω`.
+  -- With exponent `1`, equality of the valuations gives the order of `x`.
+  have h_ord_eq : ((1 : ℕ) : ℚ) * ordRat K A (ofBase Γ Ω (.ofMul x)) = a := by
+    apply (h.valuation_pow_eq_zpow_iff_ordRat Γ hπ 1 a).1
     have h_image : ((ofBase Γ Ω (.ofMul x) : DiscreteUnits Ω).toMul : Ω) = algebraMap K Ω x := rfl
-    simpa [h_image, valuationVia, ← IsScalarTower.algebraMap_apply] using
-      h.isEquiv.eq_iff.mpr h_val
-  simpa [a, h.ordRat_fixedFieldOf_decompGroup Γ] using h_ord_eq
+    simpa [h_image, valuationVia] using h.isEquiv.eq_iff.mpr h_val
+  simpa [a] using h_ord_eq
 
 /-- Let A lie over v. For g ∈ Γ and x ∈ Ωˣ, the order (normalised on K) of gx (`unitsRep g x`) at
 the place gA equals the order of x at A. -/

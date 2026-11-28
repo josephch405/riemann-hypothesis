@@ -9,11 +9,12 @@ import Mathlib.Topology.Connected.Separation
 import Mathlib.Topology.MetricSpace.Ultra.TotallySeparated
 import TauCeti.NumberTheory.NumberField.Countable
 import TauCeti.RingTheory.Huber.Normed
-public import Lib.GaloisRep.Main.SelmerModules
+public import Lib.ClassField.Places.ValuationSubrings
 public import Lib.General.NumberTheory.CoefficientRings
+public import Lib.PadicHodge.PeriodRings.AxTheorem
 public import Lib.Cohomology.Etale.Basic
 public import Lib.General.NumberTheory.ImaginaryQuadraticField
-import Lib.General.Geometry.GaloisCovers
+import Lib.General.Algebra.ComplexEmbeddings
 import Lib.PadicComparison.Descent.TestCategory
 import Lib.PadicHodge.Crystalline.Basic
 
@@ -74,7 +75,7 @@ lemma New.isAlgebraic_of_norm_complexToCp_le {ℓ : ℕ} [Fact ℓ.Prime] {x : �
     ((Algebraic.countable ℚ (PadicAlgCl ℓ)).dense_compl ℚ_[ℓ]).exists_mem_open
       (isOpen_Ioi.preimage continuous_norm) (NormedField.exists_lt_norm _ c)
   -- Transcendence is precisely injectivity of the two evaluations on `ℚ[X]`.
-  -- Relative Steinitz (`Lib.General.Geometry.GaloisCovers`) extends their identification to
+  -- Relative Steinitz (`Lib.General.Algebra.ComplexEmbeddings`) extends their identification to
   -- a field isomorphism, since the two ambient fields have the same uncountable cardinality.
   have : Countable (Polynomial ℚ) := (Polynomial.basisMonomials ℚ).repr.injective.countable
   rw [isAlgebraic_iff_not_injective, not_not] at hx hy
@@ -247,20 +248,24 @@ lemma ellVal_le_add_iff (hy : ‖y‖ ≤ 1) :
 lemma ellVal_le_iff : ellVal x ≤ c ↔ ℓ ^ (-c.toReal) ≤ ‖x‖ := by
   simpa [ellVal] using ellVal_le_add_iff norm_one.le
 
+/-- The truncated valuation compares norms in reverse order after capping the norm of `y` at one.
+When `‖y‖ ≥ 1` its valuation is zero, so the comparison asks whether `‖x‖ ≥ 1` as well. -/
+lemma ellVal_le_ellVal_iff : ellVal x ≤ ellVal y ↔ min ‖y‖ 1 ≤ ‖x‖ := by
+  obtain hy | hy := le_total ‖y‖ 1
+  · simpa [min_eq_left hy] using (ellVal_le_add_iff (x := x) (c := 0) hy)
+  have zero_iff (z : PadicAlgCl ℓ) : ellVal z = 0 ↔ 1 ≤ ‖z‖ := by
+    simpa using (ellVal_le_iff (x := z) (c := 0))
+  simp [min_eq_right hy, (zero_iff y).2 hy, zero_iff]
+
 /-- For `x`, `y` in `intQpBar ℓ`, the valuation ring of ℚ̄_ℓ, `x` divides `y` exactly if
 v(x) ≤ v(y), where v = `ellVal` is the normalised valuation. -/
-lemma Selmer.dvd_iff_ellVal_le {x y : intQpBar ℓ} : x ∣ y ↔ ellVal x.val ≤ ellVal y.val :=
-  calc x ∣ y ↔ ‖y.val‖ ≤ ‖x.val‖ := (Valuation.integer.integers _).dvd_iff_le
-    _ ↔ _ := by simpa using (ellVal_le_add_iff (x := x.val) (c := 0) y.prop).symm
+lemma Selmer.dvd_iff_ellVal_le {x y : intQpBar ℓ} : x ∣ y ↔ ellVal x.val ≤ ellVal y.val := by
+  rw [ellVal_le_ellVal_iff, min_eq_left (show ‖y.val‖ ≤ 1 from y.prop)]
+  exact (Valuation.integer.integers _).dvd_iff_le
 
 /-- The valuation v = `ellVal` is antitone in the norm: if `‖y‖ ≤ ‖x‖`, then v(x) ≤ v(y). -/
-lemma ellVal_le_ellVal (h_le : ‖y‖ ≤ ‖x‖) : ellVal x ≤ ellVal y := by
-  obtain rfl | hy_ne := eq_or_ne y 0
-  · simp [ellVal]
-  have hy_pos : 0 < ‖y‖ := norm_pos_iff.2 hy_ne
-  rw [ellVal, ellVal, ite_eq_right (hy_pos.trans_le h_le).ne', ite_eq_right hy_pos.ne']
-  gcongr
-  exact mod_cast (Fact.out : ℓ.Prime).one_lt
+lemma ellVal_le_ellVal (h_le : ‖y‖ ≤ ‖x‖) : ellVal x ≤ ellVal y :=
+  ellVal_le_ellVal_iff.2 ((min_le_left _ _).trans h_le)
 
 /-- The normalised valuation v = `ellVal` on ℚ̄_ℓ (v(x) is the positive part of −log_ℓ ‖x‖, and v(0)
 = ∞) is subadditive on products: v(xy) ≤ v(x) + v(y). -/

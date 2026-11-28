@@ -59,21 +59,16 @@ lemma _root_.New.exists_measurableSet_existsUnique_add_mem {V : Type*} [AddCommG
     .imp (measurable_const_add _ hB)
       (measurableSet_le hf.measurable (hf.measurable.comp (measurable_const_add _)))
   refine ⟨B ∩ ⋂ l : L, least l, inter_subset_left, hB.inter (.iInter h_meas), fun w ↦ ?_⟩
-  obtain ⟨l₀, hl₀, h_least⟩ : ∃ l₀ : L, l₀.val + w ∈ B ∧
-      ∀ l : L, l.val + w ∈ B → f (l₀.val + w) ≤ f (l.val + w) :=
-    exists_min_image {l : L | l.val + w ∈ B} (fun l : L ↦ f (l.val + w)) (h_finite w)
-      (h_nonempty w)
+  obtain ⟨l₀, hl₀, h_least⟩ :=
+    exists_min_image _ (fun l : L ↦ f (l.val + w)) (h_finite w) (h_nonempty w)
   refine ⟨l₀, ⟨hl₀, mem_iInter.2 fun l hl ↦ ?_⟩, ?_⟩
   · -- `l₀ + w` is least in its coset.
-    show f (l₀.val + w) ≤ f (l.val + (l₀.val + w))
     rw [← add_assoc, ← AddSubgroup.coe_add] at hl ⊢
     exact h_least (l + l₀) hl
   · -- Any least point of the coset has the same value of `f`.
     rintro l ⟨hl, hl_least⟩
-    have h_least_l : (l₀ - l).val + (l.val + w) ∈ B →
-        f (l.val + w) ≤ f ((l₀ - l).val + (l.val + w)) :=
-      mem_iInter.1 hl_least (l₀ - l)
-    rw [AddSubgroup.coe_sub, ← add_assoc, sub_add_cancel] at h_least_l
+    have h_least_l := mem_iInter.1 hl_least (l₀ - l)
+    simp only [least, mem_setOf_eq, AddSubgroup.coe_sub, ← add_assoc, sub_add_cancel] at h_least_l
     have h_eq : l.val + w = l₀.val + w :=
       hf.injective ((h_least_l hl₀).antisymm (h_least l hl))
     exact Subtype.ext (add_right_cancel h_eq)
@@ -118,33 +113,20 @@ lemma mem_levelMultiples {w : InfinitePlace E → ℂ} :
     w ∈ S.levelMultiples ↔ ∃ x : 𝓞 E, (fun v : InfinitePlace E ↦ Φ v (S.M * (x : E))) = w :=
   .rfl
 
-/-- Let `S : Filling E 𝔰`, the data of the filling theorem, satisfy the standing hypotheses
-`S.IsAdmissible`. For `r ≥ 0` and a tuple `w` over the infinite places, only finitely many `l` in
-`S.levelMultiples` make all coordinates of `l + w` have modulus at most `r`. Here `S.levelMultiples`
-is the set of tuples `M x`, where `x` is an integer of `E` and `M = S.M` is the level. -/
-lemma finite_setOf_levelMultiples_add_le {r : ℝ} (hr : 0 ≤ r)
-    (w : InfinitePlace E → ℂ) :
+/-- For any real radius `r` and any tuple `w` over the infinite places, only finitely many
+`l` in `S.levelMultiples` make all coordinates of `l + w` have modulus at most `r`.
+Here `S.levelMultiples` consists of the tuples `M x` for integers `x` of `E`, where `M = S.M`. -/
+lemma finite_setOf_levelMultiples_add_le {r : ℝ} (w : InfinitePlace E → ℂ) :
     {l : S.levelMultiples | ∀ v : InfinitePlace E, ‖(l.val + w) v‖ ≤ r}.Finite := by
-  have h_integer (l : S.levelMultiples) :
-      ∃ x : 𝓞 E, (fun v : InfinitePlace E ↦ Φ v (S.M * (x : E))) = l.val :=
-    mem_levelMultiples.1 l.property
-  choose x hx using h_integer
-  let A : Set S.levelMultiples := {l | ∀ v : InfinitePlace E, ‖(l.val + w) v‖ ≤ r}
-  let f (l : S.levelMultiples) (_ : Unit) : E := S.M * (x l : E)
-  have h_bound : ∀ l ∈ A, ∀ i : Unit,
-      IsIntegral ℤ (f l i) ∧ ∀ v : InfinitePlace E, ‖Φ v (f l i)‖ ≤ r + ‖w‖ := by
-    refine fun l hl i ↦ ⟨(isIntegral_natCast _).mul (x l).isIntegral_coe, fun v ↦ ?_⟩
-    change ‖Φ v (S.M * (x l : E))‖ ≤ r + ‖w‖
-    rw [congrFun (hx l) v, ← add_sub_cancel_right (l.val v) (w v)]
-    exact norm_sub_le_of_le (hl v) (norm_le_pi_norm w v)
-  have h_inj : InjOn f A := by
-    intro l _ l' _ h_eq
-    have h_mul : S.M * (x l : E) = S.M * (x l' : E) := congrFun h_eq ()
-    ext1
-    rw [← hx l, ← hx l', h_mul]
-  have h_lt_top : (A.encard : ℝ≥0∞) < ⊤ :=
-    (encard_le_of_isIntegral_norm_le f (by positivity) h_bound h_inj).trans_lt ofReal_lt_top
-  exact encard_lt_top_iff.1 (mod_cast h_lt_top)
+  have h_fin := (Embeddings.finite_of_norm_le E ℂ (r + ‖w‖)).image
+    (fun z : E ↦ fun v : InfinitePlace E ↦ Φ v z)
+  refine (h_fin.preimage Subtype.val_injective.injOn).subset ?_
+  intro l hl
+  obtain ⟨x, hx⟩ := mem_levelMultiples.1 l.property
+  refine ⟨S.M * (x : E), ⟨(isIntegral_natCast _).mul x.isIntegral_coe, fun φ ↦ ?_⟩, hx⟩
+  rw [← InfinitePlace.apply, ← mk_Φ (InfinitePlace.mk φ), InfinitePlace.apply,
+    congrFun hx (InfinitePlace.mk φ), ← add_sub_cancel_right (l.val _) (w _)]
+  exact norm_sub_le_of_le (hl _) (norm_le_pi_norm w _)
 
 variable (S) in
 /-- Let `S : Filling E 𝔰`, the data of the filling theorem over `E`, satisfy the standing hypotheses
@@ -156,20 +138,16 @@ lemma exists_isResidueDomain [S.IsAdmissible] :
   have hb : 1000 ≤ S.b := S.thousand_le_b
   have : Countable (𝓞 E) := RingOfIntegers.coe_injective.countable
   have : Countable S.levelMultiples := (countable_range _).to_subtype
-  let B : Set (InfinitePlace E → ℂ) :=
-    {w : InfinitePlace E → ℂ | ∀ v : InfinitePlace E, ‖w v‖ ≤ S.b ^ 26}
+  let B : Set (InfinitePlace E → ℂ) := {w | ∀ v, ‖w v‖ ≤ S.b ^ 26}
   -- Every tuple is within `M (2 f) ^ 2 |ϖ| ≤ b ^ 26` of a tuple in `S.levelMultiples`, where
   -- `M = S.M` is the level, `ϖ = S.deltaE` and `f = numInfPlaces E`.
   have h_nonempty (w : InfinitePlace E → ℂ) : ∃ l : S.levelMultiples, l.val + w ∈ B := by
     have h_ne : S.deltaE ≠ 0 := mod_cast S.deltaE_ne_zero
     have h_different : S.deltaE ∈ differentIdeal ℤ (𝓞 E) := by simp [S.span_deltaE]
-    obtain ⟨a, ha_int, ha_near⟩ : ∃ a : E, 0 - algebraMap E (𝔸f E) a ∈ Ô E ∧
-        ∀ v : InfinitePlace E, ‖-w v / S.M - Φ v a‖ ≤ (2 * numInfPlaces E) ^ 2 * ‖Φ v S.deltaE‖ :=
+    obtain ⟨a, ha_int, ha_near⟩ :=
       exists_principal_near_of_mem_differentIdeal h_ne h_different (fun v ↦ -w v / S.M) 0
     rw [zero_sub, neg_mem_iff, algebraMap_mem_Ô] at ha_int
-    let l : S.levelMultiples :=
-      ⟨fun v ↦ Φ v (S.M * a), mem_levelMultiples.2 ⟨⟨a, ha_int⟩, rfl⟩⟩
-    refine ⟨l, fun v ↦ ?_⟩
+    refine ⟨⟨fun v ↦ Φ v (S.M * a), mem_levelMultiples.2 ⟨⟨a, ha_int⟩, rfl⟩⟩, fun v ↦ ?_⟩
     have hM_ne : (S.M : ℂ) ≠ 0 := by simp [Nat.Prime.ne_zero]
     have h_places : 2 * (numInfPlaces E : ℝ) ≤ S.b := by linarith [S.numInfPlaces_le_div]
     calc ‖Φ v (S.M * a) + w v‖ = ‖(S.M : ℂ)‖ * ‖-w v / S.M - Φ v a‖ := by
@@ -181,10 +159,9 @@ lemma exists_isResidueDomain [S.IsAdmissible] :
       _ = S.b ^ 26 := by ring
   -- Only finitely many integers have bounded conjugates.
   have h_finite (w : InfinitePlace E → ℂ) : {l : S.levelMultiples | l.val + w ∈ B}.Finite :=
-    finite_setOf_levelMultiples_add_le (by positivity) w
+    finite_setOf_levelMultiples_add_le w
   have hB : MeasurableSet B := by measurability
-  obtain ⟨D, hDB, hD_meas, hD⟩ : ∃ D ⊆ B, MeasurableSet D ∧
-      ∀ w : InfinitePlace E → ℂ, ∃! l : S.levelMultiples, l.val + w ∈ D :=
+  obtain ⟨D, hDB, hD_meas, hD⟩ :=
     exists_measurableSet_existsUnique_add_mem S.levelMultiples hB h_nonempty h_finite
   exact ⟨D, { measurableSet := hD_meas, norm_le := fun w v hw ↦ hDB hw v,
               existsUnique_add_mem := hD }⟩
@@ -206,6 +183,7 @@ variable (S) in
 /-- The chosen set of representatives modulo the level lattice at the infinite places. -/
 noncomputable def residueDomain : Set (InfinitePlace E → ℂ) := Classical.epsilon S.IsResidueDomain
 
+/-- The standard residue domain of an admissible structure is a residue domain. -/
 lemma isResidueDomain_residueDomain [S.IsAdmissible] : S.IsResidueDomain S.residueDomain :=
   Classical.epsilon_spec S.exists_isResidueDomain
 

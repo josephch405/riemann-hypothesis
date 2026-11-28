@@ -12,6 +12,7 @@ import Mathlib.Topology.Algebra.Group.SubmonoidClosure
 import Mathlib.Topology.Compactness.Paracompact
 import Mathlib.Topology.Connected.Separation
 import Mathlib.Topology.Separation.CompletelyRegular
+import TauCeti.RingTheory.DiscreteValuationRing.Basic
 public import Lib.ClassField.GaloisCohomology.ContinuousCocycles
 import Lib.ClassField.Places.DecompositionCyclotomic
 import Lib.ClassField.Places.ProfiniteGalois
@@ -242,6 +243,11 @@ variable {Γ k Ω : Type*} [Group Γ] [TopologicalSpace Γ] [Field k] [Field Ω]
 lemma IsUniformizer.valuationVia_lt_one {π : k} (h : IsUniformizer A π) : valuationVia k A π < 1 :=
   (h π).mpr le_rfl
 
+/-- Two uniformisers of `k` for the same valuation subring `A` have equal valuation. -/
+lemma IsUniformizer.valuationVia_eq {π π' : k} (hπ : IsUniformizer A π)
+    (hπ' : IsUniformizer A π') : valuationVia k A π = valuationVia k A π' :=
+  ((hπ' π).mp hπ.valuationVia_lt_one).antisymm ((hπ π').mp hπ'.valuationVia_lt_one)
+
 lemma dvd_iff_valuationVia_le {x y : valRingBelow k A} :
     x ∣ y ↔ valuationVia k A y ≤ valuationVia k A x :=
   (integer.integers _).dvd_iff_le
@@ -301,13 +307,8 @@ lemma IsUniformizer.card_quotient_span_eq_pow (L : IsLocalGalois Γ k A) {π : k
       simp [hx, valuationVia]
     · rw [span_singleton_le_span_singleton, dvd_iff_valuationVia_le]
       simp [hx, valuationVia]
-  have h_card : Submodule.cardQuot (IsLocalRing.maximalIdeal (valRingBelow k A) ^ a) =
-      Submodule.cardQuot (IsLocalRing.maximalIdeal (valRingBelow k A)) ^ a :=
-    cardQuot_pow_of_prime h_dvr.not_a_field'
-  -- the residue field is the quotient by the maximal ideal
-  change Nat.card (valRingBelow k A ⧸ span {x}) =
-    Nat.card (valRingBelow k A ⧸ IsLocalRing.maximalIdeal (valRingBelow k A)) ^ a
-  rw [h_span, ← Submodule.cardQuot_apply, h_card, Submodule.cardQuot_apply]
+  rw [h_span]
+  exact TauCeti.IsDiscreteValuationRing.natCard_quotient_maximalIdeal_pow a
 
 /-- A non-zero element of the local field k has the valuation of an integral power of the
 uniformiser π. -/
@@ -374,9 +375,7 @@ lemma IsUniformizer.exists_addMonoidHom_valuation_pow_eq_iff (L : IsLocalGalois 
     -- both sides now compare powers of `v(π)`
     simp [zpow_mul, mul_comm]
   -- Any two uniformisers have the same valuation, so `f` has the property for every uniformiser.
-  have h_unif (p : kˣ) (hp : IsUniformizer A p.val) : valuationVia k A π = valuationVia k A p :=
-    ((hp π).mp h.valuationVia_lt_one).antisymm ((h p).mp hp.valuationVia_lt_one)
-  exact ⟨f, fun p hp ↦ by simpa only [← h_unif p hp] using hf⟩
+  exact ⟨f, fun p hp ↦ by simpa only [← h.valuationVia_eq hp] using hf⟩
 
 /-- Let k be a henselian local field with uniformiser π. For x ∈ Ω^×, n ∈ ℕ and a ∈ ℤ, x^n and π^a
 have equal A-valuation if and only if n·ord(x) = a, where ord is the order normalised on k. -/
@@ -639,6 +638,20 @@ lemma exists_openNormalSubgroup_apply_eq {Y X : Type*} [IsProGalois Γ k Ω] [To
   simpa [Set.subset_def] using ProfiniteGrp.exist_openNormalSubgroup_sub_open_nhds_of_one
     (isClosedMap_fst_of_compactSpace _ h_closed).isOpen_compl
 
+/-- Continuous characters into `ℚ/ℤ` that agree on arithmetic Frobenius and inertia agree on
+the whole local Galois group. -/
+private lemma qzChar_eq_of_agree_on_frobenius_and_inertia {φ : Γ}
+    (hφ : IsFrob A (residueCard k A) φ) {a b : QZChar Γ}
+    (h_frob : a.val φ = b.val φ)
+    (h_inertia : ∀ g ∈ inertiaGroup Γ A, a.val g = b.val g) : a = b := by
+  -- Powers of Frobenius times inertia elements form a dense set.
+  refine Subtype.ext ((L.denseRange_frob_pow_mul_inertia hφ).equalizer
+    (QZChar.continuous_val a) (QZChar.continuous_val b) ?_)
+  ext ⟨n, g⟩
+  apply Multiplicative.ofAdd.injective
+  change QZChar.toHom a (φ ^ n * (g : Γ)) = QZChar.toHom b (φ ^ n * (g : Γ))
+  simp only [map_mul, map_pow, QZChar.toHom_apply, h_frob, h_inertia _ g.property]
+
 /-- Let `Γ` be the absolute Galois group of a local field `k` and `φ` an arithmetic Frobenius
 (`New.IsFrob` for `q = residueCard k A`). For every `r` in `QZ = ℚ/ℤ` there is exactly one
 continuous character `χ : Γ → ℚ/ℤ` (an element of `New.QZChar Γ`, applied as `χ.val`) that is
@@ -672,19 +685,11 @@ lemma existsUnique_unramified_char {φ : Γ} (hφ : IsFrob A (residueCard k A) �
     QZ.exists_extend _ _ h_ker
   let χ : QZChar Γ :=
     ⟨(e ∘ .ofMul) ∘ cyclotomicCharMod Ω N, .comp (by fun_prop) (.of_isOpen_ker _ Fact.out), by simp⟩
-  refine existsUnique_of_exists_of_unique ⟨χ, fun g hg ↦ ?_, ?_⟩ fun a b ha hb ↦ ?_
+  refine existsUnique_of_exists_of_unique ⟨χ, fun g hg ↦ ?_, ?_⟩ fun a b ha hb ↦
+    qzChar_eq_of_agree_on_frobenius_and_inertia hφ (ha.2.trans hb.2.symm) fun g hg ↦
+      (ha.1 g hg).trans (hb.1 g hg).symm
   · simp [χ, cyclotomicCharMod_eq_one_of_mem_inertiaGroup hg hN]
   · simpa [χ] using he 1
-  · -- The elements `φ ^ n * g` with `g` in inertia are dense, and `a`, `b` agree on them.
-    have h_dense : DenseRange fun p : ℕ × inertiaGroup Γ A ↦ φ ^ p.1 * (p.2 : Γ) :=
-      L.denseRange_frob_pow_mul_inertia hφ
-    obtain ⟨ha_cont, ha_add⟩ : (a : Γ → QZ) ∈ QZChar Γ := a.property
-    obtain ⟨hb_cont, hb_add⟩ : (b : Γ → QZ) ∈ QZChar Γ := b.property
-    refine Subtype.ext (h_dense.equalizer ha_cont hb_cont ?_)
-    ext ⟨n, g⟩
-    induction n with
-    | zero => simp_all
-    | succ n ih => simp_all [pow_succ]
 
 end UnramifiedCharacters
 

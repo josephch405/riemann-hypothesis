@@ -141,13 +141,13 @@ lemma map_eq_one_iff_pos {M : Type*} [Monoid M] (F : ℚˣ →* M)
     simpa only [F.map_mul, h_nat, mul_one] using congrArg F h_sign
   simp [h_val, apply_ite F, h_neg]
 
-/-- The tame symbol at the place `v` of an odd prime `q = v.q` of `ℚ`. Let `ξ` be a character of
+/-- The tame symbol at the place `v` of a prime `q = v.q` of `ℚ`. Let `ξ` be a character of
 `Gal(Ω/ℚ)` whose kernel is that of the cyclotomic character modulo `q`, `ζ` a primitive `q`-th root
 of unity with `ζ ≡ 1` at `placeOver v`, and `η` a unit there with `((ζ - 1) η) ^ (q - 1) = q`. For
 `x ∈ ℚˣ` a unit at `v` equal to the integer `k` and `g ∈ Gal(Ω/ℚ)`, `ξ` of the local Artin symbol
 of `x` is `ξ g` exactly when `k` is the cyclotomic character modulo `q` of `g`. -/
 lemma abelianLift_artinAt_eq_toHom_iff_of_tame {ξ : QZChar Gal(Ω/ℚ)} {v : FinPlace ℚ}
-    [Fact v.q.Prime] (hξ : ker ξ = cycloGalGroup v.q) (hq : 2 < v.q)
+    [Fact v.q.Prime] (hξ : ker ξ = cycloGalGroup v.q)
     (h_unif : IsUniformizer (placeOver v) (v.q : ℚ)) {ζ η : Ω} (hζ : IsPrimitiveRoot ζ v.q)
     (hζ_cong : (placeOver v).valuation (ζ - 1) < 1) (hη_unit : (placeOver v).valuation η = 1)
     (h_root : ((ζ - 1) * η) ^ (v.q - 1) = algebraMap ℚ Ω v.q) (k : ℤ) (g : Gal(Ω/ℚ)) (x : ℚˣ)
@@ -172,7 +172,7 @@ lemma abelianLift_artinAt_eq_toHom_iff_of_tame {ξ : QZChar Gal(Ω/ℚ)} {v : Fi
     -- The side condition says that the component of the idele of `x` at `v` is `k`.
     simp [ideleAt, principalIdele, hx]
   have h_a : (placeOver v).valuation (s.val • y / y - a) < 1 :=
-    valuation_smul_div_sub_natCast_lt_one hs (hζ.ne_one hq.le) hζ_cong
+    valuation_smul_div_sub_natCast_lt_one hs (hζ.ne_one v.one_lt_q) hζ_cong
       (smul_eq_pow_cyclotomicCharMod s.val hζ.pow_eq_one) hη_unit
   have h_sub_lt : (placeOver v).valuation (algebraMap ℤ Ω (k - a)) < 1 := by
     simpa using map_sub_lt _ h_a h_k
@@ -238,7 +238,7 @@ lemma artin_reciprocity_cyclotomic {q : ℕ} [P : Fact q.Prime] (hq : Fact (2 < 
   -- The symbol at `v` of an integer `k` that is a unit at `v` acts on `ζ` as the power `k`.
   have h_tame (k : ℤ) (g : Gal(Ω/ℚ)) (x : ℚˣ) (hu : v.valuation ℚ x = 1) (hx : x.val = k) :
       Floc v x = toHom ξ g ↔ k = (cyclotomicCharMod Ω v.q g).val :=
-    abelianLift_artinAt_eq_toHom_iff_of_tame hξ hq.out h_unif hζ hζ_cong hη_unit h_root k g x hu hx
+    abelianLift_artinAt_eq_toHom_iff_of_tame hξ h_unif hζ hζ_cong hη_unit h_root k g x hu hx
   -- At the places `w ≠ v` the character `ξ` is unramified.
   have hq_val' (w : FinPlace ℚ) (hw : w ≠ v) : (placeOver w).valuation v.q = 1 :=
     (h_over w).valuationVia_eq_one_iff.mpr (hq_unit w hw)
@@ -295,13 +295,12 @@ lemma QZChar.apply_pow (χ : QZChar Γ) (g : Γ) (n : ℕ) : χ.val (g ^ n) = n 
   apply Multiplicative.ofAdd.injective
   simpa only [ofAdd_nsmul, toHom_apply] using map_pow (toHom χ) g n
 
-/-- For a prime `l` and `a > 1` there is a prime `p > 2`, not dividing `a`, such that `l` divides
-the order of `a` modulo `p`. -/
-lemma exists_prime_dvd_orderOf {l a : ℕ} (hl : l.Prime) (ha : 1 < a) :
+/-- For `l ≠ 0` and `a > 1` there is a prime `p > 2`, not dividing `a`, such that `l` divides the
+order of `a` modulo `p`. -/
+lemma exists_prime_dvd_orderOf {l a : ℕ} (hl : l ≠ 0) (ha : 1 < a) :
     ∃ p : ℕ, p.Prime ∧ 2 < p ∧ IsUnit (a : ZMod p) ∧ l ∣ orderOf (a : ZMod p) := by
   -- By Zsigmondy's theorem, whose exceptional orders are `2` and `6`, `a` has order exactly
   -- `4 * l` modulo some prime `p`. Then `4 * l < p`.
-  have hl_two : 2 ≤ l := hl.two_le
   obtain ⟨p, hp, h_order⟩ : ∃ p : ℕ, p.Prime ∧ orderOf (a : ZMod p) = 4 * l :=
     (TauCeti.exists_prime_orderOf_eq_iff ha (by omega)).mpr
       ⟨fun ⟨h, _⟩ ↦ by omega, fun ⟨_, h⟩ ↦ by omega⟩
@@ -318,7 +317,7 @@ lemma exists_reciprocity_character {A : ClosurePlace} {v : FinPlace K} (hA : IsP
       (∀ y : Kˣ, abelianLift χ (artinMap Γ (principalIdele y)) = 1) ∧
       ∀ a : ℕ, l.Coprime a → a • m • χ.val σ ≠ 0 := by
   obtain ⟨p, hp, hp_odd, h_isUnit, h_order⟩ :=
-    exists_prime_dvd_orderOf hl (one_lt_pow (n := 2 * m) (by simpa) v.one_lt_q)
+    exists_prime_dvd_orderOf hl.ne_zero (one_lt_pow (n := 2 * m) (by simpa) v.one_lt_q)
   have : Fact p.Prime := ⟨hp⟩
   -- Twice the character `χ` that cuts out the `p`-th roots of unity satisfies the law: its value
   -- on the symbol of `y` is that of `χ` on the symbol of `y * y`, whose norm is positive.

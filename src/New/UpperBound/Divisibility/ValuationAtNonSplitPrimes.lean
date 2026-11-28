@@ -145,6 +145,18 @@ lemma sum_card_boxes_le {j r : ℕ} (T : WeylIndex (D.X (j + 1)) D.columnCount) 
   grw [sum_le_sum fun h _ ↦ h_height h]
   simp only [h_top, lowColumns, mul_sum, ← card_X, sum_range, sum_add_distrib, le_refl]
 
+/-- At a place inducing a marked prime and a place inducing its conjugate, a box index
+is charged exactly once when the marked side has height one. An unmarked index is charged at
+`σ` and a marked index at `τ`. -/
+lemma IsMarked.neighborCharge_add_of_conjugate (hΛ : D.IsMarked Λ) {ι : Type}
+    (J : FinPlace D.E → Finset ι) {σ τ : D.Φ} (hσ : inducedPlace σ ∈ Λ)
+    (hτ : inducedPlace τ = star (inducedPlace σ)) (h : ℕ) (b : ι) :
+    neighborCharge Λ J σ 1 b + neighborCharge Λ J τ h b = 1 := by
+  classical
+  have hs := hΛ.star_notMem _ hσ
+  by_cases hb : b ∈ J (inducedPlace σ) <;>
+    simp [neighborCharge, markedIndices, hτ, hσ, hs, hb]
+
 /-- Let `J l` be a set of indices for each prime `l`, and let `τ' = -p ^ e τ` be the partner of the
 infinite place `τ` for an exponent `e` in `partnerExponents P.d p`. Suppose that the prime induced
 by `τ` lies in `Λ`, or that `h = 1` and the prime induced by `τ'` lies in `Λ`. Then the index `b` is
@@ -158,30 +170,14 @@ lemma IsMarked.neighborCharge_ne_zero_or_partner (hΛ : D.IsMarked Λ) {ι : Typ
   have h_odd : Odd e := by rwa [partnerExponents_of_inert h_inert] at he
   have h_conj : inducedPlace (P.partner D.towerExp p e τ) = star (inducedPlace τ) :=
     D.inducedPlace_neg_pow_mul_of_odd h_inert h_odd τ
-  have h_same (hτ : τ ∈ placesInducing Λ ∨ τ ∈ placesInducingConj Λ) :
-      markedIndices Λ J (P.partner D.towerExp p e τ) = markedIndices Λ J τ := by
-    simp only [mem_filter, mem_univ, true_and] at hτ
-    grind [markedIndices, hΛ.star_notMem, star_star]
-  have h_unmarked {σ : D.Φ} (hσ : σ ∈ placesInducing Λ) (hb : b ∉ markedIndices Λ J σ) :
-      neighborCharge Λ J σ 1 b ≠ 0 :=
-    (ite_eq_left (.inl ⟨hσ, rfl, hb⟩)).trans_ne one_ne_zero
-  have h_marked {σ : D.Φ} (hσ : σ ∈ placesInducingConj Λ) (hb : b ∈ markedIndices Λ J σ) (h' : ℕ) :
-      neighborCharge Λ J σ h' b ≠ 0 :=
-    (ite_eq_left (.inr ⟨hσ, hb⟩)).trans_ne one_ne_zero
-  -- The other place induces the conjugate prime and has the same marked indices. An index that is
-  -- not marked is charged at the place inducing a prime of `Λ`, a marked one at the place inducing
-  -- its conjugate.
-  obtain hτ | ⟨rfl, h_partner⟩ := h_inducing
-  · have h_partner : P.partner D.towerExp p e τ ∈ placesInducingConj Λ :=
-      (hΛ.neg_pow_mul_mem_placesInducingConj_iff h_odd τ).2 hτ
-    by_cases hb : b ∈ markedIndices Λ J τ
-    · exact .inr (h_marked h_partner (by rwa [h_same (.inl hτ)]) h)
-    · exact .inl (h_unmarked hτ hb)
-  · have hτ : τ ∈ placesInducingConj Λ :=
-      (hΛ.neg_pow_mul_mem_placesInducing_iff h_odd τ).1 h_partner
-    by_cases hb : b ∈ markedIndices Λ J τ
-    · exact .inl (h_marked hτ hb 1)
-    · exact .inr (h_unmarked h_partner (by rwa [h_same (.inr hτ)]))
+  have total : neighborCharge Λ J τ 1 b +
+      neighborCharge Λ J (P.partner D.towerExp p e τ) h b = 1 := by
+    obtain hτ | ⟨rfl, h_partner⟩ := h_inducing
+    · exact hΛ.neighborCharge_add_of_conjugate J (by simpa using hτ) h_conj h b
+    · rw [add_comm]
+      exact hΛ.neighborCharge_add_of_conjugate J (by simpa using h_partner)
+        (by rw [h_conj, star_star]) 1 b
+  omega
 
 /-- Suppose that each component `g l` lies in the double coset `basicDoubleCoset ι l i` of
 `diag(ϖ 1_i, 1)` under the group `localIntGL` of integral invertible matrices, for some `i ≤ 𝔯`.
@@ -431,36 +427,17 @@ lemma IsMarked.norm_baseChange_atUniformizer (hΛ : D.IsMarked Λ) {l : FinPlace
     (ϑ : D.TameChar) (e : ℕ) :
     ‖ιₚ ((D.chainChar ϑ e).baseChange.atUniformizer l)‖ = 1 := by
   classical
-  have hp_pos : (0 : ℝ) < p := mod_cast hp.out.pos
-  -- As `p` is a uniformizer at `l`, the idele of the uniformizer has the norm of `p` at the
-  -- embeddings that induce `l`, and norm `1` at the others.
-  have h_unif (σ : D.E →+* ℂ_[p]) :
-      ‖adeleExtension σ (locIdele l (uniformizer l)).val‖ =
-        ‖adeleExtension (F := ℂ_[p]) σ (if placeOfEmb σ = l then p else 1)‖ := by
-    split_ifs with h
-    -- `↓` compares valuations before `simp` evaluates the right-hand side.
-    · subst h
-      simp [↓norm_adeleExtension_eq_iff, ← hΛ.valuation_natCast_eq_exp_neg_one hl,
-        ← v_algebraMap_eq_valuation]
-    · simp [h, ↓norm_adeleExtension_eq_iff]
-  -- Write `w e τ` for the weight `D.liftWeight e τ` of lift `e` at the infinite place `τ`.
-  -- The norm is `p` to the sum of `-w e τ` over the `τ` that induce `l` and of `w e τ` over those
-  -- that induce `star l`, and this sum is `0` by the balance.
-  set a : (𝔸f D.E)ˣ := locIdele l (uniformizer l)
-  have h_balance := hΛ.sum_inducedPlace_sub_star_eq_zero e fun c w ↦ if w = l then -c else 0
-  -- The base change at `l` is by definition the character at `a / star a`.
-  change ‖ιₚ ((D.chainChar ϑ e).val (divStar (finIdeleIncl a)))‖ = 1
-  have h_arch : ((divStar (finIdeleIncl a) : unitary (𝔸 D.E)) : 𝔸 D.E).fst = 1 :=
-    (unitary _).one_mem.2
-  rw [D.hasWeight_liftChar.norm_padic_eq_prod ιₚ _ h_arch, ← rpow_zero p, ← h_balance,
-    rpow_sum_of_pos hp_pos]
-  refine prod_congr rfl fun τ _ ↦ ?_
-  -- At each `τ` compare the norm of `a / star a` with the corresponding power of `p`.
-  change ‖adeleExtension (ιₚ.comp (Φ τ))
-    ((a : 𝔸f D.E) * star ((a⁻¹ : (𝔸f D.E)ˣ) : 𝔸f D.E))‖ ^ _ = _
-  rw [map_mul, adeleExtension_star, inducedPlace, ← placeOfEmb_comp_star, map_units_inv, norm_mul,
-    norm_inv, h_unif, h_unif]
-  split_ifs <;> simp_all [norm_p_eq_inv, NeZero.ne]
+  have same : (∑ τ : D.Φ with inducedPlace τ = l, (D.liftWeight e τ : ℤ)) =
+      ∑ τ : D.Φ with inducedPlace τ = star l, (D.liftWeight e τ : ℤ) := by
+    exact_mod_cast hΛ.sum_inducedPlace_eq_sum_star hl e (fun c ↦ (c : ℝ))
+  have hv : Valued.v (uniformizer l : LocField l) = Valued.v (p : LocField l) := by
+    simp [← hΛ.valuation_natCast_eq_exp_neg_one hl, ← v_algebraMap_eq_valuation]
+  change ‖ιₚ ((D.chainChar ϑ e).baseChange.finPart (locIdele l (uniformizer l)) : ℂ)‖ = 1
+  rw [D.hasWeight_liftChar.norm_baseChange_locIdele_of_valuation_eq_p ιₚ l (uniformizer l) hv]
+  change (p : ℝ) ^ ((∑ τ : D.Φ with inducedPlace τ = l, -(D.liftWeight e τ : ℤ)) -
+      ∑ τ : D.Φ with star (inducedPlace τ) = l, -(D.liftWeight e τ : ℤ)) = 1
+  have conj (b : FinPlace D.E) : star b = l ↔ b = star l := by rw [star_eq_iff_star_eq, eq_comm]
+  simp only [conj, sum_neg_distrib, same, sub_self, zpow_zero]
 
 /-- A marked prime has norm `p ^ (2 h)` with `2 h ≤ f`, for `f = D.f` the number of infinite places
 of `D.E`: the exponent is the order of `D.placeOfInt (-p)`, which is even. -/

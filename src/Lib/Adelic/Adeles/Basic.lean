@@ -1,5 +1,7 @@
 module
 
+import TauCeti.NumberTheory.NumberField.Global.Adeles.GaloisDescent
+
 public import TauCeti.RingTheory.DedekindDomain.FiniteAdeleRing.Basic
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 public import Mathlib.Algebra.Star.Subsemiring
@@ -147,10 +149,13 @@ abbrev FinPlace.q : ℕ := w.asIdeal.absNorm
 
 @[simp] lemma FinPlace.one_lt_q : 1 < w.q := one_lt_absNorm w
 
+/-- For any finite place `w`, `w.q - 1` is strictly positive. -/
 lemma FinPlace.q_sub_one_pos : 0 < w.q - 1 := Nat.sub_pos_of_lt w.one_lt_q
 
+/-- For any finite place `w`, `w.q` is at least 1. -/
 lemma FinPlace.one_le_q : 1 ≤ w.q := w.one_lt_q.le
 
+/-- For any finite place `w`, the cardinality `w.q` of the residue field is strictly positive. -/
 lemma FinPlace.q_pos : 0 < w.q := zero_lt_one.trans w.one_lt_q
 
 lemma FinPlace.q_ne_zero : w.q ≠ 0 := w.q_pos.ne'
@@ -683,9 +688,6 @@ lemma exists_mem_nhds_isIntegral_sub_div {E : Type*} [Field E] [NumberField E] (
   rw [(isUnit_natCast_finAdele hc).mul_left_cancel h_mul]
   exact sub_mem hz hz'
 
-@[simp]
-lemma finAdele_mul_apply (x y : 𝔸f E) (w : HeightOneSpectrum (𝓞 E)) : (x * y) w = x w * y w := rfl
-
 /-- A finite adele x equals c y for some y in `Ô E`, that is, integral at every finite place, if and
 only if v (x w) ≤ v (c w) at every finite place w. -/
 lemma exists_eq_mul_iff_v_le {x c : 𝔸f E} :
@@ -785,28 +787,19 @@ namespace New
 
 variable {E : Type*} [Field E] [NumberField E] (S : Set (FinPlace E)) (x y : 𝔸f E) (w : FinPlace E)
 
-/-! ### Components of finite adeles -/
+/-! ### Components of finite adeles
 
-@[simp]
-lemma finAdele_add_apply : (x + y) w = x w + y w := rfl
-
-@[simp]
-lemma finAdele_sub_apply : (x - y) w = x w - y w := rfl
+Tau Ceti's `FiniteAdeleRing.zero_apply`, `one_apply`, `add_apply`, `sub_apply` and `mul_apply`
+cover the other ring operations. -/
 
 @[simp]
 lemma finAdele_neg_apply : (-x) w = -x w := rfl
-
-@[simp]
-lemma finAdele_one_apply : (1 : 𝔸f E) w = 1 := rfl
 
 @[simp]
 lemma finAdele_pow_apply (k : ℕ) : (x ^ k) w = x w ^ k := rfl
 
 @[simp]
 lemma finAdele_natCast_apply (k : ℕ) : (k : 𝔸f E) w = k := rfl
-
-@[simp]
-lemma finAdele_zero_apply : (0 : 𝔸f E) w = 0 := rfl
 
 /-- The component of the inverse of a finite idele is the inverse of its component, which is
 nonzero. -/
@@ -1129,6 +1122,7 @@ def adeleBasis : Basis ι (𝔸f K) (𝔸f L) :=
   ofEquivFun
     (LinearEquiv.ofBijective (adeleCombination b) (isHomeomorph_adeleCombination b).bijective).symm
 
+open NumberField IsDedekindDomain TauCeti.GlobalNumberFields in
 /-- For `L / K` Galois, a finite adele of `L` comes from one of `K` if and only if it is fixed by
 the action of the Galois group on finite adeles. -/
 lemma mem_range_finAdeleIncl_iff [IsGalois K L] {y : 𝔸f L} :
@@ -1136,21 +1130,23 @@ lemma mem_range_finAdeleIncl_iff [IsGalois K L] {y : 𝔸f L} :
   have h_fix (σ : Gal(L/K)) : (σ : L →+* L).comp (algebraMap K L) = algebraMap K L :=
     RingHom.ext σ.commutes
   refine ⟨fun ⟨x, hx⟩ σ ↦ by rw [← hx, adeleMap_adeleMap, h_fix], fun hy ↦ ?_⟩
-  -- Take `c` of trace one and write `y * c = ∑ a i • e i` in a basis `e`, with adelic `a i`.
-  -- Summing over the Galois group gives `y = y * trace c = ∑ trace (e i) • a i`.
-  obtain ⟨c, hc⟩ := trace_surjective K L 1
-  let e : Basis (Fin (finrank K L)) K L := finBasis K L
-  obtain ⟨a, ha⟩ := (isHomeomorph_adeleCombination e).surjective (y * c)
-  refine ⟨∑ i, trace K L (e i) • a i, ?_⟩
-  calc finAdeleIncl K L (∑ i, trace K L (e i) • a i)
-    _ = ∑ i, finAdeleIncl K L (a i) * ∑ σ : Gal(L/K), (σ (e i) : 𝔸f L) := by
-      simp [← map_sum (algebraMap L (𝔸f L)), ← trace_eq_sum_automorphisms, smul_def, mul_comm]
-    _ = ∑ σ : Gal(L/K), adeleMap (σ : L →+* L) (adeleCombination e a) := by
-      simp_rw [Finset.mul_sum]
-      rw [Finset.sum_comm]
-      simp [Fintype.linearCombination, smul_def, h_fix]
-    _ = ∑ σ : Gal(L/K), y * σ c := by simp [ha, hy]
-    _ = y := by simp [← map_sum _, ← Finset.mul_sum, ← trace_eq_sum_automorphisms, hc]
+  -- On the dense image of L the two finite-adele actions agree, so (0, y) is fixed.
+  let a : NumberField.AdeleRing (𝓞 L) L := (0, y)
+  have h_fixed (σ : Gal(L/K)) : adeleGaloisAction K L σ a = a := by
+    apply Prod.ext
+    · simp [a, adeleGaloisAction_fst]
+    · rw [adeleGaloisAction_snd, finiteAdeleGaloisAction_apply]
+      exact (denseRange_algebraMap_finAdele.eq
+        (fun x ↦ by simp [finiteAdeleEquiv_algebraMap])
+        (continuous_finiteAdeleEquiv L L σ.toRingEquiv) (continuous_adeleMap _) y).trans (hy σ)
+  -- Descend the full adele and take the finite component of its preimage.
+  obtain ⟨b, hb⟩ := (mem_range_adeleExtension_iff K L (a := a)).2 h_fixed
+  refine ⟨b.2, ?_⟩
+  -- Both continuous extensions agree on the dense image of K.
+  have h_extension : finAdeleIncl K L = finiteAdeleExtension (𝓞 K) K (𝓞 L) L :=
+    eq_finiteAdeleExtension_of_continuous (𝓞 K) K (𝓞 L) L (continuous_adeleMap _) (by simp)
+  rw [h_extension, ← adeleExtension_snd]
+  exact congrArg Prod.snd hb
 
 end New
 

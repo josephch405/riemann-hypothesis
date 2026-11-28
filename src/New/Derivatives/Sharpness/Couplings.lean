@@ -84,6 +84,23 @@ lemma partnerDegree_apply {pr : ℕ → Φ → Φ} {Φ₀ : Finset Φ} {e j : Φ
     partnerDegree pr Φ₀ e j (t, ()) = ∑ τ ∈ Φ₀ with pr (e τ) τ = t, j τ := by
   simp [partnerDegree, Finsupp.finsetSum_apply, Finsupp.single_apply, Finset.sum_filter]
 
+/-- If the selected partners are distinct, the degree at a partner is the multiplicity of
+its unique start. -/
+lemma partnerDegree_apply_of_injOn {pr : ℕ → Φ → Φ} {Φ₀ : Finset Φ} {e j : Φ → ℕ}
+    (hinj : Set.InjOn (fun τ ↦ pr (e τ) τ) Φ₀) {τ : Φ} (hτ : τ ∈ Φ₀) :
+    partnerDegree pr Φ₀ e j (pr (e τ) τ, ()) = j τ := by
+  classical
+  rw [partnerDegree_apply]
+  exact Finset.sum_eq_single_of_mem τ (Finset.mem_filter.2 ⟨hτ, rfl⟩)
+    fun a ha hne ↦ (hne (hinj (Finset.mem_filter.1 ha).1 hτ (Finset.mem_filter.1 ha).2)).elim
+
+/-- A place outside the image of the selected partners has degree zero. -/
+lemma partnerDegree_apply_of_notMem_image {pr : ℕ → Φ → Φ} {Φ₀ : Finset Φ} {e j : Φ → ℕ}
+    [DecidableEq Φ] {t : Φ} (ht : t ∉ Φ₀.image (fun τ ↦ pr (e τ) τ)) :
+    partnerDegree pr Φ₀ e j (t, ()) = 0 := by
+  rw [partnerDegree_apply, Finset.filter_eq_empty_iff.2
+    (fun τ hτ h ↦ ht (Finset.mem_image.2 ⟨τ, hτ, h⟩)), Finset.sum_empty]
+
 lemma degree_powerDegree {p : ℕ} {Φ₀ : Finset Φ} {e j : Φ → ℕ} :
     (powerDegree p Φ₀ e j).degree = ∑ τ ∈ Φ₀, p ^ e τ * j τ := by
   simp only [powerDegree, map_sum, Finsupp.degree_single]
@@ -98,6 +115,7 @@ end New
 
 /-! ## The coefficient of a product of couplings in a product of copies -/
 
+open MvPolynomial (jetPairing jetPairing_monomial jetPairing_mul_X)
 open MvPowerSeries Finset Nat
 
 namespace New
@@ -150,7 +168,7 @@ lemma exists_pderiv_mul_eq_smul {κ : ℂ_[p]} (hκ : 1 < ‖κ‖) {G : MvPower
 /-- Let `κ ∈ ℂ_[p]` have norm greater than `1`. If `∂_(t i) G = (κ A_i + B_i) G` with `A_i`, `B_i`
 integral, then `(∏_(i ∈ T) ∂_(t i)) G = κ ^ #T g G` with `g` integral and congruent to `∏ A_i`
 modulo the maximal ideal. The identity is stated after applying each differential operator `f(∂)`
-and evaluating at `0`: `jet ℂ_[p] f G` is `f(∂) G (0)`. -/
+and evaluating at `0`: `jetPairing f G` is `f(∂) G (0)`. -/
 lemma exists_jet_mul_prod_X {κ : ℂ_[p]} (hκ : 1 < ‖κ‖) {G : MvPowerSeries Y ℂ_[p]} {ι : Type}
     {t : ι → Y} {A : ι → MvPowerSeries Y (valRingCp p)}
     (hG : ∀ i : ι, ∃ B : MvPowerSeries Y (valRingCp p),
@@ -159,7 +177,7 @@ lemma exists_jet_mul_prod_X {κ : ℂ_[p]} (hκ : 1 < ‖κ‖) {G : MvPowerSeri
     ∃ g : MvPowerSeries Y (valRingCp p),
       g.map (residue (valRingCp p)) = ∏ i ∈ T, (A i).map (residue (valRingCp p)) ∧
       ∀ f : MvPolynomial Y ℂ_[p],
-        jet ℂ_[p] (f * ∏ i ∈ T, .X (t i)) G = κ ^ #T * jet ℂ_[p] f (seriesToCp g * G) := by
+        jetPairing (f * ∏ i ∈ T, .X (t i)) G = κ ^ #T * jetPairing f (seriesToCp g * G) := by
   induction T using cons_induction with
   | empty => exact ⟨1, by simp, by simp⟩
   | cons i T hi ih =>
@@ -167,7 +185,7 @@ lemma exists_jet_mul_prod_X {κ : ℂ_[p]} (hκ : 1 < ‖κ‖) {G : MvPowerSeri
     obtain ⟨B, hB⟩ := hG i
     obtain ⟨g', hg'_deriv, hg'_res⟩ := exists_pderiv_mul_eq_smul hκ hB g
     refine ⟨g', by rw [hg'_res, hg_res, prod_cons, mul_comm], fun f ↦ ?_⟩
-    rw [prod_cons, ← mul_assoc, hg_jet, jet_mul_X, hg'_deriv, map_smul, card_cons, pow_succ,
+    rw [prod_cons, ← mul_assoc, hg_jet, jetPairing_mul_X, hg'_deriv, map_smul, card_cons, pow_succ,
       smul_eq_mul, mul_assoc]
 
 /-- The exponent of the monomial `z' ^ ν' * z'' ^ ν''` in two copies of the variables. -/
@@ -340,7 +358,7 @@ lemma exists_jet_prod_copySubst_couplingSubst {X ι : Type} [Fintype X] {κ : �
       (killCompl (Function.Embedding.sectL X 0) g).map (residue (valRingCp p)) =
         ∏ i ∈ T, (pderiv (t i) Ξ).map (residue (valRingCp p)) ∧
       ∀ f : MvPolynomial (X × Fin 2) ℂ_[p],
-        jet ℂ_[p] (f * ∏ i ∈ T, .X (t i, 1)) G = κ ^ #T * jet ℂ_[p] f (seriesToCp g * G) := by
+        jetPairing (f * ∏ i ∈ T, .X (t i, 1)) G = κ ^ #T * jetPairing f (seriesToCp g * G) := by
   have h_log (i : ι) : ∃ B : MvPowerSeries (X × Fin 2) (valRingCp p), pderiv (t i, 1) G =
       (κ • seriesToCp (copySubst 1 (pderiv (t i) Ξ)) + seriesToCp B) * G := by
     obtain ⟨B, hB⟩ := exists_pderiv_mul_expSubst hW hΞ κ (t i)
@@ -373,7 +391,6 @@ lemma IsCouplingFamily.norm_coeff_pairExponent {pr : ℕ → Φ → Φ} {Φ₀ :
         ‖coeff (pairExponent (powerDegree p Φ₀ e j) (partnerDegree pr Φ₀ e j))
           (∏ c : Fin (n + 1), copySubst (couplingSubst δ c) F)‖ =
       ‖κ‖ ^ ∑ τ ∈ Φ₀, j τ := by
-  classical
   -- Differentiating `G` in `z''` gives `κ ^ |j| g G` with `g ≡ ∏ (∂Ξ / ∂z_(τ⁺)) ^ j τ` at
   -- `z'' = 0`, where `G = U`; the coefficient of `z' ^ ν'` in `g U` is a unit.
   set ν' : Φ × Unit →₀ ℕ := powerDegree p Φ₀ e j
@@ -386,8 +403,8 @@ lemma IsCouplingFamily.norm_coeff_pairExponent {pr : ℕ → Φ → Φ} {Φ₀ :
   obtain ⟨g, hg_res, hg_jet⟩ := exists_jet_prod_copySubst_couplingSubst hκ hW
     constantCoeff_couplingSum hF hδ hG (fun i : Σ _ : Φ, ℕ ↦ (pr (e i.1) i.1, ()))
     (Φ₀.sigma fun τ : Φ ↦ range (j τ))
-  have h_jet : jet ℂ_[p] (.monomial (pairExponent ν' ν'') 1) G =
-      κ ^ (∑ τ ∈ Φ₀, j τ) * jet ℂ_[p] (.monomial ν'₀ 1) (seriesToCp g * G) := by
+  have h_jet : jetPairing (.monomial (pairExponent ν' ν'') 1) G =
+      κ ^ (∑ τ ∈ Φ₀, j τ) * jetPairing (.monomial ν'₀ 1) (seriesToCp g * G) := by
     simp only [← monomial_mul_prod_X_partner pr Φ₀ e j ν', hg_jet, card_sigma, card_range, ν'',
       hν'₀]
   -- Step 2: put `z'' = 0`.
@@ -406,7 +423,7 @@ lemma IsCouplingFamily.norm_coeff_pairExponent {pr : ℕ → Φ → Φ} {Φ₀ :
   have h_fact : (ν'₀.prod fun (_ : (Φ × Unit) × Fin 2) (n : ℕ) ↦ (n ! : ℂ_[p])) =
       ∏ x : Φ × Unit, ((ν' x)! : ℂ_[p]) := by
     simp [hν'₀, Finsupp.prod_mapDomain_index_inj (Prod.mk_left_injective _), Finsupp.prod_fintype]
-  rw [jet_monomial, jet_monomial, prod_factorial_pairExponent, h_fact] at h_jet
+  rw [jetPairing_monomial, jetPairing_monomial, prod_factorial_pairExponent, h_fact] at h_jet
   have h_div : (∏ x : Φ × Unit, ((ν'' x)! : ℂ_[p])) * coeff (pairExponent ν' ν'') G =
       κ ^ (∑ τ ∈ Φ₀, j τ) * coeff ν'₀ (seriesToCp g * G) :=
     mul_left_cancel₀ (prod_ne_zero_iff.2 fun x _ ↦ cast_ne_zero.2 (factorial_ne_zero (ν' x)))
@@ -520,7 +537,6 @@ lemma leastValLE_partnerDegree_of_isCouplingFamily [PadicPlace p] {J Φ : Type}
       ((∑ τ ∈ Φ₀, (j τ : ℝ)) / (p - 1) - ∑ τ ∈ Φ₀, (j τ : ℝ) -
         varpiValuation d p * (powerDegree p Φ₀ e j + partnerDegree pr Φ₀ e j).degree -
         ∑ x : Φ × Unit, (padicValNat p (partnerDegree pr Φ₀ e j x)! : ℝ)) := by
-  classical
   -- Substitute `z_0 = z' + z''` and `z_c = δ_c z'` in `∏ Θ(z_c)` and scale by `ϖ`; the coefficient
   -- of `z' ^ ν' * z'' ^ ν''` is given by `norm_coeff_pairExponent`.
   set ν' : Φ × Unit →₀ ℕ := powerDegree p Φ₀ e j

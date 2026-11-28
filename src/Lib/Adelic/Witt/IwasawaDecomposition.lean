@@ -7,6 +7,7 @@ import Lib.Adelic.Landherr
 import Lib.Adelic.Unitary.RationalPoints
 import Lib.Adelic.Unitary.WeakApproximation
 import Lib.Adelic.Witt.WittTheorem
+import Lib.DiscreteSeries.Holomorphic.MaximalCompactMinors
 import Lib.Cohomology.Etale.Basic
 import Lib.General.LinearAlgebra.HermiteForm
 import Lib.General.LinearAlgebra.PolarDecomposition
@@ -177,7 +178,6 @@ lemma New.Space.exists_splitting {E : Type} [Field E] [CMType E] [WeilData E] {n
     [Fintype n] [DecidableEq n] {s : n → ℤˣ} {p : Type} [Fintype p] [DecidableEq p]
     (V : Space E n s) {k : Matrix n p E} (hk : HasLeftInv k) (h_iso : kᴴ * V.J * k = 0) :
     ∃ (m : ℕ) (s₀ : Fin m → ℤˣ) (V₀ : Space E (Fin m) s₀) (D : V.Splitting V₀ p), D.k = k := by
-  classical
   -- Each sign occurs at least `card p` times, so coordinates split into hyperbolic signs + `s₀`.
   obtain ⟨m, s₀, e, h_signs⟩ :=
     exists_equiv_hyperbolicSigns (V.card_le_card_preimage_of_isotropic hk h_iso)
@@ -361,21 +361,11 @@ lemma exists_unitary_mul_eq_of_isotropic {s : n → ℤˣ} {A B : Matrix n p ℂ
   -- The two matrices are the diagonal blocks of κ.
   let σ : n ≃ Σ ε : ℤˣ, {i : n // s i = ε} := (Equiv.sigmaFiberEquiv s).symm
   let K : Matrix n n ℂ := (blockDiagonal' fun ε ↦ (g ε).val.val).submatrix σ σ
-  have h_unitary : Kᴴ * K = 1 := by
-    have h_block (ε : ℤˣ) : (g ε).val.valᴴ * (g ε).val.val = 1 := by
-      simpa [star_eq_conjTranspose] using mem_unitaryGroupOf_iff.1 (g ε).prop
-    simp [K, ← blockDiagonal'_mul, h_block, ← Pi.one_def]
-  have h_comm : signMatrix s * K = K * signMatrix s := by
-    ext i j
-    by_cases h : s i = s j
-    · simp [signMatrix, h, mul_comm]
-    · simp [signMatrix, K, σ, blockDiagonal'_apply, h]
-  have h_form : Kᴴ * signMatrix s * K = signMatrix s := by
-    rw [Matrix.mul_assoc, h_comm, ← Matrix.mul_assoc, h_unitary, Matrix.one_mul]
-  have h_mem : U.of IsHermitianInvolution.isUnit K h_form ∈ maxCompactU s := by
-    simpa [maxCompactU, Subgroup.mem_subgroupOf, mem_unitaryGroupOf_iff,
-        star_eq_conjTranspose] using h_unitary
-  refine ⟨_, h_mem, ?_⟩
+  obtain ⟨κ, hκ, -⟩ := Orbital.exists_maxCompactU_of_blocks (ε := s) (fun ε ↦ (g ε).val.val)
+    fun ε ↦ by simpa [star_eq_conjTranspose] using mem_unitaryGroupOf_iff.1 (g ε).prop
+  refine ⟨κ.val, κ.property, ?_⟩
+  rw [hκ]
+  change K * A = B
   ext i j
   -- Row i of κ A is the row i of the block of sign s i.
   calc (K * A) i j
