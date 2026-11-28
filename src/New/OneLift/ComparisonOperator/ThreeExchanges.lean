@@ -768,8 +768,8 @@ lemma matchedPoly_constantRows (i : D.RowChoice) :
     split_ifs <;> rfl
   · simp [← ext_iff, Matrix.mul_apply]
 
--- Keeps definitional checks from unfolding `Finset.prod` and `Finset.univ`.
-seal Finset.prod Finset.univ in
+-- Keeps definitional checks from unfolding `Finset.prod`.
+seal Finset.prod in
 /-- Let `D` be admissible data over the CM field `D.E`, `ϑ` a twist, `j` a lift index, `g` a point
 of the adelic group `New.G D.E (D.signsW j)` of `W_j = D.spaceW j`, and `i : ChoiceIndex j` a
 choice: a matrix `Λ = i.matrix` modulo `ϖ²` (`ϖ` the product of the chosen places), a class `h♭` of
