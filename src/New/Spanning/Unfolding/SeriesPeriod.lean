@@ -92,8 +92,8 @@ lemma besselChar_mul (h : S.Fits V l kw Y η) {r r' : New.G E ε}
     (hr : r ∈ Y.besselGroup) (hr' : r' ∈ Y.besselGroup) :
     h.besselChar (r * r') = h.besselChar r * h.besselChar r' := by
   rw [h.mem_besselGroup_iff_mem_besselS] at hr hr'
-  simp only [besselChar, map_mul h.adelicEquiv, simpleRootSum_mul hr hr', mul_add, map_add_eq_mul,
-    Circle.coe_mul]
+  simp only [besselChar, h.adelicEquiv.map_mul, simpleRootSum_mul hr hr', mul_add,
+    map_add_eq_mul, Circle.coe_mul]
 
 /-- The identification `h.adelicEquiv` of the adelic groups of `V` and `S` carries the inclusion
 `Y.inclX` of `H(𝔸)` to the standard inclusion `toBesselH`. -/
@@ -133,15 +133,38 @@ lemma shift_eq_smul_besselCharMatrix (h : S.Fits V l kw Y η) :
     Y.shift = toAdele (Y.genericConst : E) • besselCharMatrix (S.ratMiddle (𝔸 E)) := by
   rcases 𝔰 with ⟨_ | ϱ⟩
   · -- For `ϱ = 0` the string has one vector, and both matrices vanish.
-    simp [Grading.shift, besselCharMatrix, ← ext_iff, h.index_eq, Shape.besselIndexEquiv]
-  · -- Compare the entries block by block. What remains says for which positions in the string an
-    -- entry is nonzero, which is linear arithmetic.
-    simp [Grading.shift, besselCharMatrix, ← ext_iff, h.index_eq, Shape.besselIndexEquiv, splitGram,
+    have h_shift : Y.shift = 0 := by
+      refine Matrix.ext fun i j ↦ ?_
+      simp only [Grading.shift, Matrix.map_apply, Matrix.zero_apply, gradedBlocks]
+      cases hi : Y.indexEquiv.symm i <;> cases hj : Y.indexEquiv.symm j <;> simp [hi, hj]
+    have h_char : besselCharMatrix (S.ratMiddle (𝔸 E)) = 0 := by
+      refine Matrix.ext fun i j ↦ ?_
+      simp only [besselCharMatrix, Matrix.of_apply, Matrix.zero_apply, Finset.univ_eq_empty,
+        Finset.sum_empty]
+    rw [h_shift, h_char, smul_zero]
+  · -- Compare the entries over `E` and map by `toAdele`.
+    have h_split (x y) :
+        (S.ratMiddle (𝔸 E)).splitGram x y = toAdele ((S.ratMiddle E).splitGram x y) := by
+      revert x y
+      simp [splitGram, middleGram, Sum.forall, Matrix.one_apply,
+        apply_ite (f := (toAdele : E → 𝔸 E)), map_natCast]
+    have h_char : besselCharMatrix (S.ratMiddle (𝔸 E)) =
+        (besselCharMatrix (S.ratMiddle E)).map toAdele :=
+      Matrix.ext fun i j ↦ by
+        simp only [besselCharMatrix, Matrix.map_apply, Matrix.of_apply, map_sum, map_add,
+          apply_ite (f := (toAdele : E → 𝔸 E)), map_one, map_zero, h_split]
+    have h_smul :
+        toAdele (Y.genericConst : E) • (besselCharMatrix (S.ratMiddle E)).map toAdele =
+          ((Y.genericConst : E) • besselCharMatrix (S.ratMiddle E)).map toAdele :=
+      Matrix.ext fun i j ↦ (map_mul toAdele _ _).symm
+    rw [h_char, h_smul, Grading.shift]
+    congr 1
+    simp [besselCharMatrix, ← ext_iff, h.index_eq, Shape.besselIndexEquiv, splitGram,
       middleGram, besselFrame, forall_fin_succ', ← castSucc_succ, Finset.sum_add_distrib,
       Nat.Prime.ne_zero, Matrix.one_apply]
     -- Without the context, `grind` is much faster.
     clear * -
-    grind [map_natCast]
+    grind
 
 /-- Suppose `V` with the grading `Y` fits the filling data `S`, and let `h.besselChar r` be the
 standard additive character of `E` at `-(M ϖ)⁻¹ σ`. Here `M = S.M`, `ϖ = S.deltaE`, and `σ` is the
@@ -191,7 +214,7 @@ open MeasureTheory Measure ComplexConjugate
 lemma classPoint_eq_inclXFin (h : S.Fits V l kw Y η) (c : S.Classes) :
     h.classPoint c = Y.inclXFin (c.out * η⁻¹) := by
   rw [classPoint, MulEquiv.symm_apply_eq, finiteEquiv_inclXFin, ← (h.central c.out).inv_left.eq,
-    map_mul, map_inv]
+    S.inclHFin.map_mul, S.inclHFin.map_inv]
 
 /-- The point `h.classPoint c` that represents the class `c` lies in `Y.besselFin`, the finite
 points `g` such that `(1, g)` lies in the Bessel group `Y.besselGroup`. -/
@@ -206,7 +229,9 @@ lemma classPoint_mem_besselFin (h : S.Fits V l kw Y η) (c : S.Classes) :
 lemma inv_classPoint_mul_mem_iff (h : S.Fits V l kw Y η) (c : S.Classes) (t : Gf E 𝔰.BesselIndex) :
     (h.classPoint c)⁻¹ * t ∈ S.stdPrincipalLevel ↔
       (S.classRep c)⁻¹ * (S.inclHFin η * h.finiteEquiv t) ∈ S.principalLevel := by
-  simp [h.mem_stdPrincipalLevel_iff, classPoint, mul_assoc]
+  simp only [h.mem_stdPrincipalLevel_iff, classPoint, h.finiteEquiv.map_mul,
+    h.finiteEquiv.map_inv, h.finiteEquiv.apply_symm_apply, _root_.mul_inv_rev, inv_inv,
+    mul_assoc]
 
 /-- For `u` in `S.classUnipotent c`, its image `h.ratEquiv u` in the discrete subgroup of `V` lies
 in the Bessel group `Y.besselGroup`. -/
@@ -251,8 +276,14 @@ lemma exists_ratEquiv_mul_classPoint (h : S.Fits V l kw Y η) {c : S.Classes}
   have hc : h.classPoint c ∈ Y.besselFin := h.classPoint_mem_besselFin c
   refine ⟨⟨(h.classPoint c)⁻¹ * ((h.ratEquiv u : New.G E ε).2 * h.classPoint c),
     mul_mem (inv_mem hc) (mul_mem hu hc)⟩, ?_, fun x ↦ by simp [classUnipotentToReal, Prod.mul_def]⟩
-  rw [inv_classPoint_mul_mem_iff, map_mul, finiteEquiv_eq_conj_adelicToFin, adelicEquiv_ratEquiv]
-  simpa [classPoint, ratToFin, mul_assoc] using hu_level
+  rw [inv_classPoint_mul_mem_iff, h.finiteEquiv.map_mul, finiteEquiv_eq_conj_adelicToFin,
+    adelicEquiv_ratEquiv, classPoint, h.finiteEquiv.apply_symm_apply]
+  have h_eq : (S.classRep c)⁻¹ * (S.inclHFin η * ((S.inclHFin η)⁻¹ *
+      S.adelicToFin (S.ratToAdelic u) * S.inclHFin η * ((S.inclHFin η)⁻¹ * S.classRep c))) =
+      (S.classRep c)⁻¹ * S.ratToFin u * S.classRep c := by
+    dsimp only [ratToFin, MonoidHom.comp_apply]
+    group
+  rwa [h_eq]
 
 /-! ### The Bessel function as an integral over `R(F_∞)` -/
 
@@ -340,14 +371,22 @@ lemma integral_classCutoff_integral_mul [WeilData E]
       rw [← hy_level k hk, ← h_eq, hy.rat_mul _ (h.ratEquiv u).property]
     simp [F, hW_inv, hy_inv, mul_assoc]
   -- All converges: `y` is bounded, `e` is integrable, and `W` is integrable over `U_c \ R(F_∞)`.
+  -- Avoid slow fallback searches for `SFinite` on `volume` and `haar`.
+  have : SFinite (volume : Measure (GInf E ε)) := instSFiniteOfSigmaFinite
+  have : SFinite (haar : Measure Y.besselReal) := instSFiniteOfSigmaFinite
+  have hy_cont_fst : Continuous fun p : Y.besselReal × GInf E ε ↦ y (p.2, h.classPoint c) :=
+    hy_cont.comp (continuous_snd.prodMk continuous_const)
+  have hF_meas : Measurable F :=
+    (hW.comp measurable_fst).mul
+      ((he_cont.comp ((continuous_const.mul
+        (continuous_subtypeVal.comp continuous_fst).inv).mul continuous_snd)).mul
+        hy_cont_fst).measurable
   have hF_int : Integrable (fun p ↦
       (S.classCutoff c (h.realHomeomorph p.1)).toReal • F p) (haar.prod volume) := by
     obtain ⟨C, hC⟩ := hy.bounded
-    have hy_meas : AEStronglyMeasurable
-        (fun p : Y.besselReal × GInf E ε ↦ y (p.2, h.classPoint c)) (haar.prod volume) := by
-      fun_prop
     simpa only [F, smul_mul_assoc, mul_assoc] using
-      (integrable_mul_comp_inv_mul hW_int he g₀⁻¹).mul_bdd hy_meas (.of_forall fun p ↦ hC _)
+      (integrable_mul_comp_inv_mul hW_int he g₀⁻¹).mul_bdd
+        hy_cont_fst.aestronglyMeasurable (.of_forall fun p ↦ hC _)
   -- The kernel `e` reproduces `y`.
   have h_fix (s : Y.besselReal) : ∫ x : GInf E ε, F (s, x) = W s * y (s * g₀, h.classPoint c) := by
     rw [← congrFun (hy.realConv_eq he) (s * g₀, h.classPoint c), realConv, ← integral_const_mul,
@@ -356,8 +395,9 @@ lemma integral_classCutoff_integral_mul [WeilData E]
   calc _ = ∫ x, (S.classCutoff c (h.realHomeomorph x)).toReal • ∫ s, F (s, x) ∂haar := by
         simp only [F, smul_mul_assoc, ← integral_mul_const, mul_assoc, mul_left_comm (W _)]
     _ = ∫ s, (S.classCutoff c (h.realHomeomorph s.val)).toReal • (∫ x, F (s, x)) ∂haar :=
-        integral_cutoff_swap volume haar (h.classUnipotentToReal c) (by fun_prop)
-          (h.tsum_classCutoff_realHomeomorph c) (by fun_prop) hF_inv hF_int
+        integral_cutoff_swap volume haar (h.classUnipotentToReal c)
+          ((S.measurable_classCutoff c).comp h.realHomeomorph.continuous.measurable)
+          (h.tsum_classCutoff_realHomeomorph c) hF_meas hF_inv hF_int
     _ = _ := by simp only [h_fix]
 
 /-! ### The period, class by class -/
@@ -385,10 +425,12 @@ lemma exists_eq_unipotent_mul_inclX (h : S.Fits V l kw Y η) [S.IsAdmissible]
   have hu_conj : h.finiteEquiv u.2 ∈ besselU := by
     rw [finiteEquiv_eq_conj_adelicToFin]
     -- The group `besselS`, which contains the image of `η⁻¹`, normalizes `besselU`.
-    simpa using (besselS_le_normalizer_besselU (mem_partialUnitriangularGroup_of_mem_floorGroup
-      (inclHFin_mem_besselH η⁻¹)) _).1 (h.adelicToFin_adelicEquiv_mem_besselU hu)
+    simpa only [S.inclHFin.map_inv, inv_inv, SetLike.mem_coe] using
+      (besselS_le_normalizer_besselU (mem_partialUnitriangularGroup_of_mem_floorGroup
+        (inclHFin_mem_besselH η⁻¹)) _).1 (h.adelicToFin_adelicEquiv_mem_besselU hu)
   have hk' : h.finiteEquiv u.2 * S.inclHFin a ∈ S.principalLevel := by
-    simpa [u, finiteEquiv_inclXFin] using h.mem_stdPrincipalLevel_iff.mp hk_level
+    simpa only [u, h.finiteEquiv.map_mul, h.finiteEquiv.map_inv, finiteEquiv_inclXFin,
+      inv_mul_cancel_right] using h.mem_stdPrincipalLevel_iff.mp hk_level
   -- The factor in `H` of an element of the level lies in the level, and then so does `u`.
   have ha : S.inclHFin a ∈ S.principalLevel := by
     rw [principalLevel_eq_unitaryLevel] at hk' ⊢
@@ -397,7 +439,7 @@ lemma exists_eq_unipotent_mul_inclX (h : S.Fits V l kw Y η) [S.IsAdmissible]
     unipotentChar_eq_of_mem_principalLevel (one_mem _)
       (h.adelicToFin_adelicEquiv_mem_besselU hu) η <| by
       rw [← finiteEquiv_eq_conj_adelicToFin]
-      simpa using mul_mem hk' (inv_mem ha)
+      simpa only [mul_inv_cancel_right, inv_one, one_mul] using mul_mem hk' (inv_mem ha)
   refine ⟨u, hu, a, IsAdmissible.sourceLevel_eq.ge ha, ?_, by simp [u, Y.inclX_inr]⟩
   -- The real part of `u` is trivial, so the adelic character at `u` is the finite character.
   have h_real : S.adelicToInf (h.adelicEquiv u) = 1 := by
@@ -429,7 +471,7 @@ lemma sourceFn_mul_of_mem_stdPrincipalLevel [WeilData E] (h : S.Fits V l kw Y η
       h_level]
   rw [h_split, ← mul_assoc, Y.sourceFn_mul_inclX, h_fix,
     h.sourceFn_eq_besselChar_mul hj_genericConst, h.sourceFn_eq_besselChar_mul hj_genericConst,
-    map_mul, (Y.leviPart_eq_one_iff (r := u')).mpr hu, mul_one,
+    Y.leviPart.map_mul, (Y.leviPart_eq_one_iff (r := u')).mpr hu, mul_one,
     Subgroup.coe_mul, h.besselChar_mul r.property u'.property, h_char, mul_one]
 
 /-- Suppose `V` fits `S` (`h`) and `S` is admissible. Every point `r` of the Bessel group
@@ -458,10 +500,11 @@ lemma exists_ratBessel_mul_mem_coset (h : S.Fits V l kw Y η) [S.IsAdmissible] (
   have h_eq : (S.classRep c)⁻¹ * (S.inclHFin η *
       h.finiteEquiv (Y.inclX δ' * h.ratEquiv u⁻¹ * (n * Y.inclX a)).2) =
       S.inclHFin k * (err u)⁻¹ := by
-    simp only [finiteEquiv_eq_conj_adelicToFin, map_mul h.adelicEquiv, map_mul S.adelicToFin,
-      adelicEquiv_ratEquiv]
-    simp [err, adelicToFin_adelicEquiv_inclX, hδ'_fin, eq_mul_inv_of_mul_eq h_dec, ratToFin,
-      mul_assoc]
+    simp only [finiteEquiv_eq_conj_adelicToFin, h.adelicEquiv.map_mul, S.adelicToFin.map_mul,
+      adelicEquiv_ratEquiv, adelicToFin_adelicEquiv_inclX, hδ'_fin, err, ratToFin, classRep,
+      MonoidHom.comp_apply, S.ratToAdelic.map_inv, S.adelicToFin.map_inv, S.inclHFin.map_mul,
+      S.inclHFin.map_inv, eq_mul_inv_of_mul_eq h_dec]
+    group
   rw [inv_classPoint_mul_mem_iff, ← inv_mul_cancel_right r.val (Y.inclX a), h_eq]
   exact mul_mem (IsAdmissible.sourceLevel_eq.le k.property) (inv_mem h_approx)
 
@@ -478,9 +521,14 @@ lemma eq_and_exists_classUnipotent_of_mem_coset (h : S.Fits V l kw Y η) [S.IsAd
     ⟨h.ratEquiv.symm ⟨γ, hγ_rat⟩, by simp⟩
   have h_mem_level : S.translateByClassReps c d σ ∈ S.principalLevel := by
     rw [inv_classPoint_mul_mem_iff] at hg hγg
-    simpa [translateByClassReps, ratToFin, mul_assoc,
-      h.finiteEquiv_eq_conj_adelicToFin (h.ratEquiv σ),
-      adelicEquiv_ratEquiv] using mul_mem hγg (inv_mem hg)
+    have h_eq : (S.classRep c)⁻¹ * (S.inclHFin η * h.finiteEquiv (h.ratEquiv σ * g).2) *
+        ((S.classRep d)⁻¹ * (S.inclHFin η * h.finiteEquiv g.2))⁻¹ =
+        S.translateByClassReps c d σ := by
+      simp only [Prod.snd_mul, h.finiteEquiv.map_mul,
+        h.finiteEquiv_eq_conj_adelicToFin (h.ratEquiv σ), adelicEquiv_ratEquiv,
+        translateByClassReps, ratToFin, MonoidHom.comp_apply]
+      group
+    simpa only [h_eq] using mul_mem hγg (inv_mem hg)
   obtain ⟨hcd, hσ⟩ := eq_and_mem_classUnipotent_of_besselS
     (h.mem_besselS_of_ratEquiv_mem_besselGroup hγ_bessel) h_mem_level
   exact ⟨hcd, ⟨σ, hσ⟩, rfl⟩
@@ -576,11 +624,14 @@ theorem exists_integral_besselMeasure_eq_sum (h : S.Fits V l kw Y η) [S.IsAdmis
       fun r : Y.besselGroup ↦ ∑ c : S.Classes, h.classWeight c r := h.isCutoff_sum_classWeight
   have h_inv (γ : Y.ratBessel.subgroupOf Y.besselGroup) (r : Y.besselGroup) : F (γ • r) = F r :=
     hF_rat γ γ.property r
+  -- Cache `SFinite haar` once to avoid repeated fallback searches across orbit integrals.
+  have : SFinite (haar : Measure Y.besselGroup) := instSFiniteOfSigmaFinite
   have h_fin : ∀ᵐ r : Y.besselGroup ∂haar, ∑ c, h.classWeight c r < ⊤ := h_cut.ae_cutoff_lt_top
   have h_int (c : S.Classes) : Integrable (fun r ↦ (h.classWeight c r).toReal • F r) haar := by
     have h_sum : Integrable (fun r ↦ (∑ c, h.classWeight c r).toReal • F r) haar :=
       (h_cut.integrable_orbitMeasure_iff h_inv hF).mp hF_int
-    refine h_sum.mono (by fun_prop) (h_fin.mono fun r hr ↦ ?_)
+    refine h_sum.mono ((h.measurable_classWeight c).ennreal_toReal.smul hF).aestronglyMeasurable
+      (h_fin.mono fun r hr ↦ ?_)
     simp only [norm_smul, Real.norm_of_nonneg ENNReal.toReal_nonneg]
     gcongr
     exacts [hr.ne, Finset.single_le_sum (f := fun c ↦ h.classWeight c r) (by simp) (by simp)]
@@ -595,7 +646,9 @@ theorem exists_integral_besselMeasure_eq_sum (h : S.Fits V l kw Y η) [S.IsAdmis
   have h_class (c : S.Classes) : Integrable (Φ c) haar ∧
       ∫ r, (h.classWeight c r).toReal • F r ∂haar = volJ' * ∫ s, Φ c s ∂haar :=
     h_coset ⟨h.classPoint c, h.classPoint_mem_besselFin c⟩ (fun s k ↦ by
-      simpa only [classSection, ← map_mul, Prod.mk_mul_mk, mul_one] using h_prod c s k) (h_int c)
+      have h_mul : h.classSection c s * Y.besselProdEquiv (1, k) =
+          Y.besselProdEquiv (s * 1, ⟨h.classPoint c, h.classPoint_mem_besselFin c⟩ * k) := rfl
+      simpa only [h_mul, mul_one] using h_prod c s k) (h_int c)
   refine ⟨fun c ↦ (h_class c).1, ?_⟩
   calc ∫ r, F r ∂Y.besselMeasure
       = ∫ r, (∑ c, h.classWeight c r).toReal • F r ∂haar := h_cut.integral_orbitMeasure h_inv
@@ -669,7 +722,9 @@ theorem exists_integral_poincareSeries_eq_period (h : S.Fits V l kw Y η) [S.IsA
     simp only [F, hW_level r k hk, ← hy_level k hk (r.val * (g₀, 1))]
     simp [Grading.besselProdEquiv, mul_assoc]
   obtain ⟨-, h_period⟩ :=
-    h_classes (by fun_prop) hF_rat hF_level (hW.integrable_mul hy.toIsAutomorphic (g₀, 1))
+    h_classes (F := F)
+      (hW_cont.mul (hy_cont.comp (continuous_subtypeVal.mul continuous_const))).measurable
+      hF_rat hF_level (hW.integrable_mul hy.toIsAutomorphic (g₀, 1))
   calc _ = (volJ : ℂ) * ∑ c, ∫ x, (S.classCutoff c (h.realHomeomorph x)).toReal •
           (∫ s : Y.besselReal, conj (typeKernel l ε (g₀⁻¹ * s.val⁻¹ * x)) *
             W (h.classSection c s) ∂haar) * y (x, h.classPoint c) := by
@@ -680,7 +735,9 @@ theorem exists_integral_poincareSeries_eq_period (h : S.Fits V l kw Y η) [S.IsA
         congr 2 with c
         exact h.integral_classCutoff_integral_mul c h.isIdempotentKernel.continuous.star
           ((starL' ℝ).integrable_comp_iff.2 h.isIdempotentKernel.integrable) g₀ hy hy_level
-          (by unfold classSection; fun_prop) (hW_inv c) (hW_int c)
+          (hW_cont.comp
+            (Y.besselProdEquiv.continuous.comp (continuous_id.prodMk continuous_const))).measurable
+          (hW_inv c) (hW_int c)
     _ = (volJ / volJ' : ℂ) * ∫ r : Y.besselGroup, F r ∂Y.besselMeasure := by
         simp [h_period, ← mul_assoc, h_vol, F, classSection, Grading.besselProdEquiv]
     _ = _ := by simp only [F, W, Grading.sourceFn_smul_left, mul_assoc, integral_const_mul]
