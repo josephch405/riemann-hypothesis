@@ -150,8 +150,9 @@ private lemma hilbertSchmidtNorm_sq_of_entries
     hilbertSchmidtNorm L ^ 2 = secondMoment (S := S) A {s} := by
   rw [hilbertSchmidtNorm_sq_eq_sum_entries (basisFun _ ℂ) (basisFun _ ℂ)]
   simp only [basisFun_apply, h]
-  simp [secondMoment, sum_filter, norm_sq_eq, sum_prod_type, sum_div, div_pow,
-    sum_comm (α := S.Classes) (γ := S.BesselCoord)]
+  simp only [secondMoment, sum_filter, Set.mem_singleton_iff, Fintype.sum_ite_eq',
+    norm_sq_eq, norm_div, Complex.norm_real, Real.norm_of_nonneg S.unipotentCovolume_pos.le,
+    div_pow, sum_div, sum_prod_type, sum_comm (α := S.Classes) (γ := S.BesselCoord)]
 
 omit ok in
 /-- Let `S` be filling data (`Filling`) for a unitary group `G` over the CM field `E`, and let
@@ -241,7 +242,7 @@ lemma besselTranslate_mul [HasPrimitiveRoot5040 E] {s t : S.ResidueGL}
   obtain ⟨N, -, hN⟩ := exists_unitary_besselFn_mul (side := .full) hδ
   have hMN (y : NumberField.InfinitePlace E → 𝔰.G₁) :
       S.besselFn .full (S.ratToInf (γ * δ) * y) = (M * N) *ᵥ S.besselFn .full y := by
-    rw [map_mul, mul_assoc, hM, hN, mulVec_mulVec]
+    rw [S.ratToInf.map_mul, mul_assoc, hM, hN, mulVec_mulVec]
   have h_matrix : S.besselTranslate (s * t) φ (c, i) =
       ∑ k : S.BesselCoord, star ((M * N) i k) * φ (c'', k) :=
     besselTranslate_apply (mul_mem hγ hδ) (termsOver.mul hγ_over hδ_over) hMN φ i
@@ -717,9 +718,18 @@ lemma mem_besselU_of_reduction_eq_one {c : S.Classes} {γ : S.G E} {j : Fin 2}
   obtain ⟨u, hu, δ, rfl⟩ : ∃ u ∈ besselU, ∃ g : U 1, γ = u * toBesselH 𝔰 (S.N : E) g :=
     exists_besselU_mul_toBesselH hγ S.isUnit_natCast_N
   let y : Gf E 𝔰.κ := c.out⁻¹ * stdEmbFin δ * c.out
-  have hy : k * (S.inclHFin y)⁻¹ ∈ besselU := by
-    simpa [y, hk, translateByClassReps, ratToFin_toBesselH, mul_assoc] using
-      hu.translateByClassReps_mem_besselU c
+  have hy_mul : S.classRep c * S.inclHFin y = S.inclHFin (stdEmbFin δ) * S.classRep c := by
+    have h_inner : c.out * y = stdEmbFin δ * c.out := by
+      dsimp only [y]
+      rw [← mul_assoc, ← mul_assoc, mul_inv_cancel, one_mul]
+    rw [classRep, ← S.inclHFin.map_mul, h_inner, S.inclHFin.map_mul]
+  have h_eq : (k : S.GFin) * (S.inclHFin y)⁻¹ = S.translateByClassReps c c u :=
+    mul_inv_eq_of_eq_mul <| by
+      rw [hk, translateByClassReps, translateByClassReps, S.ratToFin.map_mul, ratToFin_toBesselH,
+        mul_assoc _ _ (S.inclHFin y), hy_mul]
+      simp only [mul_assoc]
+  have hy : k * (S.inclHFin y)⁻¹ ∈ besselU :=
+    h_eq.symm ▸ hu.translateByClassReps_mem_besselU c
   -- The `H`-part of an integral element of `𝖴 H` is integral.
   have hyK : S.inclHFin y ∈ S.latticeStabilizer :=
     (mem_unitaryLevel_of_besselU_mul hy (inclHFin_mem_besselH y)
@@ -734,7 +744,9 @@ lemma mem_besselU_of_reduction_eq_one {c : S.Classes} {γ : S.G E} {j : Fin 2}
   obtain rfl := eq_one_of_reduceAt_eq_one le_rfl j _ fun w ↦
     (S.reduction_inclHFin_eq_one_iff hyK j w).mp (h_red w)
   -- Now `δ = 1`, hence `y = 1` and `k = k y⁻¹`.
-  simpa [y] using hy
+  have hy1 : y = 1 := by dsimp only [y]; rw [stdEmbFin.map_one, mul_one, inv_mul_cancel]
+  rw [hy1, S.inclHFin.map_one, _root_.inv_one, mul_one] at hy
+  exact hy
 
 /-- The character `ψ_U` on the image `Ū₀` of the integral unipotent elements in the finite group
 `S.ResidueGL`, extended by `0`. Its value at `s` is `S.unipotentChar k` for a unipotent `k` that
@@ -877,15 +889,33 @@ lemma integral_extendedBesselChar_conj_eq {T : Finset (FinPlace E)} [T.StarStabl
     refine sum_congr rfl fun g _ ↦ ?_
     -- The integrand is `extendedBesselChar F.levelUnit` at the integral element
     -- `(σ g k) l (σ g k)⁻¹`.
-    simpa [φ, hσ, mul_assoc] using
-      S.extendedBesselChar_toPlaces_eq_reducedChar hF (σ g * k * l * (σ g * k)⁻¹)
+    let u : S.latticeStabilizer := σ g * k
+    have h_to : S.toPlaces T (u * l * u⁻¹ : S.latticeStabilizer) =
+        (S.toPlaces T (σ g) * S.toPlaces T k) * S.toPlaces T l *
+          (S.toPlaces T (σ g) * S.toPlaces T k)⁻¹ := by
+      simp only [u, Subgroup.coe_mul, Subgroup.coe_inv, (S.toPlaces T).map_mul,
+        (S.toPlaces T).map_inv]
+    have h_red : S.reduction (u * l * u⁻¹) =
+        g * (S.reduction k * S.reduction l * (S.reduction k)⁻¹) * g⁻¹ := by
+      dsimp only [u]
+      rw [S.reduction.map_mul, S.reduction.map_mul, S.reduction.map_inv, S.reduction.map_mul,
+        hσ, _root_.mul_inv_rev]
+      simp only [mul_assoc]
+    have h_eq := S.extendedBesselChar_toPlaces_eq_reducedChar hF (u * l * u⁻¹)
+    rw [h_to, h_red] at h_eq
+    exact h_eq
+  have h_cont (g : S.ResidueGL) : Continuous fun y ↦ φ (S.toPlaces T (σ g) * y) := by
+    have hmul : Continuous fun y : (S.latticeMiddle (LocProd T)).G ↦
+        S.toPlaces T (σ g) * y :=
+      continuous_const.mul continuous_id
+    exact continuous_extendedBesselChar.comp ((hmul.mul continuous_const).mul hmul.inv)
   refine mul_left_cancel₀ (a := (Fintype.card S.ResidueGL : ℂ)) (by simp) ?_
   calc Fintype.card S.ResidueGL * ∫ y in K, φ y ∂F.groupMeasure
       = ∑ g : S.ResidueGL, ∫ y in K, φ (S.toPlaces T (σ g) * y) ∂F.groupMeasure := by
         simp only [h_translate, sum_const, card_univ, nsmul_eq_mul]
     _ = ∫ y in K, ∑ g : S.ResidueGL, φ (S.toPlaces T (σ g) * y) ∂F.groupMeasure :=
-        (integral_finsetSum _ fun g _ ↦
-          ContinuousOn.integrableOn_compact unitaryLevel_open_compact.2 (by fun_prop)).symm
+        (integral_finsetSum _ fun g _ ↦ ContinuousOn.integrableOn_compact
+          unitaryLevel_open_compact.2 (h_cont g).continuousOn).symm
     _ = Fintype.card S.ResidueGL * F.groupMeasure.real K • S.reducedCharMean (S.reduction l) := by
         rw [setIntegral_congr_fun measurableSet_unitaryLevel h_const, setIntegral_const,
           mul_smul_comm]
@@ -1142,9 +1172,12 @@ lemma HasAmplitudeBlocks.hilbertSchmidtNorm_asAlgebraHom_comp_sq_le [WeilData E]
     have h_sum : P.adjoint ∘ₗ e ∘ₗ P =
         ∑ t, x.coeff t • (P.adjoint ∘ₗ ρ (Pi.mulSingle i t) ∘ₗ P) := by
       ext1 v
-      simp [he_def, Representation.asAlgebraHom_eq_sum]
+      simp only [he_def, Representation.asAlgebraHom_eq_sum, LinearMap.comp_apply,
+        LinearMap.sum_apply, LinearMap.smul_apply, map_sum, map_smul, MonoidHom.comp_apply,
+        MonoidHom.mulSingle_apply]
     rw [← ofReal_re (_ ^ 2), hilbertSchmidtNorm_sq_eq_trace, h_proj, h_sum, ← add_re, hP']
-    simp [mul_sub]
+    simp only [map_sum, map_smul, smul_eq_mul, LinearMap.map_sub, mul_sub, sum_sub_distrib,
+      add_sub_cancel]
   have h_bessel :
       (∑ t, x.coeff t * LinearMap.trace ℂ _ (S.besselTranslate (Pi.mulSingle i t))).re ≤
         (S.b ^ 4)⁻¹ * S.sourceDim :=
@@ -1163,7 +1196,11 @@ lemma HasAmplitudeBlocks.hilbertSchmidtNorm_asAlgebraHom_comp_sq_le [WeilData E]
           hilbertSchmidtNorm]
       _ ≤ S.sourceDim * (S.sourceDim / S.b ^ 12) := by
         grw [hP.hilbertSchmidtNorm_sum_smul_sub_besselTranslate_sq_le hρ i hx]
-      _ ≤ S.sourceDim * (S.sourceDim / S.b ^ 8) := by gcongr <;> linarith
+      _ ≤ S.sourceDim * (S.sourceDim / S.b ^ 8) :=
+        mul_le_mul_of_nonneg_left
+          (div_le_div_of_nonneg_left (Nat.cast_nonneg _) (by positivity)
+            (pow_le_pow_right₀ (by linarith only [hb]) (by decide)))
+          (Nat.cast_nonneg _)
       _ = ((S.b ^ 4)⁻¹ * S.sourceDim) ^ 2 := by ring
   linarith
 
