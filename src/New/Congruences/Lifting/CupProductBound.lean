@@ -142,7 +142,8 @@ abbrev Pairing.tateDualSide : PairingSide O :=
     jumpSet i := insert 0 ((T.jumpSet i).image fun u ↦ -u - 1)
     embJumps g := (T.embJumps g).image fun u ↦ -u - 1
     inClass := T.inClass.dual
-    embJumps_subset h := by grind [T.embJumps_subset h]
+    embJumps_subset h :=
+      (Finset.image_subset_image (T.embJumps_subset h)).trans (Finset.subset_insert 0 _)
     paramLattice := ⟨O, 1⟩
     cocycleMap := LinearMap.toSpanSingleton O _ P.cocycle
     zero_mem := by simp }
@@ -204,22 +205,12 @@ lemma wittFst_smul (x : S.extensionLattice.Ambient) :
         (FrobGroup.snd n) ∘ₗ
         LinearMap.inr O.O S.Carrier S.trivialLattice.Carrier) (n • S.projTrivial.wittMap x) := by
   -- Both sides are additive in `x`; on a pure tensor this is the formula for `extensionRep`.
-  induction x using DiagTensor.induction with
-  | h_add x x' hx hx' => simp only [smul_add, _root_.map_add, hx, hx']; abel
-  | h_mk a t =>
-    have h_fst : (extensionRep S.cocycleMap (FrobGroup.snd n) t).1 = S.ρ (FrobGroup.snd n) t.1 +
-        (extensionRep S.cocycleMap (FrobGroup.snd n) (0, t.2)).1 := by
-      simp [extensionRep]
-    simp only [PairingSide.wittFst, PairingSide.projTrivial, JumpLattice.wittMap,
-      DiagTensor.smul_mk, DiagTensor.map_mk, LinearMap.coe_restrictScalars]
-    change DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) (n • a)
-        (extensionRep S.cocycleMap (FrobGroup.snd n) t).1 =
-      n • DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) a t.1 +
-        DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) (n • a)
-          (extensionRep S.cocycleMap (FrobGroup.snd n) (0, t.2)).1
-    rw [h_fst, _root_.map_add (DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) (n • a)),
-      DiagTensor.smul_mk]
-    rfl
+  revert x
+  refine diagTensor_induction (fun a t ↦ ?_) (fun x y hx hy ↦ by
+    simp only [smul_add, map_add, hx, hy]; abel)
+  have h_fst : (extensionRep S.cocycleMap (FrobGroup.snd n) t).1 = S.ρ (FrobGroup.snd n) t.1 +
+      (extensionRep S.cocycleMap (FrobGroup.snd n) (0, t.2)).1 := by simp [extensionRep]
+  simp [h_fst]
 
 /-- The extended pairing of a pairing P commutes with the action of ℤ × Γ. -/
 lemma Pairing.smul_wittPairing (x : DiagTensor (Rep.of (overZp S.ρ)))
@@ -347,89 +338,15 @@ lemma Pairing.phi_smul_sub_mem_smallPart {e₁ e₂ : ℕ} {c : S.paramLattice} 
     rw [hy]
     simp [smul_sub, smul_smul, (commute_phi _).eq]
     abel
-  have h_phi_wittMap {L₁ L₂ : JumpLattice O} (F : L₁.Carrier →ₗ[O.O] L₂.Carrier)
-      (z : L₁.Ambient) : φ • L₁.wittMap L₂ F z = L₁.wittMap L₂ F (φ • z) := by
-    induction z using DiagTensor.induction with
-    | h_mk a t =>
-      simp only [DiagTensor.smul_mk, JumpLattice.wittMap, DiagTensor.map_mk, FrobGroup.snd_phi]
-      change DiagTensor.mk (ρ := Rep.of (overZp L₂.ρ)) (φ • a) (L₂.ρ 1 (F t)) =
-        DiagTensor.mk (ρ := Rep.of (overZp L₂.ρ)) (φ • a) (F (L₁.ρ 1 t))
-      rw [_root_.map_one, _root_.map_one]
-      rfl
-    | h_add x₁ x₂ h₁ h₂ => simp only [smul_add, _root_.map_add, h₁, h₂]
-  have h_fst_phi : S.wittFst (φ • x) = φ • S.wittFst x := by
-    have h_gen (z : S.extensionLattice.Ambient) : S.wittFst (φ • z) = φ • S.wittFst z := by
-      induction z using DiagTensor.induction with
-      | h_mk a t =>
-        simp only [PairingSide.wittFst, JumpLattice.wittMap, DiagTensor.smul_mk, DiagTensor.map_mk,
-          LinearMap.coe_restrictScalars, FrobGroup.snd_phi]
-        change DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) (φ • a) (extensionRep S.cocycleMap 1 t).1 =
-          DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) (φ • a) (S.ρ 1 t.1)
-        rw [_root_.map_one, _root_.map_one]
-        rfl
-      | h_add x₁ x₂ h₁ h₂ => simp only [smul_add, _root_.map_add, h₁, h₂]
-    exact h_gen x
-  have h_fst_phi' (z : S'.extensionLattice.Ambient) : S'.wittFst (φ • z) = φ • S'.wittFst z := by
-    induction z using DiagTensor.induction with
-    | h_mk a t =>
-      simp only [PairingSide.wittFst, JumpLattice.wittMap, DiagTensor.smul_mk, DiagTensor.map_mk,
-        LinearMap.coe_restrictScalars, FrobGroup.snd_phi]
-      change DiagTensor.mk (ρ := Rep.of (overZp S'.ρ)) (φ • a)
-          (extensionRep S'.cocycleMap 1 t).1 =
-        DiagTensor.mk (ρ := Rep.of (overZp S'.ρ)) (φ • a) (S'.ρ 1 t.1)
-      rw [_root_.map_one, _root_.map_one]
-      rfl
-    | h_add x₁ x₂ h₁ h₂ => simp only [smul_add, _root_.map_add, h₁, h₂]
-  let m₁ := S.trivialLattice.wittMap S.kerLattice
-    (LinearMap.fst O.O S.Carrier S.paramLattice.Carrier ∘ₗ
-      extensionRep S.cocycleMap (FrobGroup.snd (inr (g : Γ))) ∘ₗ
-      LinearMap.inr O.O S.Carrier S.trivialLattice.Carrier)
-  let δ₁ := m₁ (inr (g : Γ) • (p ^ e₁ • DiagTensor.mk 1 c))
-  have h_phi_δ₁ : φ • δ₁ = δ₁ := by
-    have h_fix : φ • (p ^ e₁ • DiagTensor.mk (ρ := Rep.of (overZp S.trivialLattice.ρ)) 1 c) =
-        p ^ e₁ • DiagTensor.mk 1 c := by
-      simp only [smul_smul_frobGroup_comm, DiagTensor.smul_mk, smul_one, FrobGroup.snd_phi]
-      rfl
-    dsimp only [δ₁, m₁]
-    rw [h_phi_wittMap, smul_smul, (commute_phi (inr (g : Γ))).eq, ← smul_smul, h_fix]
-  have h_fst_x : S.wittFst (inr (g : Γ) • x) = inr (g : Γ) • S.wittFst x + δ₁ := by
-    rw [wittFst_smul, hx]
-  have h_fst_w : S.wittFst (inr (g : Γ) • w) = inr (g : Γ) • S.wittFst w + δ₁ := by
-    rw [wittFst_smul, hw]
-  let m₂ := S'.trivialLattice.wittMap S'.kerLattice
-    (LinearMap.fst O.O S'.Carrier S'.paramLattice.Carrier ∘ₗ
-      extensionRep S'.cocycleMap (FrobGroup.snd (inr (g : Γ))) ∘ₗ
-      LinearMap.inr O.O S'.Carrier S'.trivialLattice.Carrier)
-  let δ₂ := m₂ (inr (g : Γ) • (p ^ e₂ • DiagTensor.mk 1 c'))
-  have h_phi_δ₂ : φ • δ₂ = δ₂ := by
-    have h_fix : φ • (p ^ e₂ • DiagTensor.mk (ρ := Rep.of (overZp S'.trivialLattice.ρ)) 1 c') =
-        p ^ e₂ • DiagTensor.mk 1 c' := by
-      simp only [smul_smul_frobGroup_comm, DiagTensor.smul_mk, smul_one, FrobGroup.snd_phi]
-      rfl
-    dsimp only [δ₂, m₂]
-    rw [h_phi_wittMap, smul_smul, (commute_phi (inr (g : Γ))).eq, ← smul_smul, h_fix]
-  have h_proj_phi_x' :
-      S'.projTrivial.wittMap (φ • x') = p ^ e₂ • DiagTensor.mk 1 c' := by
-    rw [JumpLattice.Hom.wittMap_smul, hx', smul_smul_frobGroup_comm, DiagTensor.smul_mk,
-      smul_one, FrobGroup.snd_phi]
-    rfl
-  have h_fst_g_phi_x' :
-      S'.wittFst ((inr (g : Γ) * φ) • x') = (inr (g : Γ) * φ) • S'.wittFst x' + δ₂ := by
-    rw [← smul_smul, wittFst_smul, h_proj_phi_x', h_fst_phi', ← smul_smul]
-  have h_fst_g_w' : S'.wittFst (inr (g : Γ) • w') = inr (g : Γ) • S'.wittFst w' + δ₂ := by
-    rw [wittFst_smul, hw']
-  have h_fst_g_x' : S'.wittFst (inr (g : Γ) • x') = inr (g : Γ) • S'.wittFst x' + δ₂ := by
-    rw [wittFst_smul, hx']
   have h_moves : φ • f (inr (g : Γ)) - f (inr (g : Γ)) =
       B (g₀ • w - w) (S'.wittFst (g₀ • (φ • x' - w'))) -
         B (φ • x - w) (S'.wittFst (g₀ • φ • x' - φ • x')) -
         B (w - x) (S'.wittFst (g₀ • w' - w')) + B (g₀ • x - x) (S'.wittFst (g₀ • (w' - x'))) := by
     -- What is left after inserting `h_y` follows from the bilinearity of `B`.
     linear_combination (norm := skip) h_y
-    simp only [g₀, k.galMonoid.smul_def, hf, smul_sub, smul_add, _root_.map_sub, _root_.map_add,
-      LinearMap.sub_apply, LinearMap.add_apply, LinearMap.smul_apply, hB, h_fst_phi, h_fst_phi',
-      h_fst_x, h_fst_w, h_fst_g_phi_x', h_fst_g_w', h_fst_g_x', P.smul_wittPairing,
-      smul_smul_frobGroup_comm, h_phi_δ₁, h_phi_δ₂, smul_smul, (commute_phi _).eq, sub_eq_zero]
+    simp +zetaDelta [k.galMonoid.smul_def, hB, hf, hx, hw, hx', hw', smul_smul_frobGroup_comm,
+      (commute_phi _).eq, wittFst_smul, extensionRep, smul_smul, smul_sub, smul_wittPairing,
+      MonoidHom.map_one, sub_eq_zero]
     abel
   rw [h_moves, hB, hB, hB, hB]
   exact add_mem (sub_mem (sub_mem (h_path.isSafeMoveSnd_start g₀) (h_path.isSafeMoveFst_start g₀))
@@ -466,62 +383,14 @@ lemma Pairing.nsmul_modPairing_eq_coboundary {e₁ e₂ e₃ r : ℕ} {c : S.par
       r • (charRep (QuotSpan ((p : ℤ_[p]) ^ P.exponent)) χ (g : Γ) (κ h) - κ (g * h) + κ g) := by
   -- Expand the coboundary of `f`, then replace `f` by the constants `1 ⊗ κ`: the error is a small
   -- constant, so it vanishes.
-  have h_x (t : Γ) : S.wittFst (inr t • x) =
-      inr t • S.wittFst x + p ^ e₁ • DiagTensor.mk 1 ((S.cocycleMap c).val t) := by
-    have h_ext : (extensionRep S.cocycleMap t (0, c)).1 = (S.cocycleMap c : Γ → S.Carrier) t := by
-      simp [extensionRep]
-    rw [wittFst_smul, hx, smul_smul_frobGroup_comm, DiagTensor.smul_mk, smul_one, FrobGroup.snd_inr]
-    simp only [JumpLattice.wittMap, _root_.map_nsmul, DiagTensor.map_mk,
-      LinearMap.coe_restrictScalars, LinearMap.comp_apply, LinearMap.fst_apply, LinearMap.inr_apply]
-    change inr t • S.wittFst x +
-        p ^ e₁ • DiagTensor.mk 1 (extensionRep S.cocycleMap t (0, c)).1 = _
-    rw [h_ext]
-  have h_x' (t : Γ) : S'.wittFst (inr t • x') =
-      inr t • S'.wittFst x' + p ^ e₂ • DiagTensor.mk 1 ((S'.cocycleMap c').val t) := by
-    have h_ext :
-        (extensionRep S'.cocycleMap t (0, c')).1 = (S'.cocycleMap c' : Γ → S'.Carrier) t := by
-      simp [extensionRep]
-    rw [wittFst_smul, hx', smul_smul_frobGroup_comm, DiagTensor.smul_mk, smul_one,
-      FrobGroup.snd_inr]
-    simp only [JumpLattice.wittMap, _root_.map_nsmul, DiagTensor.map_mk,
-      LinearMap.coe_restrictScalars, LinearMap.comp_apply, LinearMap.fst_apply, LinearMap.inr_apply]
-    change inr t • S'.wittFst x' +
-        p ^ e₂ • DiagTensor.mk 1 (extensionRep S'.cocycleMap t (0, c')).1 = _
-    rw [h_ext]
-  have h_act (t : Γ) (v : S.Carrier) :
-      inr t • DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) 1 v = DiagTensor.mk 1 (S.ρ t v) := by
-    rw [DiagTensor.smul_mk, smul_one, FrobGroup.snd_inr]; rfl
-  have h_act' (t : Γ) (v : S'.Carrier) :
-      inr t • DiagTensor.mk (ρ := Rep.of (overZp S'.ρ)) 1 v = DiagTensor.mk 1 (S'.ρ t v) := by
-    rw [DiagTensor.smul_mk, smul_one, FrobGroup.snd_inr]; rfl
-  have h_snd_diff : S'.wittFst (inr g.val • (inr h.val • x' - x')) =
-      inr g.val • (inr h.val • S'.wittFst x' - S'.wittFst x') +
-        p ^ e₂ • DiagTensor.mk 1 (S'.ρ g.val ((S'.cocycleMap c').val h.val)) := by
-    have h_eq : inr g.val • (inr h.val • x' - x') = inr (g * h).val • x' - inr g.val • x' := by
-      rw [smul_sub, ← mul_smul, ← _root_.map_mul (M := Γ) (N := FrobGroup Γ), ← Subgroup.coe_mul]
-    rw [h_eq, _root_.map_sub, h_x', h_x', Subgroup.coe_mul, apply_mul (S'.cocycleMap c').property,
-      _root_.map_mul (M := Γ) (N := FrobGroup Γ), mul_smul, _root_.map_add, nsmul_add, smul_sub]
-    abel
   have h_cup : DiagTensor.mk 1 (p ^ (e₁ + e₂ + e₃) • P.modPairing ((S.cocycleMap c).val g)
       (S'.ρ g ((S'.cocycleMap c').val h))) =
         B (inr g.val • x - x) (S'.wittFst (inr g.val • (inr h.val • x' - x'))) +
           (inr g.val • f (inr h.val) - f (inr (g * h).val) + f (inr g.val)) := by
-    have h_pair_eq : p ^ e₃ • p ^ e₁ • p ^ e₂ • P.wittPairing
-        (DiagTensor.mk 1 ((S.cocycleMap c).val g.val))
-        (DiagTensor.mk 1 (S'.ρ g.val ((S'.cocycleMap c').val h.val))) =
-        DiagTensor.mk 1 (p ^ (e₁ + e₂ + e₃) • P.modPairing ((S.cocycleMap c).val g)
-          (S'.ρ g ((S'.cocycleMap c').val h))) := by
-      rw [DiagTensor.pair_mk, mul_one, ← mul_smul (α := ℕ), ← mul_smul (α := ℕ),
-        ← pow_add, ← pow_add, show e₃ + e₁ + e₂ = e₁ + e₂ + e₃ by omega,
-        ← _root_.map_nsmul (DiagTensor.mk 1)]
-    rw [← h_pair_eq]
-    simp only [hf, hB, h_snd_diff, _root_.map_sub, h_x, h_x']
-    simp only [smul_sub, smul_add, _root_.map_add, _root_.map_sub, _root_.map_nsmul,
-      LinearMap.sub_apply, LinearMap.add_apply, LinearMap.smul_apply, Subgroup.coe_mul,
-      _root_.map_mul (M := Γ) (N := FrobGroup Γ), apply_mul (S.cocycleMap c).property,
-      apply_mul (S'.cocycleMap c').property, mul_smul (α := FrobGroup Γ),
-      smul_smul_frobGroup_comm, P.smul_wittPairing, h_act, h_act']
-    simp only [← mul_smul (α := ℕ), Nat.mul_comm, Nat.mul_left_comm, Nat.mul_assoc]
+    -- `nsmul_eq_mul` would turn the multiples into products before `smul_smul` can collect them.
+    simp [hB, hf, hx, hx', smul_smul_frobGroup_comm, apply_mul (S.cocycleMap c).property,
+      apply_mul (S'.cocycleMap c').property, pow_add, mul_comm, mul_left_comm, mul_assoc,
+      -nsmul_eq_mul, smul_sub, wittFst_smul, extensionRep, smul_smul, smul_wittPairing]
     abel
   let δ (g : k.subgroup) := f (inr g.val) - DiagTensor.mk 1 (κ g)
   have h_δ : inr g.val • δ h - δ (g * h) + δ g ∈ smallPart P.exponent :=
@@ -530,9 +399,8 @@ lemma Pairing.nsmul_modPairing_eq_coboundary {e₁ e₂ e₃ r : ℕ} {c : S.par
       (S'.ρ g ((S'.cocycleMap c').val h)) - (charRep _ χ g.val (κ h) - κ (g * h) + κ g)) =
         B (inr g.val • x - x) (S'.wittFst (inr g.val • (inr h.val • x' - x'))) +
           (inr g.val • δ h - δ (g * h) + δ g) := by
-    rw [_root_.map_sub, h_cup]
-    simp only [δ, smul_sub, DiagTensor.smul_mk, smul_one, FrobGroup.snd_inr, _root_.map_add,
-      _root_.map_sub]
+    rw [map_sub, h_cup]
+    simp [δ, smul_sub]
     abel
   have h_small : B (inr g.val • x - x) (S'.wittFst (inr g.val • (inr h.val • x' - x'))) ∈
       smallPart P.exponent := by
@@ -599,43 +467,16 @@ lemma Pairing.IsScaledCupCoboundary.of_isSafePath {e₁ e₂ e₃ : ℕ} {c : S.
       h_restrict (h_dvd (S'.cocycleMap c').property), h_restrict h_smallB,
       h_restrict (eventually_smul_sub_mem_smallPart y)] with h ⟨z, hz⟩ ⟨z', hz'⟩ hB hy'
     -- The cocycle terms are multiples of `p ^ m`, which kills the target of `B x`.
-    have h_x_zero : S.wittFst (inr h.val • x) = inr h.val • S.wittFst x +
-        p ^ e₁ • p ^ P.exponent • DiagTensor.mk 1 z := by
-      have h_ext : (extensionRep S.cocycleMap h.val (0, c)).1 =
-          (S.cocycleMap c : Γ → S.Carrier) h.val := by
-        simp [extensionRep]
-      rw [wittFst_smul, hx, smul_smul_frobGroup_comm, DiagTensor.smul_mk, smul_one,
-        FrobGroup.snd_inr]
-      simp only [JumpLattice.wittMap, _root_.map_nsmul, DiagTensor.map_mk,
-        LinearMap.coe_restrictScalars, LinearMap.comp_apply, LinearMap.fst_apply,
-        LinearMap.inr_apply]
-      change inr h.val • S.wittFst x +
-          p ^ e₁ • DiagTensor.mk 1 (extensionRep S.cocycleMap h.val (0, c)).1 = _
-      rw [h_ext, hz, _root_.map_nsmul (DiagTensor.mk (ρ := Rep.of (overZp S.ρ)) 1)]
-    have h_x'_zero : S'.wittFst (inr h.val • x') = inr h.val • S'.wittFst x' +
-        p ^ e₂ • p ^ P.exponent • DiagTensor.mk 1 z' := by
-      have h_ext : (extensionRep S'.cocycleMap h.val (0, c')).1 =
-          (S'.cocycleMap c' : Γ → S'.Carrier) h.val := by
-        simp [extensionRep]
-      rw [wittFst_smul, hx', smul_smul_frobGroup_comm, DiagTensor.smul_mk, smul_one,
-        FrobGroup.snd_inr]
-      simp only [JumpLattice.wittMap, _root_.map_nsmul, DiagTensor.map_mk,
-        LinearMap.coe_restrictScalars, LinearMap.comp_apply, LinearMap.fst_apply,
-        LinearMap.inr_apply]
-      change inr h.val • S'.wittFst x' +
-          p ^ e₂ • DiagTensor.mk 1 (extensionRep S'.cocycleMap h.val (0, c')).1 = _
-      rw [h_ext, hz', _root_.map_nsmul (DiagTensor.mk (ρ := Rep.of (overZp S'.ρ)) 1)]
     have h_f : f (inr h.val) = inr h.val • y - y -
         B x (inr h.val • S'.wittFst x' - S'.wittFst x') := by
-      simp only [f, B, h_x_zero, h_x'_zero, _root_.map_sub, _root_.map_add, _root_.map_nsmul,
-        LinearMap.add_apply, LinearMap.smul_apply, smul_sub, smul_smul_frobGroup_comm,
-        P.smul_wittPairing, TateTwist.pow_smul_eq_zero, nsmul_zero, add_zero]
+      simp +zetaDelta [hx, hx', smul_smul_frobGroup_comm, hz, hz', TateTwist.pow_smul_eq_zero,
+        smul_sub, wittFst_smul, extensionRep, smul_wittPairing]
       abel
     have hf_small : f (inr h.val) ∈ smallPart P.exponent := by
       simpa only [h_f] using sub_mem hy' hB
     have h_small : DiagTensor.mk 1 (κ h) ∈ smallPart P.exponent := by
-      simpa only [sub_sub_cancel] using sub_mem hf_small (hκ h)
-    simp only [Pi.smul_apply, TateTwist.eq_zero_of_mk_one_mem_smallPart h_small, smul_zero]
+      simpa using sub_mem hf_small (hκ h)
+    simp [TateTwist.eq_zero_of_mk_one_mem_smallPart h_small]
   exact P.isCupCoboundary_of_eq_coboundary hj (S.cocycleMap c) (p ^ e • S'.cocycleMap c') (r • κ)
     hκ_near h_coboundary
 
@@ -683,29 +524,21 @@ lemma PairingSide.add_add_padicValNat_factorial_le {p : ℕ} [Fact p.Prime]
     rw [Nat.padicValNat_def]; exact_mod_cast multiplicity_factorial_le p n
   have h_double : p * a ≤ 2 * e * (ω + κ) :=
     calc p * a ≤ 2 * (p - 1) * a := Nat.mul_le_mul_right a (by omega)
-      _ = 2 * ((p - 1) * a) := mul_assoc 2 (p - 1) a
-      _ ≤ 2 * (e * (ω + κ)) := Nat.mul_le_mul_left 2 ha_le
-      _ = 2 * e * (ω + κ) := (mul_assoc 2 e (ω + κ)).symm
+      _ ≤ 2 * e * (ω + κ) := by linarith
   have h_start : (a : ℝ) / p ^ J ≤ 2 * e * ω / p ^ (J + 1) + κ / 4 :=
     calc (a : ℝ) / p ^ J = p * a / p ^ (J + 1) := by field
       _ ≤ 2 * e * (ω + κ) / p ^ (J + 1) := by
         gcongr ?_ / _
         exact_mod_cast h_double
       _ = 2 * e * ω / p ^ (J + 1) + 8 * e / p ^ (J + 1) * (κ / 4) := by ring
-      _ ≤ 2 * e * ω / p ^ (J + 1) + 1 * (κ / 4) :=
-        add_le_add_right (mul_le_mul_of_nonneg_right
-          (div_le_one_of_le₀ (mod_cast h_ram) (by positivity)) (by positivity)) _
-      _ = 2 * e * ω / p ^ (J + 1) + κ / 4 := by rw [one_mul]
-  have h_sum1 : (c : ℝ) + n + padicValNat p n.factorial ≤
-      J * (d * ω' + ω' / (p - 1)) +
-        2 * (2 * e * ω / p ^ (J + 1) + κ / 4 + ω' / (p - 1)) := by
-    linarith only [h_steps, h_removal, hn_le, h_start]
+      _ ≤ 2 * e * ω / p ^ (J + 1) + κ / 4 := by
+        grw [div_le_one_of_le₀ (a := (8 * e : ℝ)) (mod_cast h_ram) (by positivity), one_mul]
   exact_mod_cast calc (c : ℝ) + n + padicValNat p n.factorial
       ≤ J * (d * ω' + ω' / (p - 1)) +
-          2 * (2 * e * ω / p ^ (J + 1) + κ / 4 + ω' / (p - 1)) := h_sum1
+          2 * (2 * e * ω / p ^ (J + 1) + κ / 4 + ω' / (p - 1)) := by linarith
     _ = (2 * J * d * ω' + (2 * J + 4) * ω' / (p - 1) + 8 * e * ω / p ^ (J + 1)) / 2 +
           κ / 2 := by ring
-    _ ≤ κ := by linarith only [hκ]
+    _ ≤ κ := by linarith
 
 variable {p : ℕ} [ThePrime p] [Γ : GroupOverGp p] {k : KummerChart Γ} {O : Coeffs}
 
@@ -738,16 +571,12 @@ lemma JumpLattice.kisinModule_eq_span_of_trivial {L : JumpLattice O}
   have h_mk (t : L.Carrier) : DiagTensor.mk 1 t ∈ L.kisinModule := by
     have h_fixed (μ : L.Functional) (hμ : μ ∈ L.forms) :
         μ (DiagTensor.mk 1 t) ∈ hodgeFil 0 ∧ μ (DiagTensor.mk 1 t) ∈ valueField 0 :=
-      mem_hodgeFil_zero_and_mem_valueField_zero_of_fixed fun g ↦ by
-        simpa only [h_triv] using hμ t g
+      mem_hodgeFil_zero_and_mem_valueField_zero_of_fixed fun g ↦ by simpa [h_triv] using hμ t g
     have h_saturate : DiagTensor.mk 1 t ∈ saturateBy (Submonoid.powers tau) L.ainfLattice :=
       mem_saturateBy_of_mem (mk_one_mem_ainfLattice t)
     have h_forms (n : ℕ) (μ : L.Functional) (hμ : μ ∈ L.forms) :
         μ (φ ^ (n + 1) • DiagTensor.mk 1 t) ∈ hodgeFil 0 := by
-      rw [DiagTensor.smul_mk, smul_one]
-      change μ (DiagTensor.mk 1 (L.ρ (FrobGroup.snd (φ ^ (n + 1))) t)) ∈ hodgeFil 0
-      rw [h_triv]
-      exact (h_fixed μ hμ).1
+      simpa [h_triv] using (h_fixed μ hμ).1
     -- So `1 ⊗ t` lies in `kisinAinf`, and forms take values in `valueField 0` on it.
     exact ⟨⟨h_saturate, h_forms⟩, fun μ hμ ↦ (h_fixed μ hμ).2⟩
   refine le_antisymm (fun x hx ↦ ?_) (Submodule.span_le.2 (Set.range_subset_iff.2 h_mk))
@@ -758,9 +587,7 @@ lemma JumpLattice.kisinModule_eq_span_of_trivial {L : JumpLattice O}
     refine sum_mem fun i _ ↦ ?_
     have h_std : L.letterProj i x ∈ L.withOrders i (stdOrders 0) :=
       letterProj_mem_withOrders (frobKisinAinf_zero.ge hx.1)
-    have h_tau0 := tau_pow_smul_mem_ainfLattice_of_eq_chi_pow_smul 0 h_std
-      fun g t ↦ by rw [h_triv, Nat.cast_zero, zpow_zero, one_smul]
-    simpa only [pow_zero, one_smul] using h_tau0
+    simpa using tau_pow_smul_mem_ainfLattice_of_eq_chi_pow_smul 0 h_std (by simp [h_triv])
   rw [ainfLattice_eq_span_basis] at h_lat
   let v (j : Fin (Module.finrank ℤ_[p] L.Carrier)) : L.Ambient :=
     DiagTensor.mk 1 (Module.finBasis ℤ_[p] L.Carrier j)
@@ -818,22 +645,8 @@ lemma mem_liftIdeal_iff {S : PairingSide O} {r l : ℕ} {i : Letter} {s : Ainf} 
     s ∈ S.liftIdeal r l i ↔
     ∃ t : Ainf, ∀ c : S.paramLattice.Carrier, ∃ x ∈ S.extensionLattice.withOrders i (stdOrders l),
       S.projTrivial.wittMap x = (s - r • t) • S.constantAt i c := by
-  rw [liftIdeal, mem_span_singleton_sup, ainfLattice, Submodule.map_span]
-  refine exists_congr fun t ↦ ⟨fun ⟨b, hb, hb_eq⟩ c ↦ ?_, fun h ↦ ?_⟩
-  · have h_mem := mem_colon.1 hb (S.constantAt i c)
-      (Submodule.subset_span ⟨DiagTensor.mk 1 c, Set.mem_range_self _, rfl⟩)
-    obtain ⟨x, hx, hx_pr⟩ := Submodule.mem_map.1 h_mem
-    refine ⟨x, hx, hx_pr.trans ?_⟩
-    rw [eq_sub_iff_add_eq'.2 hb_eq, mul_comm, ← nsmul_eq_mul]
-  · refine ⟨s - r • t, mem_colon.2 fun u hu ↦ ?_, by rw [mul_comm, nsmul_eq_mul, add_sub_cancel]⟩
-    induction hu using Submodule.span_induction with
-    | mem u hu =>
-      rcases hu with ⟨_, ⟨c, rfl⟩, rfl⟩
-      obtain ⟨x, hx, hx_pr⟩ := h c
-      exact Submodule.mem_map.2 ⟨x, hx, hx_pr⟩
-    | zero => rw [smul_zero]; exact Submodule.zero_mem _
-    | add u v _ _ hu hv => rw [smul_add]; exact Submodule.add_mem _ hu hv
-    | smul a u _ hu => rw [smul_comm]; exact Submodule.smul_mem _ a hu
+  simp [liftIdeal, ainfLattice, Submodule.map_span, mem_span_singleton_sup, mem_colon,
+    ← eq_sub_iff_add_eq', mul_comm, constantAt]
 
 /-- The ideal `S.liftIdeal r l i` contains its modulus `r`; this is the case `r = p ^ κ`. -/
 lemma p_pow_mem_liftIdeal_self {S : PairingSide O} {l : ℕ} {i : Letter} {κ : ℕ} :
@@ -845,9 +658,7 @@ the letter `σ^l(i) = i ^ (p ^ l)`, where σ is `k.letterFrob`. -/
 lemma phi_pow_smul_constantAt {S : PairingSide O} {l : ℕ} {i : Letter}
     (c : S.paramLattice.Carrier) :
     φ ^ l • S.constantAt i c = S.constantAt ((k.letterFrob ^ l) i) c := by
-  simp only [constantAt, LinearMap.comp_apply, LinearMap.coe_restrictScalars,
-    smul_letterProj phi_pow_smul_letterTeich, DiagTensor.smul_mk, smul_one]
-  rfl
+  simp [constantAt, smul_letterProj phi_pow_smul_letterTeich]
 
 /-- Going up a level: suppose `s` lies in `S.liftIdeal r 0 i` and all elements of `S.jumpSet i` are
 at most `n`. Then `s * E ^ n` lies in `S.liftIdeal r 1 i`. -/
@@ -897,11 +708,7 @@ lemma constantAt_mem_stdOrdersPart {S : PairingSide O} {l : ℕ} {i : Letter}
   -- The element `1 ⊗ c` lies in the Kisin module of the trivial lattice and is fixed by Frobenius.
   obtain ⟨h_mem, h_value⟩ : DiagTensor.mk 1 c ∈ S.trivialLattice.kisinModule :=
     (kisinModule_eq_span_of_trivial fun _ _ ↦ rfl).ge (Submodule.subset_span ⟨c, rfl⟩)
-  have h_frob : DiagTensor.mk (ρ := Rep.of (overZp S.trivialLattice.ρ)) 1 c ∈
-      S.trivialLattice.frobKisinAinf l := by
-    rw [frobKisinAinf, Submodule.mem_comap, semilinearAct_apply, DiagTensor.smul_mk, smul_one]
-    exact h_mem
-  exact letterProj_mem_stdOrdersPart ⟨h_frob, h_value⟩
+  exact letterProj_mem_stdOrdersPart ⟨by simpa [frobKisinAinf] using h_mem, h_value⟩
 
 /-- For every modulus `r`, the element `φ ^ l • s` lies in `S.liftIdeal r l` at the letter
 `(k.letterFrob ^ l) i = i ^ p ^ l` iff `s` lies in `S.liftIdeal r 0 i`. -/
@@ -951,15 +758,9 @@ lemma exists_lift_of_mem_liftIdeal {S : PairingSide O} {r l : ℕ} {i : Letter} 
   refine ⟨k.coord₀ t, fun y ⟨hy_loc, hy_exp⟩ ↦ ?_⟩
   -- The action on `S.trivialLattice` is trivial, so `y` lies in the lattice.
   have hy_std : y ∈ S.trivialLattice.withOrders i (stdOrders 0) :=
-    mem_withOrders_of_le hy_exp fun a u hu ↦ by
-      have hu0 : u = 0 := Finset.mem_singleton.1 hu
-      subst hu0
-      simp only [stdOrders]
-      split_ifs <;> rfl
+    mem_withOrders_of_le hy_exp (by grind)
   have hy_lat : y ∈ S.trivialLattice.ainfLattice := by
-    have h_tau0 := tau_pow_smul_mem_ainfLattice_of_eq_chi_pow_smul 0 hy_std
-      fun g t ↦ by rw [Nat.cast_zero, zpow_zero, one_smul]; rfl
-    simpa only [pow_zero, one_smul] using h_tau0
+    simpa using tau_pow_smul_mem_ainfLattice_of_eq_chi_pow_smul 0 hy_std (by simp)
   have hy_proj : S.trivialLattice.letterProj i y = y :=
     mem_letterPart_iff_letterProj.1 (mem_withOrders_iff.1 hy_exp).2.1
   obtain ⟨x, hx, hx_pr⟩ : ∃ x ∈ S.extensionLattice.withOrders i (stdOrders l),
@@ -1035,19 +836,9 @@ lemma mem_liftIdeal_of_mul_eq_mul_smul_sub {S : PairingSide O} {r l : ℕ} {i : 
   refine ⟨α • y, smul_mem _ α hy_mem, hd ?_⟩
   have h_diff : S.projTrivial.wittMap (g • x - x) =
       (g • (f : Ainf) - f - r • (g • (t : Ainf) - t)) • S.constantAt i c := by
-    have h_fix : g.val • S.constantAt i c = S.constantAt i c := by
-      simp only [constantAt, LinearMap.comp_apply, LinearMap.coe_restrictScalars,
-        gal_smul_letterProj, DiagTensor.smul_mk, smul_one]
-      rfl
-    have h_val : ((f - r • t : k.S) : Ainf) = (f : Ainf) - r * t := by
-      push_cast; rw [nsmul_eq_mul]
-    have h_r : g.val • (r : Ainf) = r :=
-      map_natCast (MulSemiringAction.toRingHom (FrobGroup Γ) Ainf g.val) r
-    rw [_root_.map_sub, k.galMonoid.smul_def g x, JumpLattice.Hom.wittMap_smul, hx_pr,
-      frobGroup_smul_smul, h_fix, k.galMonoid.smul_def g, k.galMonoid.smul_def g, ← sub_smul]
-    congr 1
-    rw [h_val, smul_sub, smul_mul', h_r, nsmul_eq_mul]
-    ring
+    simp [hx_pr, k.galMonoid.smul_def, frobGroup_smul_smul, constantAt, gal_smul_letterProj,
+      smul_sub]
+    module
   have h_scalar : α * (g • (f : Ainf) - f - r • (g • (t : Ainf) - t)) =
       d * (s - r • (α * v)) := by
     simp only [nsmul_eq_mul]
@@ -1067,7 +858,7 @@ lemma mem_liftIdeal_of_eq_zTau_mul_smul_sub {S : PairingSide O} {r l : ℕ} {i :
     (h_eq : k.zTau * (s + β * f) = α * (g • f - f)) :
     s ∈ S.liftIdeal r l i := by
   have h_regular : IsSMulRegular S.trivialLattice.Ambient k.zTau := fun y y' h ↦
-    smul_left_cancel k.zTauUnit (by rwa [zTauUnit_smul, zTauUnit_smul])
+    smul_left_cancel k.zTauUnit (by simpa [zTauUnit_smul] using h)
   -- Division of `g x - x` by `zTau` keeps the exponents.
   have h_div (x : S.extensionLattice.Ambient) (hx : x ∈ S.extensionLattice.stdOrdersPart l i) :
       ∃ y ∈ S.extensionLattice.withOrders i (stdOrders l), k.zTau • y = g • x - x :=
@@ -1298,10 +1089,7 @@ lemma exists_forall_z_pow_mem_liftIdeal (S : PairingSide O) (κ : ℕ) :
     mem_liftIdeal_iff.2 ⟨0, fun c ↦
       ⟨_, letterProj_mem_withOrders (frobKisinAinf_zero.ge
         (frame_theorem.tau_pow_smul_mem_kisinAinf _ (mk_one_mem_ainfLattice (0, c)))),
-        by
-          rw [LinearMap.map_smul_of_tower, LinearMap.map_smul_of_tower,
-            JumpLattice.Hom.wittMap_letterProj, nsmul_zero, sub_zero]
-          rfl⟩⟩
+        by simp [constantAt]⟩⟩
   -- The ideals contain powers of `p` and `τ`, and `z` lies in the radical of `(p, τ)`.
   have h_radical : span {↑p, tau} ≤ radical (⨅ i : Letter, S.liftIdeal (p ^ κ) 0 i) :=
     Ideal.span_le.2 (Set.pair_subset ⟨κ, mem_iInf.2 fun _ ↦ p_pow_mem_liftIdeal_self⟩
@@ -1406,15 +1194,13 @@ lemma exists_p_pow_mul_z_pow_mem_liftIdeal_and_le {S : PairingSide O} {r a ω J 
   | succ J ih =>
     -- Come back to `k.letterFrob i` from the `J` letters after it, then to `i` by one more step.
     have h_later : ∀ t ∈ Finset.Icc 1 J, ∀ u ∈ S.jumpSet ((k.letterFrob ^ t) (k.letterFrob i)),
-        u ≤ ω := fun t ht ↦ by
+      u ≤ ω := fun t ht ↦ by
       rw [← Equiv.Perm.mul_apply, ← pow_succ]
-      exact h_next (t + 1)
-        (Finset.mem_Icc.2 ⟨by omega, by have := (Finset.mem_Icc.1 ht).2; omega⟩)
-    have h_first : ∀ u ∈ S.jumpSet (k.letterFrob i), u ≤ ω :=
-      h_next 1 (Finset.mem_Icc.2 ⟨le_rfl, Nat.succ_pos J⟩)
+      exact h_next (t + 1) (Finset.mem_Icc.2 (by rw [Finset.mem_Icc] at ht; omega))
+    have h_first : ∀ u ∈ S.jumpSet (k.letterFrob i), u ≤ ω := h_next 1 (by simp)
     obtain ⟨c, n, h_mem, hc_le, hn_le⟩ := ih h_later
     refine ⟨c + k.differentBound * ω + padicValNat p ω.factorial, (n + ω) / p,
-      p_pow_mul_z_pow_div_mem_liftIdeal h_first h_mem, by rw [Nat.add_one_mul]; omega, ?_⟩
+      p_pow_mul_z_pow_div_mem_liftIdeal h_first h_mem, by linarith, ?_⟩
     calc (((n + ω) / p : ℕ) : ℝ) ≤ (n + ω) / p := mod_cast Nat.cast_div_le
       _ ≤ (a / p ^ J + ω / (p - 1) + ω) / p := by gcongr
       _ = a / p ^ (J + 1) + ω / (p - 1) := by field
